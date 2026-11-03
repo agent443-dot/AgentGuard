@@ -1,3 +1,5 @@
 export { evaluate } from './domain/policy.js'
 export type { Evaluation } from './domain/policy.js'
 export { parseAmount, toAmount } from './domain/amount.js'
+export { chooseAccept, requirementsChanged } from './domain/x402.js'
+export type { AcceptChoice } from './domain/x402.js'
