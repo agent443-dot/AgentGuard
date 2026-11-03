@@ -95,7 +95,9 @@ which holds no agent token.
 Every intent that reaches `executed`, `rejected`, `failed` or `expired` is posted to
 `{BOT_URL}/hooks/intent-event` as `{ intent, sentAt }`, signed like the approval request (CR-004).
 The bot decides what the owner sees. The post is never awaited: a bot that is down does not hold up
-or fail a payment.
+or fail a payment. A failed post is retried after 1, 4 and 16 seconds with a fresh `sentAt` each
+time (the bot deduplicates on intent id and status); an event still undelivered after that is logged,
+without its payload.
 
 ## Known gaps
 
