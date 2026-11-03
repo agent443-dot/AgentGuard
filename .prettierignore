@@ -2,6 +2,9 @@ node_modules
 dist
 coverage
 pnpm-lock.yaml
+# drizzle-kit owns these; reformatting them is undone on the next generate.
+packages/guard-core/migrations
+
 packages/onchain/out
 packages/onchain/cache
 packages/onchain/lib
