@@ -2,6 +2,15 @@ import { loadKeypair, loadSvmConfig } from '../svm/config.js'
 import { connect, createMultisig } from '../svm/squads.js'
 
 const config = loadSvmConfig()
+
+// Creating a second multisig costs rent and leaves two vaults with no way to tell which one the
+// money is supposed to be in. Refuse rather than let a repeated command decide that silently.
+if (config.SQUADS_MULTISIG) {
+  console.error(`A multisig is already configured: ${config.SQUADS_MULTISIG}`)
+  console.error('Clear SQUADS_MULTISIG in .env first if you really want a new one.')
+  process.exit(1)
+}
+
 const owner = loadKeypair(config.SOLANA_OWNER_KEYPAIR)
 const connection = connect(config.SOLANA_RPC_URL)
 
