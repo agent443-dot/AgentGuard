@@ -702,6 +702,24 @@ criar quando chegarmos lá.
 
 ## ⬜ HUMAN-8 — Decisão e assinatura de mainnet
 
-O último passo, e é inteiramente teu: decidir se passamos a dinheiro real, com que teto diário, e
-assinar as transações da Safe em mainnet. Antes disso tens de ter em mão o relatório final do `INT-8`
-e o `LAUNCH.md`. Não avanço para aqui sem a tua decisão escrita.
+O último passo, e é inteiramente teu. Não avanço para aqui sem a tua decisão escrita.
+
+O plano de lançamento está em [`/LAUNCH.md`](../LAUNCH.md), construído a partir do código real. Tem seis
+decisões tuas em aberto, que te apresento uma a uma, com recomendação, **depois** de a `HUMAN-11`
+correr — decidir antes de veres o sistema funcionar em devnet seria decidir às cegas:
+
+|     | Decisão                                         |
+| --- | ----------------------------------------------- |
+| D1  | o teto diário em mainnet                        |
+| D2  | a política de lançamento do agente              |
+| D3  | onde alojar o guard-core e o bot                |
+| D4  | a hardware wallet para a chave da owner         |
+| D5  | o gestor de segredos para a chave da hot wallet |
+| D6  | lançar só com Solana, ou esperar pela Base      |
+
+E uma regra que não é decisão: **mainnet usa chaves novas, sempre.** As de devnet nunca se reutilizam
+— uma das seed phrases já passou pelo chat.
+
+Antes de mainnet têm também de estar fechados três bloqueios que o plano encontrou: o kill switch a
+assinar com hardware wallet (`SVM-9`), o guard-core configurável para ser alojado (`GC-12`), e uma
+forma de revogar o token de um agente (`GC-13`).
