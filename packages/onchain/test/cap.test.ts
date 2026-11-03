@@ -5,6 +5,7 @@ import * as multisig from '@sqds/multisig'
 import { Clock } from 'litesvm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { svmAdapter } from '../src/svm/adapter.js'
+import { ledgerOwner } from '../src/svm/owner.js'
 import {
   addDailySpendingLimit,
   createMultisig,
@@ -12,6 +13,7 @@ import {
   spendingLimitPda,
 } from '../src/svm/squads.js'
 import { chain, USDC, type Chain } from './fixture.js'
+import { fakeLedger } from './ledger.js'
 
 /**
  * The onchain cap, with the real Squads v4 program giving every verdict. Its binary is dumped from
@@ -66,7 +68,8 @@ describe.skipIf(!existsSync(binary))('the Squads spending limit', () => {
     c.svm.addProgramFromFile(multisig.PROGRAM_ID, binary)
     plantProgramConfig(c)
 
-    const owner = Keypair.generate()
+    // The owner on a Ledger, as on mainnet: the kill below is signed by the device.
+    const owner = await ledgerOwner(fakeLedger(), "44'/501'/0'", () => {})
     c.svm.airdrop(owner.publicKey, BigInt(10 * LAMPORTS_PER_SOL))
     const { multisigPda, vault } = await createMultisig(c.connection, owner)
     c.fund(vault, 1_000n * USDC)

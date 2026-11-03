@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
+    "@ledgerhq/hw-app-solana": "^7.13.0",
+    "@ledgerhq/hw-transport": "^6.36.1",
     "@solana/kit": "^8.6.0",
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
@@ -36,5 +38,8 @@
     "bs58": "^6.0.0",
     "litesvm": "0.8.0",
     "tsx": "^4.23.15"
+  },
+  "optionalDependencies": {
+    "@ledgerhq/hw-transport-node-hid": "^6.33.5"
   }
 }

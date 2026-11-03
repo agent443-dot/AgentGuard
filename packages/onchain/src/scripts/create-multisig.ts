@@ -1,4 +1,5 @@
-import { loadKeypair, loadSvmConfig } from '../svm/config.js'
+import { loadSvmConfig } from '../svm/config.js'
+import { loadOwner } from '../svm/owner.js'
 import { connect, createMultisig } from '../svm/squads.js'
 
 const config = loadSvmConfig()
@@ -11,7 +12,7 @@ if (config.SQUADS_MULTISIG) {
   process.exit(1)
 }
 
-const owner = loadKeypair(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR, console.log)
 const connection = connect(config.SOLANA_RPC_URL)
 
 console.log(`cluster: ${config.SOLANA_CLUSTER}`)
