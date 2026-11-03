@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+  - 'e2e'
+
+# vitest needs esbuild's platform binary, so its install script must be allowed to run.
+onlyBuiltDependencies:
+  - esbuild

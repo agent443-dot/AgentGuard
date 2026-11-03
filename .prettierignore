@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+packages/onchain/out
+packages/onchain/cache
+packages/onchain/lib
+packages/onchain/broadcast
+
+# Source of truth and the rules every session reads: kept byte-for-byte as the owner wrote them.
+# Prettier collapses the aligned columns and the money-flow tree, which makes them harder to read.
+SPEC.md
+CLAUDE.md
