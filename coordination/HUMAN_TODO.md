@@ -205,7 +205,7 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 ---
 
-## ⏳ HUMAN-3 — Criar as duas carteiras de teste
+## ✅ HUMAN-3 — Criar as duas carteiras de teste
 
 Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
@@ -219,8 +219,8 @@ histórico do git, são esses, e não valem nada:
 | Owner EOA (dona da Safe)    | `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04` |
 | Guard hot wallet (delegate) | `0x4FCEE11b4620Cb9122B83688B243bb996660F43b` |
 
-Os `.env` ainda não estão completos. Para confirmar o estado a qualquer momento sem imprimir nenhum
-valor — mostra só o nome de cada variável e se está preenchida:
+Os dois `.env` estão preenchidos e verificados. Para confirmar o estado a qualquer momento sem
+imprimir nenhum valor — mostra só o nome de cada variável e se está preenchida:
 
 ```bash
 for f in ~/ag-onchain/packages/onchain/.env ~/ag-guard-core/packages/guard-core/.env; do echo "== $f"; grep -E '^[A-Z_]+=' "$f" | awk -F= '{printf "%-10s %s\n", ($2=="" ? "VAZIO" : "ok"), $1}'; done
@@ -228,6 +228,26 @@ for f in ~/ag-onchain/packages/onchain/.env ~/ag-guard-core/packages/guard-core/
 
 Devem ficar `VAZIO` apenas o `SAFE_ADDRESS` dos dois ficheiros (o `ON-1` preenche-o) e os três
 `TENDERLY_*` do guard-core (são opcionais).
+
+**Verificar que cada chave corresponde ao endereço certo.** Um campo preenchido não quer dizer que
+esteja correto: na primeira tentativa um endereço foi colado no lugar de uma chave, e a chave da owner
+acabou dentro do `.env` do guard-core — o que anularia a garantia onchain inteira, já que a owner
+controla a Safe toda e o guard-core é o serviço exposto. Estes dois comandos imprimem só o endereço
+público derivado de cada chave, e a chave não fica no histórico da shell:
+
+```bash
+cast wallet address --private-key "$(grep '^OWNER_PRIVATE_KEY=' ~/ag-onchain/packages/onchain/.env | cut -d= -f2)"
+```
+
+```bash
+cast wallet address --private-key "$(grep '^HOT_WALLET_PRIVATE_KEY=' ~/ag-guard-core/packages/guard-core/.env | cut -d= -f2)"
+```
+
+O primeiro tem de dar o endereço da owner, o segundo o da hot wallet. Se derem o mesmo endereço, a
+mesma chave está nos dois ficheiros.
+
+Nota de formato: um endereço tem 42 caracteres (`0x` + 40) e uma chave privada tem 66 (`0x` + 64). O
+comprimento distingue-os de relance.
 
 São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteira que já tenha dinheiro real.
 
