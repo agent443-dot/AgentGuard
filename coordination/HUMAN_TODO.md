@@ -9,8 +9,14 @@ oh-my-zsh e Powerlevel10k. Node 22.23.4, pnpm 10.28.0, Foundry 1.9.0, repo em `~
 comandos deste ficheiro correm **dentro do Ubuntu**, nunca em PowerShell nem em Cmd. Abre as sessões do
 Claude Code também de dentro do Ubuntu.
 
-**Regra de ouro: nunca coles chaves privadas no chat.** Geras a chave na tua máquina e colas tu mesmo no
-ficheiro `.env` do pacote certo. O `.gitignore` já ignora todos os `.env`.
+**Regra de ouro: nada que autentique ou assine passa pelo chat.** Isso inclui chaves privadas, mas
+também `ADMIN_TOKEN`, `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, o token do BotFather e qualquer access key.
+Geras o valor na tua máquina e colas tu mesmo no `.env` do pacote certo; o manager só precisa de saber
+que ficou preenchido, nunca o valor. **Endereços públicos podem ser ditos à vontade.**
+
+Se um segredo escapar para o chat, para um log ou para uma captura de ecrã, trata-o como queimado e
+gera outro — é um comando, e é sempre mais barato do que a alternativa. O `.gitignore` já ignora todos
+os `.env`.
 
 Estado: ✅ feito · ⏳ a aguardar-te · ⬜ ainda não é preciso
 
