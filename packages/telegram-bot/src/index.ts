@@ -1,5 +1,5 @@
 export { httpGuardClient, GuardError } from './adapters/guard.js'
-export type { GuardClient, DecisionResult, KillResult } from './adapters/guard.js'
+export type { GuardClient, DecisionResult } from './adapters/guard.js'
 export { createBot } from './bot/index.js'
 export { Desk } from './bot/desk.js'
 export { loadConfig } from './config.js'

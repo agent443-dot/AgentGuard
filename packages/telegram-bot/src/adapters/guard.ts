@@ -1,6 +1,5 @@
-import type { BudgetView, PayIntent } from '@agentguard/shared'
+import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import { z } from 'zod'
-import type { OwnerTransaction } from '../domain/text.js'
 import { payIntent } from '../http/schemas.js'
 
 export type Decision = 'approve' | 'reject'
@@ -9,15 +8,10 @@ export type DecisionResult =
   | { ok: true; intent: PayIntent }
   | { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
 
-export interface KillResult {
-  pausedAgents: number
-  ownerTransactions: OwnerTransaction[]
-}
-
 export interface GuardClient {
   decide(intentId: string, decision: Decision, telegramUserId: number): Promise<DecisionResult>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
-  kill(): Promise<KillResult>
+  kill(): Promise<KillResponse>
   budget(agentId: string): Promise<BudgetView | undefined>
   healthy(): Promise<boolean>
 }
@@ -44,10 +38,7 @@ const notFound = z.object({ error: z.literal('not_found') })
 const killResult = z.object({
   pausedAgents: z.number().int().nonnegative(),
   ownerTransactions: z.array(
-    z.union([
-      z.object({ chain: z.string().min(1), description: z.string(), payload: z.unknown() }),
-      z.object({ chain: z.string().min(1), error: z.string().max(200) }),
-    ]),
+    z.object({ chain: z.string().min(1), description: z.string(), payload: z.unknown() }),
   ),
 })
 

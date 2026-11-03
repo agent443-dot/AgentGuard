@@ -73,7 +73,7 @@ describe('httpGuardClient', () => {
       pausedAgents: 3,
       ownerTransactions: [
         { chain: 'eip155:8453', description: 'Reset allowance', payload: { to: '0xabc' } },
-        { chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', error: 'build_failed' },
+        { chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', description: 'By hand', payload: null },
       ],
     }
     const { guard } = client(json(200, body))

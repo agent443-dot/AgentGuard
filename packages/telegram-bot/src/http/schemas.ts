@@ -1,3 +1,4 @@
+import type { IntentEvent } from '@agentguard/shared'
 import { z } from 'zod'
 import { REJECT_CODES } from '../domain/codes.js'
 
@@ -38,10 +39,25 @@ export const approvalRequest = z.object({
   approveBefore: isoTime,
 })
 
-/** Proposed in CR-004: guard-core reports intents that reached a final state. */
-export const intentEvent = z.object({
-  intent: payIntent,
-  sentAt: isoTime,
+/**
+ * An x402 offer guard-core refused is reported with whatever the 402 server sent: an empty chain,
+ * an amount that is not atomic units, a payTo that is not even a string. Refusing the event would
+ * hide the refusal from the owner, and nothing here moves money, so these fields become bounded
+ * display text. A payment that settled keeps the strict shape.
+ */
+const offered = (max: number) =>
+  z.unknown().transform((value) => (typeof value === 'string' ? value.slice(0, max) : ''))
+
+const refusedIntent = payIntent.extend({
+  status: z.enum(['rejected', 'failed', 'expired']),
+  chain: offered(64),
+  token: offered(128),
+  amount: offered(78),
+  recipient: offered(128),
 })
 
-export type IntentEvent = z.infer<typeof intentEvent>
+/** CR-004: guard-core reports intents that reached a final state. */
+export const intentEvent: z.ZodType<IntentEvent> = z.object({
+  intent: z.union([payIntent, refusedIntent]),
+  sentAt: isoTime,
+})

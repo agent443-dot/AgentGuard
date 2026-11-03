@@ -1,11 +1,10 @@
-import type { ApprovalRequest } from '@agentguard/shared'
+import type { ApprovalRequest, IntentEvent } from '@agentguard/shared'
 import { type Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { type Admission, ApprovalBook, EventLog, type MessageRef } from '../domain/replay.js'
 import { approvalText, type Outcome, settledFallback, settledText } from '../domain/text.js'
-import type { IntentEvent } from '../http/schemas.js'
 
 export interface DeskDeps {
   api: Api
