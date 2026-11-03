@@ -39,6 +39,10 @@ export function decide(db: Db, id: string, decision: Decision, now: Date): Decis
   if (!row) {
     return { ok: false, reason: 'not_found' }
   }
+  // Swept by the timer before the owner pressed: nobody decided it, it ran out of time.
+  if (row.status === 'expired') {
+    return { ok: false, reason: 'expired' }
+  }
   if (row.status !== 'pending_approval') {
     return { ok: false, reason: 'already_decided' }
   }
