@@ -559,8 +559,7 @@ ficheiro nenhum aqui; a `HUMAN-11` diz-te onde pôr cada coisa.
 ## ⬜ HUMAN-11 — Primeira corrida ao vivo do sistema completo (devnet)
 
 Desbloqueia: fecha a `INT-3` e é metade da porta `INT-5`, que liberta o trabalho da Base. Depois da
-`HUMAN-5`. A parte A já pode correr (o `pnpm dev:all` está no `main`); a parte B espera que eu diga que
-o PR #14 entrou.
+`HUMAN-5`. As duas partes já podem correr: o `pnpm dev:all` e o servidor x402 de teste estão no `main`.
 
 Até aqui tudo correu na nuvem, contra chains simuladas. Isto liga o guard-core, o bot e o servidor MCP
 ao teu multisig verdadeiro em devnet. Tudo corre em `~/AgentGuard`; os `.env` que tens nos worktrees
@@ -636,7 +635,7 @@ Deve responder `"status":"pending_approval"` e, segundos depois, aparece-te a me
 os botões. Carrega em **Approve**. Cola-me a resposta do `curl` e diz-me o que viste no Telegram — a
 resposta não tem segredos.
 
-### Parte B — pagamentos x402 a sério (depois de eu confirmar o PR #14)
+### Parte B — pagamentos x402 a sério (depois da parte A funcionar)
 
 Não existe nenhum servidor x402 público em devnet em que possamos confiar, por isso o projeto traz um:
 um servidor pago que faz de facilitador e liquida o pagamento na devnet. Usa a tua owner para pagar as
