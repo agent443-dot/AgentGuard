@@ -41,5 +41,9 @@ Read /SPEC.md before anything. SPEC is the source of truth for interfaces.
 - Tests: vitest; coverage >= 90% on domain/ (policy engine, amount math, parsers).
 - Logging: pino, structured JSON, never log secrets, keys, full headers or signatures.
 - Small files (< 300 lines), small functions, clear names. Comments explain why, not what.
+- Code must not read as machine-written. No comment narrating what the next line does, no abstraction
+  nobody asked for, no boilerplate padding, no defensive wrapper around a call that cannot fail. One
+  job per function, short names, and a comment only where the reason is not obvious from the code.
+  If a reviewer could delete a line without losing meaning, it should not be there.
 - Architecture decisions: write a short ADR in /docs/adr/NNN-title.md.
 - CI (GitHub Actions): lint + typecheck + test on every PR; Foundry tests for /packages/onchain.

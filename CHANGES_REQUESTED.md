@@ -31,8 +31,12 @@ Verified addresses go here too, with a link to the official source, so the integ
 
 - **From:** manager
 - **Date:** 2026-11-03
-- **Status:** proposed — awaiting owner approval
-- **Owner decision so far:** the product targets **Solana and Base**. Robinhood Chain is out of scope.
+- **Status:** applied to SPEC v0.2 on 2026-11-03
+- **Owner decision:** the product targets **Solana and Base**. Robinhood Chain is out of scope.
+- **Applied:** SPEC bumped to v0.2 with both chains, CAIP-2 chain ids, opaque address and transaction
+  id types, reject codes split into a shared core plus per-chain sets, and `packages/onchain`
+  restructured as a `ChainAdapter` interface over `svm/` and `evm/`. `packages/shared` types,
+  constants and addresses updated to match. The board was rewritten accordingly.
 
 #### What
 

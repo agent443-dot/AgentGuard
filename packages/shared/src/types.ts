@@ -1,28 +1,36 @@
 /**
- * Shared types, transcribed from /SPEC.md "Shared types".
- * Owner: integrator (Session 5). Every other session imports from here and MUST NOT edit this file;
- * propose changes in /CHANGES_REQUESTED.md.
+ * Shared types, transcribed from /SPEC.md. Owner: integrator (Session 5).
+ * Other sessions import from here and propose changes in /CHANGES_REQUESTED.md.
  */
 
-export type Hex = `0x${string}`
-
-/** Atomic units (USDC = 6 decimals), decimal string, never a JS number. Parse to bigint before any math. */
+/** Atomic units (USDC = 6 decimals) as a decimal string. Parse to bigint before any math. */
 export type Amount = string
+
+/**
+ * CAIP-2 chain identifier, e.g. "eip155:8453". Chains are never numbers: Solana has no numeric id.
+ */
+export type ChainId = string
+
+/**
+ * An address, mint or program id. Base58 on Solana, hex on EVM. Nothing outside a chain adapter
+ * may assume which.
+ */
+export type Address = string
+
+/** Base58 signature on Solana, hex hash on EVM. */
+export type TxId = string
 
 export interface Policy {
   agentId: string
-  /** Allowed chain ids, e.g. [84532]. */
-  chainIds: number[]
-  /** Allowed token addresses. */
-  tokens: Hex[]
+  chains: ChainId[]
+  tokens: Address[]
   perTxMax: Amount
-  /** Offchain daily max (must be <= the onchain Allowance Module dailyCap). */
   dailyMax: Amount
-  /** At or above this amount, a payment requires Telegram approval from the owner. */
+  /** At or above this amount, the owner must approve on Telegram. */
   approvalThreshold: Amount
-  /** Empty = deny all direct transfers. */
-  allowedRecipients: Hex[]
-  /** For x402, e.g. ["api.example.com"]. Empty = deny all. */
+  /** Empty denies all direct transfers. */
+  allowedRecipients: Address[]
+  /** x402 hosts, e.g. ["api.example.com"]. Empty denies all. */
   allowedDomains: string[]
   paused: boolean
 }
@@ -33,27 +41,26 @@ export type IntentStatus =
 export type PayIntentKind = 'x402' | 'transfer'
 
 export interface PayIntent {
-  /** uuid */
   id: string
   agentId: string
   kind: PayIntentKind
-  chainId: number
-  token: Hex
+  chain: ChainId
+  token: Address
   amount: Amount
-  recipient: Hex
+  recipient: Address
   /** x402 only: the host of the requested URL. */
   domain?: string
-  /** Agent-provided, shown to the owner, NEVER trusted for decisions. */
+  /** Agent-provided, shown to the owner, never used in a decision. */
   reason: string
   status: IntentStatus
-  /** Machine codes, see RejectCode. */
   rejectReasons: RejectCode[]
-  txHash?: Hex
+  txId?: TxId
   createdAt: string
   expiresAt: string
 }
 
-export type RejectCode =
+/** Applies on every chain. */
+export type SharedRejectCode =
   | 'PAUSED'
   | 'CHAIN_NOT_ALLOWED'
   | 'TOKEN_NOT_ALLOWED'
@@ -63,17 +70,27 @@ export type RejectCode =
   | 'DAILY_EXCEEDED'
   | 'SIM_FAILED'
   | 'SIM_UNEXPECTED_EFFECT'
-  | 'APPROVAL_DETECTED'
-  | 'PERMIT_DETECTED'
-  | 'DELEGATION_DETECTED'
   | 'OWNER_REJECTED'
   | 'APPROVAL_TIMEOUT'
   | 'INVALID_402'
 
+/** Standing authority an EVM payment must never grant. */
+export type EvmRejectCode = 'APPROVAL_DETECTED' | 'PERMIT_DETECTED' | 'DELEGATION_DETECTED'
+
+/** The Solana equivalents are different mechanisms, not renames of the EVM ones. */
+export type SvmRejectCode =
+  | 'DELEGATE_DETECTED'
+  | 'AUTHORITY_CHANGE_DETECTED'
+  | 'ACCOUNT_CLOSE_DETECTED'
+  | 'UNKNOWN_PROGRAM_DETECTED'
+  | 'HIDDEN_ACCOUNTS_DETECTED'
+
+export type RejectCode = SharedRejectCode | EvmRejectCode | SvmRejectCode
+
 export type PolicyDecision = 'approve' | 'needs_approval' | 'reject'
 
 export interface BalanceChange {
-  token: Hex
+  token: Address
   /** Signed atomic-unit delta as a decimal string. */
   delta: Amount
 }
@@ -83,11 +100,17 @@ export interface SimulationResult {
   balanceChanges: BalanceChange[]
 }
 
+export interface AllowanceState {
+  cap: Amount
+  spent: Amount
+  resetsAt: string
+  delegate: Address
+}
+
 /** Body of POST {BOT_URL}/hooks/approval-request. */
 export interface ApprovalRequest {
   intent: PayIntent
   simulation: SimulationResult
-  /** ISO timestamp after which the intent expires (APPROVAL_TIMEOUT). */
   approveBefore: string
 }
 
@@ -95,6 +118,6 @@ export interface BudgetView {
   spentToday: Amount
   dailyMax: Amount
   perTxMax: Amount
-  hotWalletBalance: Amount
+  hotWalletBalances: Record<ChainId, Amount>
   paused: boolean
 }
