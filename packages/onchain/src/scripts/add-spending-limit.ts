@@ -19,7 +19,7 @@ if (!config.USDC_MINT) {
   process.exit(1)
 }
 
-const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR, console.log)
 const connection = connect(config.SOLANA_RPC_URL)
 const multisigPda = new PublicKey(config.SQUADS_MULTISIG)
 const hotWallet = new PublicKey(config.SOLANA_HOT_WALLET_PUBKEY)

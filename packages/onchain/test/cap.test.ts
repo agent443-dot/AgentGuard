@@ -69,7 +69,7 @@ describe.skipIf(!existsSync(binary))('the Squads spending limit', () => {
     plantProgramConfig(c)
 
     // The owner on a Ledger, as on mainnet: the kill below is signed by the device.
-    const owner = await ledgerOwner(fakeLedger(), "44'/501'/0'")
+    const owner = await ledgerOwner(fakeLedger(), "44'/501'/0'", () => {})
     c.svm.airdrop(owner.publicKey, BigInt(10 * LAMPORTS_PER_SOL))
     const { multisigPda, vault } = await createMultisig(c.connection, owner)
     c.fund(vault, 1_000n * USDC)

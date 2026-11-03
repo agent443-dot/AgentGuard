@@ -23,7 +23,7 @@ if (!config.SQUADS_MULTISIG || !config.USDC_MINT) {
   process.exit(1)
 }
 
-const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR, console.log)
 const connection = connect(config.SOLANA_RPC_URL)
 const mint = new PublicKey(config.USDC_MINT)
 const [vault] = multisig.getVaultPda({

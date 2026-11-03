@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import bs58 from 'bs58'
 import { createRequire } from 'node:module'
 import {
   ComputeBudgetProgram,
@@ -31,6 +32,8 @@ const CLEAR = [SystemProgram.programId, TOKEN_PROGRAM_ID, ComputeBudgetProgram.p
 export class FakeLedger extends TransportBase {
   blindSigning = true
   readonly signed: VersionedMessage[] = []
+  /** The Message Hash the app puts on screen for each blind signature, computed as the app does. */
+  readonly shown: string[] = []
   private pending = Buffer.alloc(0)
 
   keyFor(path: Buffer): Keypair {
@@ -58,8 +61,12 @@ export class FakeLedger extends TransportBase {
     const programs = message.compiledInstructions.map(
       (ix) => message.staticAccountKeys[ix.programIdIndex],
     )
-    if (!this.blindSigning && programs.some((id) => !CLEAR.some((clear) => id?.equals(clear)))) {
+    const blind = programs.some((id) => !CLEAR.some((clear) => id?.equals(clear)))
+    if (blind && !this.blindSigning) {
       return BLIND_SIGNATURE_REQUIRED
+    }
+    if (blind) {
+      this.shown.push(bs58.encode(createHash('sha256').update(payload.subarray(pathEnd)).digest()))
     }
     const tx = new VersionedTransaction(message)
     const key = this.keyFor(payload.subarray(1, pathEnd))

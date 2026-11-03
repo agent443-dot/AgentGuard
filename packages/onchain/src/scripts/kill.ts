@@ -26,7 +26,7 @@ if (!process.argv.includes('--yes')) {
   process.exit(0)
 }
 
-const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR, console.log)
 const { configAuthority } = await multisig.accounts.Multisig.fromAccountAddress(
   connection,
   multisigPda,

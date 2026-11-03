@@ -57,28 +57,48 @@ device; the scripts send it the exact message and add the signature it returns, 
 Setup, once per device:
 
 1. In Ledger Live, install the **Solana** app.
-2. On the device, open the Solana app, go to **Settings** and turn **Blind signing** on. The app
-   cannot display Squads instructions, so without it the device refuses them and the scripts say
-   so. Plain SOL and token transfers still show in clear.
+2. Leave **Blind signing** off (Solana app, Settings). The app cannot display Squads instructions,
+   so each Squads action needs it on, but only for that action; the steps below say when. Plain SOL
+   and token transfers show in clear without it.
 3. Read the owner address: `solana-keygen pubkey usb://ledger?key=0`. It is the same address the
    scripts use.
 
-Each action: plug the Ledger in, unlock it, open the Solana app, run the script, and confirm on the
-device within a minute, before the blockhash expires. For the kill switch:
+**Blind signing removes the device's main protection.** While it is on, the device cannot show what
+it signs, so a compromised computer could replace the kill with a transaction that hands the vault
+over, and the device would still sign it. The one check left is the message hash. Before the device
+is asked to sign, every script prints the hash the Solana app will show, computed the same way the
+app does (base58 of the SHA-256 of the message, as in `src/handle_sign_message.c` of
+`LedgerHQ/app-solana`):
 
-```bash
-SOLANA_OWNER_KEYPAIR='usb://ledger?key=0' pnpm kill --yes
 ```
+If the Ledger shows a Message Hash, it must read exactly: 7Xk...
+Approve only on an exact match. On any difference, reject on the device.
+```
+
+For each action:
+
+1. Plug the Ledger in, unlock it and open the Solana app.
+2. Turn **Blind signing** on (Settings in the Solana app).
+3. Run the script. For the kill switch:
+   ```bash
+   SOLANA_OWNER_KEYPAIR='usb://ledger?key=0' pnpm kill --yes
+   ```
+4. Compare the **Message Hash** on the device with the printed one, character by character. Approve
+   only if they match exactly; otherwise reject and treat the computer as compromised. Do this within
+   a minute, before the blockhash expires.
+5. Turn **Blind signing** off again. The script reminds you once the device has signed.
 
 `kill` refuses before asking the device when the Ledger account is not the multisig's config
 authority, which is the only key that can remove the limit.
 
 A multisig created with a file key keeps that key as its config authority. On mainnet, create the
-multisig with the Ledger from the start.
+multisig with the Ledger from the start. If the authority ever has to move, the Squads SDK has
+`multisigSetConfigAuthority`; no script here wraps it yet.
 
 The tests drive the real `hw-app-solana` client against a fake device (`test/ledger.ts`) that speaks
 the Solana app's APDUs, signs with real ed25519 keys and refuses unknown programs while blind
-signing is off. `test/cap.test.ts` signs the kill with it.
+signing is off. It records the Message Hash it would display, and the tests check that it equals the
+hash the script printed. `test/cap.test.ts` signs the kill with it.
 
 ## Base (held until the Solana attack suite is green)
 

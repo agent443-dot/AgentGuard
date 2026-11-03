@@ -28,19 +28,21 @@ describe('an owner on a Ledger', () => {
   let c: Chain
   let device: FakeLedger
   let owner: OwnerSigner
+  let told: string[]
 
   beforeEach(async () => {
     c = chain()
     const transport = fakeLedger()
     device = transport
-    owner = await ledgerOwner(transport, "44'/501'/0'")
+    told = []
+    owner = await ledgerOwner(transport, "44'/501'/0'", (line) => told.push(line))
     c.svm.airdrop(owner.publicKey, BigInt(LAMPORTS_PER_SOL))
   })
 
   it('takes its address from the device, one per derivation path', async () => {
-    const other = await ledgerOwner(fakeLedger(), "44'/501'/1'")
+    const other = await ledgerOwner(fakeLedger(), "44'/501'/1'", () => {})
     expect(other.publicKey.equals(owner.publicKey)).toBe(false)
-    const same = await ledgerOwner(fakeLedger(), "44'/501'/0'")
+    const same = await ledgerOwner(fakeLedger(), "44'/501'/0'", () => {})
     expect(same.publicKey.equals(owner.publicKey)).toBe(true)
   })
 
@@ -63,6 +65,22 @@ describe('an owner on a Ledger', () => {
     const [kill] = message?.compiledInstructions ?? []
     const program = message?.staticAccountKeys[kill?.programIdIndex ?? -1]
     expect(program?.equals(multisig.PROGRAM_ID)).toBe(true)
+  })
+
+  // The owner's only defence against a swapped transaction while blind signing is on.
+  it('prints the Message Hash the device shows for the kill, before the device is asked', async () => {
+    const limit = spendingLimitPda(c.multisigPda, c.hotWallet.publicKey)
+    await expect(removeSpendingLimit(c.connection, owner, c.multisigPda, limit)).rejects.toThrow()
+    const [shown] = device.shown
+    expect(shown).toMatch(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/)
+    expect(told[0]).toBe(`If the Ledger shows a Message Hash, it must read exactly: ${shown}`)
+  })
+
+  it('advises turning blind signing off once it has signed', async () => {
+    const to = Keypair.generate().publicKey
+    const pay = SystemProgram.transfer({ fromPubkey: owner.publicKey, toPubkey: to, lamports: 1e7 })
+    await sendAsOwner(c.connection, owner, [pay])
+    expect(told.at(-1)).toMatch(/Turn Blind signing off again/)
   })
 
   it('says to enable blind signing when the app refuses the Squads instruction', async () => {
