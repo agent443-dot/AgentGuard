@@ -1,3 +1,4 @@
+import { CHAINS } from '@agentguard/shared'
 import { z } from 'zod'
 
 const secret = z.string().min(32, 'use at least 32 characters; generate with openssl rand -hex 32')
@@ -12,6 +13,14 @@ export const configSchema = z.object({
 
   BOT_URL: z.string().min(1),
   BOT_WEBHOOK_SECRET: secret,
+
+  SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
+  SOLANA_RPC_URL: z.string().min(1).optional(),
+  SOLANA_HOT_WALLET_KEYPAIR: z.string().min(1).optional(),
+
+  /** Offline chains that move no money. For local development only. */
+  GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
+  EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),
 })
 
 export type Config = z.infer<typeof configSchema>

@@ -1,0 +1,202 @@
+import type { ChainId, IntentStatus, PayIntent, Policy, RejectCode } from '@agentguard/shared'
+import { x402Client } from '@x402/core/client'
+import { encodePaymentSignatureHeader } from '@x402/core/http'
+import type { PaymentPayload, PaymentRequired, PaymentRequirements } from '@x402/core/types'
+import * as repo from '../db/repo.js'
+import { chooseAccept, requirementsChanged } from '../domain/x402.js'
+import { call, decode402, settledTx, type Upstream } from '../adapters/upstream.js'
+import { SigningRefused, type PaymentScheme } from '../adapters/x402.js'
+import type { X402FetchRequest } from '../http/schemas.js'
+import {
+  clear,
+  finish,
+  fund,
+  newIntent,
+  recordSpend,
+  reject,
+  type PaymentDeps,
+} from './payments.js'
+
+export interface X402Deps extends PaymentDeps {
+  schemes: ReadonlyMap<ChainId, PaymentScheme>
+  fetch: typeof fetch
+}
+
+/** SPEC: POST /v1/agent/x402/fetch. No intent when the resource asked for no payment. */
+export interface FetchOutcome {
+  intentId?: string
+  status?: IntentStatus
+  response?: Upstream
+  rejectReasons: RejectCode[]
+}
+
+export async function paidFetch(
+  deps: X402Deps,
+  request: X402FetchRequest,
+  policy: Policy,
+): Promise<FetchOutcome> {
+  const url = new URL(request.url)
+  // Checked before the first request, not only before paying: the guard should not be a proxy that
+  // agents can point at hosts the owner never approved, internal ones included.
+  if (!policy.allowedDomains.includes(url.hostname)) {
+    repo.audit(
+      deps.db,
+      {
+        event: 'x402_refused',
+        agentId: request.agentId,
+        reasons: ['DOMAIN_NOT_ALLOWED'],
+        detail: { domain: url.hostname },
+      },
+      deps.now(),
+    )
+    return { status: 'rejected', rejectReasons: ['DOMAIN_NOT_ALLOWED'] }
+  }
+
+  const first = await call(deps.fetch, request)
+  if (first.status !== 402) {
+    return { response: first, rejectReasons: [] }
+  }
+
+  const terms = {
+    agentId: request.agentId,
+    kind: 'x402' as const,
+    domain: url.hostname,
+    // The query string is left out: it often carries the API's own credentials, and this text goes
+    // to the owner's Telegram.
+    reason: `${request.method} ${url.origin}${url.pathname}`.slice(0, 500),
+  }
+  const required = decode402(first)
+  const choice = required
+    ? chooseAccept(required.accepts, policy, request.maxAmount)
+    : { reasons: ['INVALID_402' as const] }
+  if (required === undefined || choice.chosen === undefined) {
+    const offered = required?.accepts[0]
+    const intent = newIntent(
+      {
+        ...terms,
+        chain: offered?.network ?? '',
+        token: offered?.asset ?? '',
+        amount: offered?.amount ?? '0',
+        recipient: offered?.payTo ?? '',
+      },
+      deps.now(),
+    )
+    return view(reject(deps, intent, choice.reasons))
+  }
+
+  const chosen = choice.chosen
+  const intent = newIntent(
+    {
+      ...terms,
+      chain: chosen.network,
+      token: chosen.asset,
+      amount: chosen.amount,
+      recipient: chosen.payTo,
+    },
+    deps.now(),
+  )
+  // Signing, the retry and the final status all happen under the lock: until the intent leaves
+  // `approved`, a second request with the same terms could otherwise redeem it again.
+  return deps.serial(request.agentId, () => pay(deps, request, policy, required, chosen, intent))
+}
+
+async function pay(
+  deps: X402Deps,
+  request: X402FetchRequest,
+  policy: Policy,
+  required: PaymentRequired,
+  chosen: PaymentRequirements,
+  fresh: PayIntent,
+): Promise<FetchOutcome> {
+  const scheme = deps.schemes.get(chosen.network)
+  if (scheme === undefined) {
+    return view(reject(deps, fresh, ['CHAIN_NOT_ALLOWED']))
+  }
+
+  // An approval the owner already gave for exactly these terms is redeemed here, once.
+  const approved = repo.findApprovedX402(deps.db, fresh, deps.now())
+  const clearance = await clear(deps, approved ?? fresh, policy, approved !== undefined)
+  if (!clearance.cleared) {
+    return view(clearance.intent)
+  }
+  const { intent, adapter } = clearance
+
+  try {
+    await fund(deps, adapter, intent)
+  } catch (error) {
+    deps.log.error({ err: error, intentId: intent.id }, 'hot wallet top-up failed')
+    return view(finish(deps, intent, { status: 'failed' }))
+  }
+
+  const signed = await sign(deps, scheme, intent, required, chosen)
+  if ('refused' in signed) {
+    return view(reject(deps, intent, signed.refused))
+  }
+  if ('failed' in signed) {
+    return view(finish(deps, intent, { status: 'failed' }))
+  }
+  recordSpend(deps, intent)
+  repo.audit(deps.db, { event: 'signed', intentId: intent.id, agentId: intent.agentId }, deps.now())
+
+  let retry: Upstream
+  try {
+    retry = await call(deps.fetch, request, {
+      'PAYMENT-SIGNATURE': encodePaymentSignatureHeader(signed.payload),
+    })
+  } catch (error) {
+    deps.log.warn({ err: error, intentId: intent.id }, 'paid retry failed')
+    return view(finish(deps, intent, { status: 'failed' }))
+  }
+
+  if (retry.status === 402) {
+    // Terms that moved between the quote and the retry are a server changing the deal after we
+    // agreed to it. The same terms again mean it simply refused the payment.
+    const again = decode402(retry)?.accepts ?? []
+    const moved = !again.some((offer) => !requirementsChanged(chosen, offer))
+    const reasons: RejectCode[] = moved ? ['INVALID_402'] : []
+    return view(finish(deps, intent, { status: 'failed', reasons }), retry)
+  }
+  if (retry.status < 200 || retry.status >= 300) {
+    return view(finish(deps, intent, { status: 'failed' }), retry)
+  }
+  const txId = settledTx(retry)
+  return view(finish(deps, intent, { status: 'executed', ...(txId ? { txId } : {}) }), retry)
+}
+
+type Signed = { payload: PaymentPayload } | { refused: RejectCode[] } | { failed: true }
+
+async function sign(
+  deps: X402Deps,
+  scheme: PaymentScheme,
+  intent: PayIntent,
+  required: PaymentRequired,
+  chosen: PaymentRequirements,
+): Promise<Signed> {
+  try {
+    // The SDK's own spend control, set to exactly this payment, as a second lock behind ours.
+    const client = new x402Client()
+      .register(chosen.network, scheme.forIntent(intent, chosen))
+      .setSpendControls({
+        maxAmountPerPayment: false,
+        allowedAssets: [
+          { network: chosen.network, asset: chosen.asset, maxAmountPerPayment: intent.amount },
+        ],
+      })
+    return { payload: await client.createPaymentPayload({ ...required, accepts: [chosen] }) }
+  } catch (error) {
+    if (error instanceof SigningRefused) {
+      return { refused: error.reasons }
+    }
+    deps.log.error({ err: error, intentId: intent.id }, 'payment signing failed')
+    return { failed: true }
+  }
+}
+
+function view(intent: PayIntent, response?: Upstream): FetchOutcome {
+  return {
+    intentId: intent.id,
+    status: intent.status,
+    rejectReasons: intent.rejectReasons,
+    ...(response === undefined ? {} : { response }),
+  }
+}
