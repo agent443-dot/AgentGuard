@@ -4,8 +4,10 @@ Este ficheiro é escrito **só pelo manager** e é o único documento do reposit
 dirigido a ti. As outras sessões não falam contigo diretamente: se precisarem de algo teu, deixam um
 recado em `coordination/messages/manager/` e eu peço-te.
 
-**Ambiente:** Windows com **WSL2 + Ubuntu**. Todos os comandos deste ficheiro correm **dentro do
-Ubuntu**, nunca em PowerShell nem em Cmd. Abre as sessões do Claude Code também de dentro do Ubuntu.
+**Ambiente (confirmado em 2026-11-03):** Windows com **WSL2 + Ubuntu**, shell **zsh** com
+oh-my-zsh e Powerlevel10k. Node 22.23.4, pnpm 10.28.0, Foundry 1.9.0, repo em `~/AgentGuard`. Todos os
+comandos deste ficheiro correm **dentro do Ubuntu**, nunca em PowerShell nem em Cmd. Abre as sessões do
+Claude Code também de dentro do Ubuntu.
 
 **Regra de ouro: nunca coles chaves privadas no chat.** Geras a chave na tua máquina e colas tu mesmo no
 ficheiro `.env` do pacote certo. O `.gitignore` já ignora todos os `.env`.
@@ -21,12 +23,11 @@ existe e é a base de onde as sessões abrem os `feat/<role>`.
 
 ---
 
-## ⏳ HUMAN-2 — Preparar o ambiente: WSL2, Node, pnpm e Foundry
+## ✅ HUMAN-2 — Preparar o ambiente: WSL2, Node, pnpm e Foundry
 
-Desbloqueia: tudo o que corras localmente. Nada disto é urgente para as sessões 1 a 4 começarem a
-escrever código, mas é preciso para tu correres testes e scripts na tua máquina.
-
-Conta uns 20 a 30 minutos, a maior parte à espera de downloads.
+Feito. `pnpm check` passa na máquina do dono. Os passos ficam registados abaixo porque são a
+referência para reconstruir o ambiente, e porque apanharam três coisas que não eram óbvias: a shell é
+zsh (não bash), o instalador do Foundry não trata do PATH do zsh, e o repositório é privado.
 
 ### 2.1 Ver se o Ubuntu já está instalado
 
@@ -198,9 +199,9 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 ---
 
-## ⬜ HUMAN-3 — Criar as duas carteiras de teste
+## ⏳ HUMAN-3 — Criar as duas carteiras de teste
 
-Depois do HUMAN-2. Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
+Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
 São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteira que já tenha dinheiro real.
 
