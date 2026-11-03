@@ -1,16 +1,15 @@
-import type { Amount, ChainId } from '@agentguard/shared'
-import { getAddress } from '@agentguard/shared'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import * as repo from '../db/repo.js'
 import { parseBearer } from '../domain/auth.js'
 import { UpstreamError } from '../adapters/upstream.js'
+import { budget } from '../service/budget.js'
 import { transfer } from '../service/transfer.js'
 import { paidFetch, type X402Deps } from '../service/x402.js'
 import { HttpError } from './errors.js'
 import { agentIdParam, intentIdParam, transferRequest, x402FetchRequest } from './schemas.js'
 
 export function agentRoutes(deps: X402Deps) {
-  const { db, now } = deps
+  const { db } = deps
 
   async function requireAgent(request: FastifyRequest, reply: FastifyReply) {
     const presented = parseBearer(request.headers.authorization)
@@ -75,33 +74,7 @@ export function agentRoutes(deps: X402Deps) {
     app.get('/budget/:agentId', async (request) => {
       const { agentId } = agentIdParam.parse(request.params)
       const policy = ownPolicy(request, agentId)
-      return {
-        spentToday: repo.spentToday(db, agentId, repo.utcDay(now())),
-        dailyMax: policy.dailyMax,
-        perTxMax: policy.perTxMax,
-        hotWalletBalances: await hotWalletBalances(deps, policy.chains),
-        paused: policy.paused,
-      }
+      return budget(deps, policy)
     })
   }
-}
-
-/** USDC per chain. A chain that cannot answer is left out rather than reported as empty. */
-async function hotWalletBalances(deps: X402Deps, chains: ChainId[]) {
-  const balances: Record<ChainId, Amount> = {}
-  await Promise.all(
-    chains.map(async (chain) => {
-      const adapter = deps.chains.get(chain)
-      const usdc = getAddress(chain, 'usdc')
-      if (adapter === undefined || usdc === undefined) {
-        return
-      }
-      try {
-        balances[chain] = await adapter.getHotWalletBalance(usdc)
-      } catch (error) {
-        deps.log.warn({ err: error, chain }, 'balance read failed')
-      }
-    }),
-  )
-  return balances
 }

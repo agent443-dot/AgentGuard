@@ -46,7 +46,7 @@ export interface Harness {
 }
 
 export async function harness(
-  options: { policy?: Partial<Policy>; balance?: bigint } = {},
+  options: { policy?: Partial<Policy>; balance?: bigint; sweepMs?: number } = {},
 ): Promise<Harness> {
   const db = openDb(':memory:')
   migrate(db, { migrationsFolder: 'migrations' })
@@ -69,7 +69,10 @@ export async function harness(
 
   const chain = new StubChain(CHAIN, options.balance ?? 100_000_000n)
   const scheme = stubScheme(CHAIN)
-  const bot: BotNotifier = { requestApproval: vi.fn(async () => {}) }
+  const bot: BotNotifier = {
+    requestApproval: vi.fn(async () => {}),
+    intentEvent: vi.fn(async () => {}),
+  }
   const fetchMock = vi.fn<typeof fetch>()
   const clock = { now: NOW }
 
@@ -87,6 +90,7 @@ export async function harness(
     bot,
     fetch: fetchMock,
     now: () => clock.now,
+    ...(options.sweepMs === undefined ? {} : { sweepMs: options.sweepMs }),
   })
 
   return {

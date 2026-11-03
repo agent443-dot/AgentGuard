@@ -8,7 +8,7 @@ import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
 import { evaluate } from '../domain/policy.js'
 import { checkSimulation } from '../domain/simulation.js'
-import { expiresAt, requestApproval } from './approvals.js'
+import { expirePending, expiresAt, requestApproval } from './approvals.js'
 import type { Serial } from './serial.js'
 
 export interface PaymentDeps {
@@ -143,6 +143,18 @@ async function askOwner(
   return pending
 }
 
+/**
+ * Tells the bot an intent reached a final state (CR-004); the bot decides what the owner sees. Never
+ * awaited: a bot that is down must not hold up or fail a payment that already happened.
+ */
+export function notify(deps: PaymentDeps, intent: PayIntent): void {
+  deps.bot
+    .intentEvent({ intent, sentAt: deps.now().toISOString() })
+    .catch((error: unknown) =>
+      deps.log.warn({ err: error, intentId: intent.id }, 'intent event webhook failed'),
+    )
+}
+
 export function reject(deps: PaymentDeps, intent: PayIntent, reasons: RejectCode[]): PayIntent {
   const rejected: PayIntent = { ...intent, status: 'rejected', rejectReasons: reasons }
   repo.saveIntent(deps.db, rejected)
@@ -157,6 +169,7 @@ export function reject(deps: PaymentDeps, intent: PayIntent, reasons: RejectCode
     },
     deps.now(),
   )
+  notify(deps, rejected)
   return rejected
 }
 
@@ -212,5 +225,18 @@ export function finish(
     },
     deps.now(),
   )
+  notify(deps, done)
   return done
+}
+
+/** Expires what the owner and the agents left waiting, and tells the bot about each one. */
+export function sweep(deps: PaymentDeps): number {
+  const expired = expirePending(deps.db, deps.now())
+  for (const id of expired) {
+    const intent = repo.getIntent(deps.db, id)
+    if (intent !== undefined) {
+      notify(deps, intent)
+    }
+  }
+  return expired.length
 }

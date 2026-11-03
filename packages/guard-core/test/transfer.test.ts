@@ -168,7 +168,7 @@ describe('owner approval', () => {
     vi.mocked(h.bot.requestApproval).mockRejectedValueOnce(new Error('bot down'))
     const id = await pending()
     expect(h.auditEvents(id)).toContain('approval_request_failed')
-    expect(expirePending(h.db, new Date('2026-11-03T12:11:00Z'))).toBe(1)
+    expect(expirePending(h.db, new Date('2026-11-03T12:11:00Z'))).toHaveLength(1)
     expect(h.auditEvents(id).at(-1)).toBe('expired')
   })
 })

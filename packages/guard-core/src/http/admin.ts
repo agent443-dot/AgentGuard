@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as repo from '../db/repo.js'
+import { budget } from '../service/budget.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
 import { agentIdParam, policyBody } from './schemas.js'
@@ -15,6 +16,15 @@ export function adminRoutes(deps: PaymentDeps) {
         throw new HttpError(404, 'not_found')
       }
       return policy
+    })
+
+    app.get('/budget/:agentId', async (request) => {
+      const { agentId } = agentIdParam.parse(request.params)
+      const policy = repo.getPolicy(db, agentId)
+      if (policy === undefined) {
+        throw new HttpError(404, 'not_found')
+      }
+      return budget(deps, policy)
     })
 
     app.put('/policy/:agentId', async (request) => {
@@ -49,7 +59,12 @@ export function adminRoutes(deps: PaymentDeps) {
             return { chain: adapter.chain, ...(await adapter.buildKillTx()) }
           } catch (error) {
             request.log.error({ err: error, chain: adapter.chain }, 'kill tx build failed')
-            return { chain: adapter.chain, error: 'build_failed' }
+            // The owner still has to act on this chain, so it stays in the list, saying so.
+            return {
+              chain: adapter.chain,
+              description: `Could not build the kill transaction for ${adapter.chain}. Remove the hot wallet's spend limit on this chain by hand.`,
+              payload: null,
+            }
           }
         }),
       )
@@ -59,7 +74,10 @@ export function adminRoutes(deps: PaymentDeps) {
           event: 'killed',
           detail: {
             pausedAgents,
-            chains: ownerTransactions.map((tx) => ({ chain: tx.chain, built: !('error' in tx) })),
+            chains: ownerTransactions.map((tx) => ({
+              chain: tx.chain,
+              built: tx.payload !== null,
+            })),
           },
         },
         now(),
