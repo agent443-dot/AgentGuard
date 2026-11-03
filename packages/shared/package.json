@@ -1,0 +1,18 @@
+{
+  "name": "@agentguard/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared types, zod schemas, verified addresses and constants.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

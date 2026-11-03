@@ -1,0 +1,18 @@
+{
+  "name": "@agentguard/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server exposing payment tools to agents.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

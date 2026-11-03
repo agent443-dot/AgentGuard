@@ -1,0 +1,18 @@
+{
+  "name": "@agentguard/guard-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Policy engine, simulation, signer, x402 client, HTTP API and DB.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  }
+}
