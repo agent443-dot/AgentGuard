@@ -205,9 +205,10 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 ---
 
-## ✅ HUMAN-3 — Criar as duas carteiras de teste
+## ✅ HUMAN-3 — Criar as duas carteiras de teste (Base)
 
-Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
+Desbloqueia: as tarefas `EVM-*`, que só começam depois da suite de ataques em Solana estar verde. Nada
+do que fizeste aqui se perde — estas carteiras são as da Base.
 
 **Carteiras geradas em 2026-11-03** (endereços públicos; as chaves privadas estão só nos `.env` e no
 gestor de senhas do dono, nunca no repositório). Um primeiro par foi gerado e descartado no mesmo dia
@@ -309,45 +310,145 @@ São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteir
 
 ---
 
-## ⏳ HUMAN-4 — Pôr fundos de teste nas duas carteiras
+## ⏳ HUMAN-3B — Criar o par de carteiras Solana
 
-Precisas de **ETH de Base Sepolia** (para gás) nas duas carteiras, e de **USDC de teste** na owner EOA,
-porque é a Safe dela que vai guardar o dinheiro.
+Desbloqueia: `SVM-1` e `SVM-2`, que são o caminho crítico agora que a Solana é a primeira chain.
 
-A lista oficial e atualizada de faucets está em `docs.base.org/chain/network-faucets`. Se algum link
-abaixo mudar, essa página é a fonte de verdade.
+Em Solana as chaves não vivem num `.env`: guardam-se em ficheiros JSON de keypair, que é a convenção do
+ecossistema e o que as ferramentas esperam. O `.env` guarda o **caminho** para o ficheiro.
 
-1. **ETH nas duas carteiras.** O faucet do Coinbase Developer Platform
-   (`portal.cdp.coinbase.com`, secção Faucets) cobre Base Sepolia e dá até 0,1 ETH por 24 h, mas exige
-   conta CDP. Sem conta, o faucet da Alchemy (`alchemy.com/faucets/base-sepolia`) dá 0,1 ETH por 24 h.
-   Pede para os dois endereços:
-   - owner: `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`
-   - hot wallet: `0x4FCEE11b4620Cb9122B83688B243bb996660F43b`
+### 3B.1 Instalar o CLI da Solana
 
-2. **USDC só na owner.** O faucet da Circle (`faucet.circle.com`, rede **Base Sepolia**) é o canónico; o
-   faucet do CDP também distribui USDC em Base Sepolia.
+O cliente passou a ser mantido pela Anza. O binário continua a chamar-se `solana`.
 
-   Atenção: tem de ser o **USDC oficial da Circle**, não um token de teste qualquer. O Allowance Module
-   vai ser configurado para um endereço de token exato, o que a tarefa `ON-8` verifica nas listas
-   oficiais. Um token diferente com o mesmo nome não serve.
+```bash
+sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+```
 
-3. **Confirma o ETH:**
+```bash
+exec zsh
+```
+
+```bash
+solana --version
+```
+
+Se o `solana` não for encontrado depois do `exec zsh`, é o mesmo problema do Foundry — o instalador
+escreveu o PATH num ficheiro de bash. Resolve-se igual:
+
+```bash
+grep -q '.local/share/solana' ~/.zshenv 2>/dev/null || echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshenv
+```
+
+### 3B.2 Gerar os dois keypairs
+
+Guarda-os fora do repositório, numa pasta só tua:
+
+```bash
+mkdir -p ~/.agentguard && chmod 700 ~/.agentguard
+```
+
+```bash
+solana-keygen new --no-bip39-passphrase -o ~/.agentguard/sol-owner.json
+```
+
+```bash
+solana-keygen new --no-bip39-passphrase -o ~/.agentguard/sol-hot.json
+```
+
+```bash
+chmod 600 ~/.agentguard/sol-*.json
+```
+
+O comando imprime a `pubkey` de cada um e grava a chave no ficheiro. Guarda também as seed phrases num
+gestor de senhas — é o que te deixa recuperar o keypair se apagares o ficheiro.
+
+### 3B.3 Preencher os `.env`
+
+```bash
+nano ~/ag-onchain/packages/onchain/.env
+```
+
+- `SOLANA_OWNER_KEYPAIR=/home/joaod/.agentguard/sol-owner.json`
+- `SOLANA_HOT_WALLET_PUBKEY=` a **pubkey** do `sol-hot.json`
+
+```bash
+nano ~/ag-guard-core/packages/guard-core/.env
+```
+
+- `SOLANA_HOT_WALLET_KEYPAIR=/home/joaod/.agentguard/sol-hot.json`
+
+Usa caminhos absolutos, não `~`: muitas bibliotecas não expandem o til.
+
+### 3B.4 Confirmar
+
+```bash
+solana-keygen pubkey ~/.agentguard/sol-owner.json; solana-keygen pubkey ~/.agentguard/sol-hot.json
+```
+
+Diz-me as duas pubkeys — são públicas, podem vir pelo chat.
+
+---
+
+## ⏳ HUMAN-4 — Pôr fundos de teste
+
+A Solana é a primeira chain, por isso só a parte Solana é urgente. A da Base espera pelas tarefas
+`EVM-*`.
+
+### Solana devnet (agora)
+
+Precisas de SOL nas duas keypairs e de USDC de devnet na owner.
+
+As duas precisam de SOL, por razões diferentes: a owner paga as taxas de criar o multisig e o spending
+limit, e a hot wallet paga as taxas de levantar do limite. Nos pagamentos x402 em si a hot wallet nem
+precisa de SOL, porque no fluxo SVM o facilitator co-assina como fee payer — mas os levantamentos do
+Squads são transações dela.
+
+1. SOL pelo CLI, para cada pubkey (`<PUBKEY>` é o que o `solana-keygen pubkey` imprimiu):
 
    ```bash
-   cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --rpc-url https://sepolia.base.org
+   solana airdrop 2 <PUBKEY> --url devnet
    ```
+
+   Se der rate limit, usa o faucet web da Solana Foundation em `faucet.solana.com`, que dá mais com
+   login no GitHub.
+
+2. USDC de devnet na **owner**, em `faucet.circle.com`, rede **Solana devnet**. O faucet do Coinbase
+   Developer Platform também distribui USDC em Solana devnet.
+
+   Tem de ser o USDC oficial da Circle. O spending limit vai ser configurado para um mint exato, que a
+   tarefa `SVM-7` verifica nas fontes oficiais, e um token parecido não conta para o limite.
+
+3. Confirma:
 
    ```bash
-   cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --rpc-url https://sepolia.base.org
+   solana balance <PUBKEY> --url devnet
    ```
 
-   O valor vem em wei. `cast balance <addr> --ether --rpc-url ...` mostra em ETH.
+   O USDC vês em `explorer.solana.com/?cluster=devnet`, procurando a pubkey da owner.
 
-4. **Confirma o USDC** em `sepolia.basescan.org`, procurando o endereço da owner e abrindo o separador
-   de tokens. Por linha de comando precisaríamos do endereço do contrato USDC, que só fica fixado
-   depois do `ON-8`.
+> Nota: depois do `SVM-1` criar o multisig, o USDC tem de passar da owner para o cofre do multisig — é
+> lá que o dinheiro fica, não na owner. Isso é um passo do script, não teu.
 
-5. Diz-me quando estiver feito.
+### Base Sepolia (mais tarde)
+
+Quando as tarefas `EVM-*` arrancarem, precisas de ETH de Base Sepolia nas duas carteiras EVM e de USDC
+de teste na owner EVM:
+
+- owner: `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`
+- hot wallet: `0x4FCEE11b4620Cb9122B83688B243bb996660F43b`
+
+ETH sem conta no faucet da Alchemy (`alchemy.com/faucets/base-sepolia`), ou no do Coinbase Developer
+Platform (`portal.cdp.coinbase.com`) com conta. USDC em `faucet.circle.com`, rede **Base Sepolia**. A
+lista oficial de faucets da Base está em `docs.base.org/chain/network-faucets`.
+
+```bash
+cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --ether --rpc-url https://sepolia.base.org
+```
+
+```bash
+cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https://sepolia.base.org
+```
 
 ---
 
