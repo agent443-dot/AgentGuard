@@ -8,6 +8,7 @@ export const svmConfigSchema = z.object({
   SOLANA_OWNER_KEYPAIR: z.string().min(1),
   SOLANA_HOT_WALLET_PUBKEY: z.string().min(32).max(44),
   SQUADS_MULTISIG: z.string().min(32).max(44).optional().or(z.literal('')),
+  USDC_MINT: z.string().min(32).max(44).optional().or(z.literal('')),
   DAILY_CAP: z.string().regex(/^(0|[1-9]\d*)$/),
 })
 

@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "build": "tsc -p tsconfig.build.json",
-    "create-multisig": "tsx --env-file=.env src/scripts/create-multisig.ts"
+    "create-multisig": "tsx --env-file=.env src/scripts/create-multisig.ts",
+    "add-spending-limit": "tsx --env-file=.env src/scripts/add-spending-limit.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
