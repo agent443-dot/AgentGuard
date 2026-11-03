@@ -5,6 +5,8 @@ const secret = z.string().min(32, 'use at least 32 characters; generate with ope
 
 export const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8787),
+  /** Loopback unless set: a deployment opts in to listening beyond this machine. */
+  HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('127.0.0.1'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.string().min(1).default('file:./data/guard.db'),
 
