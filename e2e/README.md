@@ -51,3 +51,36 @@ Each one must end with nothing paid and the right reject code.
 
 The devnet run on the owner's machine covers the two the stub cannot: the real Solana adapter signing
 and inspecting real transactions, and the onchain cap.
+
+## The x402 path on Solana devnet (owner's machine)
+
+No public x402 endpoint on Solana devnet is assumed. `pnpm --filter @agentguard/e2e paywall`
+(`src/devnet-paywall.ts`) is a paid API that acts as its own facilitator, using the x402 SDK's
+`ExactSvmScheme`. It quotes a price and verifies the payment the guard signed. Then it settles that
+payment on devnet itself, paying the network fee from its own key. Run it alongside `pnpm dev:all`,
+after the transfer run in HUMAN-11 works.
+
+1. `cp e2e/.env.example e2e/.env`. Set `PAYWALL_FEE_PAYER_KEYPAIR` to a keypair file that holds
+   devnet SOL; the owner's works. Set `PAYWALL_PAY_TO` to the address that should receive the USDC,
+   for example the owner's. That address needs a devnet USDC token account. Nothing is printed except
+   the fee payer's public address.
+2. Allow the paywall's host. A refused host is never even requested:
+
+   ```bash
+   t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" | sed 's/"allowedDomains":\[[^]]*\]/"allowedDomains":["127.0.0.1"]/' | curl -sS -X PUT http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" -H 'content-type: application/json' -d @-
+   ```
+
+3. In another window: `pnpm --filter @agentguard/e2e paywall`.
+4. Have the agent fetch it. 0.5 USDC is under a 1 USDC threshold, so this one pays without asking:
+
+   ```bash
+   t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/agent/x402/fetch -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"agentId":"agent-1","url":"http://127.0.0.1:8790/data","method":"GET"}'
+   ```
+
+   Expect `"status":"executed"`, with a body naming the devnet transaction. The paywall window prints
+   `settled on devnet: <signature>`, which explorer.solana.com (cluster devnet) shows as a USDC
+   transfer from the hot wallet.
+
+5. The approval path: restart the paywall with `PAYWALL_AMOUNT=1500000`. Run step 4 and expect
+   `"status":"pending_approval"`. Approve on Telegram, then run step 4 again: it redeems the
+   approval and returns `"status":"executed"`.
