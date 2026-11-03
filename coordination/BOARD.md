@@ -76,15 +76,15 @@ tells us what the second adapter has to satisfy.
 
 ## Session 3 — mcp (`packages/mcp-server`, branch `feat/mcp`)
 
-| id    | owner | status | depends_on | notes                                                                                                                                           |
-| ----- | ----- | ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| MCP-1 | mcp   | todo   | —          | MCP server on the official SDK, stdio + streamable HTTP                                                                                         |
-| MCP-2 | mcp   | todo   | MCP-1      | The four SPEC tools. USD -> USDC atomic units with bigint math; reject negative, `NaN`, too many decimals. `transfer` takes an optional `chain` |
-| MCP-3 | mcp   | todo   | MCP-2      | Wrap `paid_fetch` responses as untrusted content, never as instructions                                                                         |
-| MCP-4 | mcp   | todo   | —          | Env config: `GUARD_URL`, `AGENT_ID`, `AGENT_TOKEN`. No keys, no policy logic here                                                               |
-| MCP-5 | mcp   | todo   | MCP-2      | Tests against a mocked guard-core                                                                                                               |
-| MCP-6 | mcp   | todo   | MCP-2      | README: config JSON for Claude Desktop / Claude Code and other MCP clients                                                                      |
-| MCP-7 | mcp   | todo   | MCP-2      | `examples/demo-agent` paying a test x402 API. A real run needs INT-3                                                                            |
+| id    | owner | status | depends_on | notes                                                                                                                                                                                                                              |
+| ----- | ----- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP-1 | mcp   | review | —          | MCP server on the official SDK (1.32), stdio + stateless streamable HTTP on `POST /mcp`. HTTP needs `MCP_HTTP_TOKEN` and checks `Host` on loopback (DNS rebinding)                                                                 |
+| MCP-2 | mcp   | review | MCP-1      | The four SPEC tools. Amounts are decimal **strings**, bigint math, 6 decimals; refuses sign, exponent, `NaN`, `Infinity`, > 6 decimals instead of rounding. `transfer.chain` defaults to `DEFAULT_CHAIN`, token = USDC from shared |
+| MCP-3 | mcp   | review | MCP-2      | `paid_fetch` body returned in its own content block, fenced with a random-nonce marker after an untrusted-data notice; only a well-formed media type shown from headers; 100k char cap                                             |
+| MCP-4 | mcp   | review | —          | zod config at startup: `GUARD_URL`, `AGENT_ID`, `AGENT_TOKEN` (+ transport vars). Errors name fields, never values                                                                                                                 |
+| MCP-5 | mcp   | review | MCP-2      | 103 tests: unit, tools over an in-memory MCP client, and integration against a mock guard-core over HTTP. 100% on `domain/`                                                                                                        |
+| MCP-6 | mcp   | review | MCP-2      | README: Claude Desktop, Claude Code (stdio, HTTP, `.mcp.json`), other clients, Inspector                                                                                                                                           |
+| MCP-7 | mcp   | review | MCP-2      | `examples/demo-agent` pays the bundled x402 test API through the server and polls an approval, against `examples/mock-guard`. A real run needs INT-3                                                                               |
 
 ## Session 4 — bot (`packages/telegram-bot`, branch `feat/bot`)
 
