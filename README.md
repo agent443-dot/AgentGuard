@@ -49,6 +49,21 @@ On Windows, develop inside **WSL2 + Ubuntu** and clone the repo into the Linux f
 `/mnt/c`. Foundry's installer does not run in PowerShell or Cmd, and pnpm and git are far slower across
 the `/mnt/c` boundary.
 
+### Branches
+
+`main` is the base: every role branches off it as `feat/<role>` and opens its PR back to it.
+
+The repository's default branch is still `claude/agentguard-setup-smlps6`, because GitHub adopts the
+first branch pushed to an empty repository and only an account with admin rights can change that. So a
+plain `git clone` lands on the wrong branch. Until the default is switched, clone with `main` explicit:
+
+```bash
+git clone -b main https://github.com/kikume/AgentGuard.git
+```
+
+In a clone you already have, `git checkout main` is enough — the two branches currently point at the
+same commit.
+
 Per-package commands: `pnpm --filter @agentguard/guard-core test`.
 
 `packages/onchain` also needs [Foundry](https://getfoundry.sh) for the fork tests (`forge test`).
