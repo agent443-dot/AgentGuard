@@ -10,7 +10,8 @@ const BUDGET_DESCRIPTION = `Show how much this agent has spent today, its daily 
 Use it before a payment to see if it can fit, and after an error whose outcome is unclear. The limits are set by the owner; a payment within them can still be rejected or need approval.`
 
 const INTENT_DESCRIPTION = `Check the current status of a payment by its intent id (from paid_fetch or transfer).
-Use it to poll a payment that is pending_approval, every 15 to 30 seconds, until it is executed, rejected, failed or expired. Tell the user the outcome.`
+Use it to poll a payment that is pending_approval, every 15 to 30 seconds, until its status changes. Tell the user the outcome.
+For a paid_fetch payment, "approved" means the owner said yes: call paid_fetch again with exactly the same request to receive the response.`
 
 export function registerStatusTools(server: McpServer, { guard, log }: ToolDeps): void {
   server.registerTool(
@@ -69,6 +70,6 @@ function describeIntent(intent: Intent): string {
   if (intent.txId !== undefined) {
     lines.push(`Transaction id: ${intent.txId}`)
   }
-  lines.push(explainStatus(intent.status, intent.rejectReasons))
+  lines.push(explainStatus(intent.status, intent.rejectReasons, intent.kind))
   return lines.join('\n')
 }

@@ -6,7 +6,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 /**
  * A scripted agent: it does what a model would do with the tool descriptions, without a model.
  * It starts the MCP server over stdio, checks its budget, pays for one API call and, if the payment
- * needs the owner, polls until the owner decides.
+ * needs the owner, polls until the owner decides and repeats the request once it is approved.
  *
  * Against the mock (`pnpm mock-guard` in another terminal) it runs offline. Against a real
  * guard-core, set GUARD_URL, AGENT_ID, AGENT_TOKEN and DEMO_URL to a real x402 test API.
@@ -47,6 +47,11 @@ if (fetched.includes('pending_approval') && intentId !== undefined) {
   for (let attempt = 0; attempt < 40; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 15_000))
     const status = await call('check_intent', { intentId })
+    if (status.includes(': approved.')) {
+      say('\n[agent] Approved. Repeating the same request to redeem the approval.')
+      await call('paid_fetch', { url, maxAmountUsd })
+      break
+    }
     if (!status.includes(': pending_approval.')) {
       break
     }

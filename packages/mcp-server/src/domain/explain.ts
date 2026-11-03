@@ -1,4 +1,4 @@
-import type { IntentStatus, RejectCode } from '@agentguard/shared'
+import type { IntentStatus, PayIntentKind, RejectCode } from '@agentguard/shared'
 
 const REASONS: Record<RejectCode, string> = {
   PAUSED: 'the owner has paused all payments for this agent',
@@ -39,8 +39,28 @@ const NEXT_STEP: Record<IntentStatus, string> = {
   expired: 'The owner did not approve the payment in time, so it expired. No money moved.',
 }
 
-export function explainStatus(status: IntentStatus, rejectReasons: readonly string[]): string {
-  const lines = [NEXT_STEP[status]]
+/**
+ * An x402 payment can only deliver its response to the agent's own request, so an approval is not
+ * the end of it: the agent has to repeat the call to redeem it (CR-003).
+ */
+const X402_NEXT_STEP: Partial<Record<IntentStatus, string>> = {
+  pending_approval:
+    'The payment is waiting for the owner to approve it on Telegram. Tell the user it needs their ' +
+    'approval, then call check_intent with this intent id every 15 to 30 seconds. Do not repeat the ' +
+    'request while it is pending. Once check_intent reports approved, call paid_fetch again with ' +
+    'exactly the same url, method, headers and body to receive the response.',
+  approved:
+    'The owner approved the payment. Call paid_fetch again with exactly the same url, method, ' +
+    'headers and body to receive the response. The approval pays for that one request only and ' +
+    'expires at the time check_intent shows if it is not used.',
+}
+
+export function explainStatus(
+  status: IntentStatus,
+  rejectReasons: readonly string[],
+  kind: PayIntentKind,
+): string {
+  const lines = [(kind === 'x402' ? X402_NEXT_STEP[status] : undefined) ?? NEXT_STEP[status]]
   if (rejectReasons.length > 0) {
     lines.push('Reasons:', ...rejectReasons.map((code) => `- ${explainReject(code)}`))
   }

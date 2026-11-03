@@ -84,6 +84,18 @@ describe('httpGuard', () => {
     expect(error.code).toBe('bad_response')
   })
 
+  it('accepts a fetch with no payment, but not one with neither an outcome nor a response', async () => {
+    const free = { rejectReasons: [], response: { status: 200, headers: {}, body: 'ok' } }
+    expect(
+      (await stub(200, free).guard.fetch({ url: 'https://a.test', method: 'GET' })).status,
+    ).toBe(undefined)
+    const empty = stub(200, { rejectReasons: [] }).guard.fetch({
+      url: 'https://a.test',
+      method: 'GET',
+    })
+    expect((await failureOf(empty)).code).toBe('bad_response')
+  })
+
   it('refuses a body that is not JSON', async () => {
     const error = await failureOf(stub(200, '<html>').guard.budget())
     expect(error.code).toBe('bad_response')

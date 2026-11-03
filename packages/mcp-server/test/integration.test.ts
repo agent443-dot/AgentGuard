@@ -62,6 +62,38 @@ describe('against the mock guard-core', () => {
     expect(result.text).toMatch(/PER_TX_EXCEEDED/)
   })
 
+  it('passes a free resource through without an intent', async () => {
+    const result = await call(await client(), 'paid_fetch', { url: `${api.url}/free` })
+    expect(result.texts[0]).toMatch(/no payment needed/)
+    expect(result.texts[1]).toContain('"paid":true')
+  })
+
+  it('refuses a host outside the policy before any request', async () => {
+    const result = await call(await client(), 'paid_fetch', { url: 'https://not-allowed.test/x' })
+    expect(result.text).toMatch(/: rejected\./)
+    expect(result.text).toMatch(/DOMAIN_NOT_ALLOWED/)
+    expect(result.text).not.toMatch(/Intent id/)
+  })
+
+  it('redeems an approved x402 payment once, when the agent repeats the request', async () => {
+    const mcp = await client()
+    const url = `${api.url}/premium`
+    const first = await call(mcp, 'paid_fetch', { url, maxAmountUsd: '3' })
+    const intentId = /Intent id: (\S+)/.exec(first.text)?.[1] ?? ''
+    expect(first.text).toMatch(/: pending_approval\./)
+
+    clock = new Date(clock.getTime() + 60_000)
+    expect((await call(mcp, 'check_intent', { intentId })).text).toMatch(/: approved\./)
+
+    const repeat = await call(mcp, 'paid_fetch', { url, maxAmountUsd: '3' })
+    expect(repeat.texts[0]).toMatch(new RegExp(`Intent id: ${intentId}`))
+    expect(repeat.texts[0]).toMatch(/: executed\./)
+    expect(repeat.texts[1]).toContain('"forecast":"sunny"')
+
+    const again = await call(mcp, 'paid_fetch', { url, maxAmountUsd: '3' })
+    expect(again.text).toMatch(/: pending_approval\./)
+  })
+
   it('follows a transfer from pending_approval to executed', async () => {
     const mcp = await client()
     const sent = await call(mcp, 'transfer', {
@@ -85,7 +117,7 @@ describe('against the mock guard-core', () => {
 
   it('shows the budget', async () => {
     expect((await call(await client(), 'get_budget')).text).toMatch(
-      /Spent today: \$1\.51 of \$5\.00/,
+      /Spent today: \$3\.51 of \$5\.00/,
     )
   })
 
