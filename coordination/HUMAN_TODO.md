@@ -558,23 +558,33 @@ ficheiro nenhum aqui; a `HUMAN-11` diz-te onde pôr cada coisa.
 
 ## ⬜ HUMAN-11 — Primeira corrida ao vivo do sistema completo (devnet)
 
-Desbloqueia: fecha a `INT-3`. Só quando eu disser que o PR #12 (`pnpm dev:all`) está no `main`, e
-depois da `HUMAN-5`.
+Desbloqueia: fecha a `INT-3` e é metade da porta `INT-5`, que liberta o trabalho da Base. Depois da
+`HUMAN-5`. A parte A já pode correr (o `pnpm dev:all` está no `main`); a parte B espera que eu diga que
+o PR #14 entrou.
 
 Até aqui tudo correu na nuvem, contra chains simuladas. Isto liga o guard-core, o bot e o servidor MCP
-ao teu multisig verdadeiro em devnet, e termina com um pagamento a sério aprovado por ti no Telegram.
+ao teu multisig verdadeiro em devnet. Tudo corre em `~/AgentGuard`; os `.env` que tens nos worktrees
+passam para lá, para o sistema inteiro viver num sítio só. Vais precisar de **três janelas** do Ubuntu.
 
-Tudo corre em `~/AgentGuard`. Os `.env` que tens nos worktrees passam para lá, para o sistema inteiro
-viver num sítio só.
+### Parte A — uma transferência aprovada no Telegram
 
-**1. Atualizar e trazer os `.env` que já existem:**
+**1. Atualizar, trazer os `.env` que já existem e confirmar o do guard-core:**
 
 ```bash
 cd ~/AgentGuard && git pull && cp ~/ag-guard-core/packages/guard-core/.env packages/guard-core/.env && cp ~/ag-onchain/packages/onchain/.env packages/onchain/.env && pnpm install
 ```
 
-**2. O `.env` do bot.** Este comando copia do guard-core os três segredos que têm de ser iguais nos dois
-lados, **sem os mostrar no ecrã**:
+O `.env` do guard-core é de antes de algumas mudanças, por isso garante o endereço do multisig (o
+comando pode repetir-se sem estragar nada) e confere o resto sem imprimir segredos:
+
+```bash
+cd ~/AgentGuard && f=packages/guard-core/.env && (grep -q '^SQUADS_MULTISIG=' "$f" && sed -i 's|^SQUADS_MULTISIG=.*|SQUADS_MULTISIG=3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu|' "$f" || echo 'SQUADS_MULTISIG=3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu' >> "$f") && for k in SOLANA_RPC_URL SOLANA_HOT_WALLET_KEYPAIR SQUADS_MULTISIG; do grep -q "^$k=." "$f" && echo "ok    $k" || echo "FALTA $k"; done; grep -q '^GUARD_STUB_CHAINS=true' "$f" && echo "PARA: GUARD_STUB_CHAINS=true" || echo "ok    GUARD_STUB_CHAINS"
+```
+
+Tem de dar quatro `ok`. Se disser `FALTA` ou `PARA`, não continues e cola-me a saída.
+
+**2. O `.env` do bot.** Copia do guard-core os três segredos que têm de ser iguais nos dois lados,
+**sem os mostrar no ecrã**:
 
 ```bash
 cd ~/AgentGuard && cp packages/telegram-bot/.env.example packages/telegram-bot/.env && for p in GUARD_BOT_TOKEN:BOT_TOKEN GUARD_ADMIN_TOKEN:ADMIN_TOKEN BOT_WEBHOOK_SECRET:BOT_WEBHOOK_SECRET; do v=$(grep "^${p#*:}=" packages/guard-core/.env | cut -d= -f2-); sed -i "s|^${p%%:*}=.*|${p%%:*}=$v|" packages/telegram-bot/.env; done && echo "segredos copiados"
@@ -596,25 +606,27 @@ aparece no ecrã:
 cd ~/AgentGuard && cp packages/mcp-server/.env.example packages/mcp-server/.env && tok=$(pnpm --silent --filter @agentguard/guard-core create-agent agent-1 | tail -n1) && [[ "$tok" =~ ^[0-9a-f]{64}$ ]] && sed -i -e "s|^AGENT_ID=.*|AGENT_ID=agent-1|" -e "s|^AGENT_TOKEN=.*|AGENT_TOKEN=$tok|" -e "s|^MCP_TRANSPORT=.*|MCP_TRANSPORT=http|" -e "s|^# MCP_HTTP_TOKEN=.*|MCP_HTTP_TOKEN=$(openssl rand -hex 32)|" packages/mcp-server/.env && echo "agent-1 criado" || echo "FALHOU, cola-me a saida"
 ```
 
-**4. Arrancar tudo.** Fica a correr nesta janela — não a feches:
+**4. Arrancar tudo — janela 1.** Fica a correr; não a feches:
 
 ```bash
 cd ~/AgentGuard && pnpm dev:all
 ```
 
-Antes de arrancar, ele cruza os três `.env`. Se algum segredo ou porta não bater, recusa e diz-te qual
-variável — sem mostrar valores.
+Antes de arrancar, ele cruza os três `.env` e recusa se algum segredo ou porta não bater, dizendo qual
+variável. **Se imprimir `no Solana adapter`, para tudo e diz-me**: arrancaria na mesma, mas todos os
+pagamentos seriam recusados.
 
-**5. Dar uma política ao agente.** Abre **outra** janela do Ubuntu. Um agente novo recusa tudo; esta
-política é deliberadamente apertada: até 2 USDC por pagamento, 10 por dia (abaixo dos 100 do teto
-onchain), só USDC em devnet, só para a tua owner, e **tudo a partir de 1 USDC passa por ti no Telegram**:
+**5. Dar uma política ao agente — janela 2.** Um agente novo recusa tudo. Esta é deliberadamente
+apertada: até 2 USDC por pagamento, 10 por dia (abaixo dos 100 do teto onchain), só USDC em devnet,
+transferências só para a tua owner, e **tudo a partir de 1 USDC passa por ti no Telegram**. O
+`127.0.0.1` é para o servidor de teste da parte B, e sai no fim:
 
 ```bash
-cd ~/AgentGuard && t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X PUT http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"chains":["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],"tokens":["4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"],"perTxMax":"2000000","dailyMax":"10000000","approvalThreshold":"1000000","allowedRecipients":["AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita"],"allowedDomains":[],"paused":false}'
+cd ~/AgentGuard && t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X PUT http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"chains":["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],"tokens":["4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"],"perTxMax":"2000000","dailyMax":"10000000","approvalThreshold":"1000000","allowedRecipients":["AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita"],"allowedDomains":["127.0.0.1"],"paused":false}'
 ```
 
-**6. O primeiro pagamento a sério.** O agente pede 1,5 USDC para a tua owner. Está acima do limiar, por
-isso tem de te chegar ao Telegram para aprovares:
+**6. A primeira transferência a sério.** O agente pede 1,5 USDC para a tua owner. Está acima do
+limiar, por isso tem de te chegar ao Telegram:
 
 ```bash
 cd ~/AgentGuard && t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/agent/transfer -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"agentId":"agent-1","chain":"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1","token":"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU","amount":"1500000","recipient":"AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita","reason":"first live test"}'
@@ -623,6 +635,52 @@ cd ~/AgentGuard && t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -
 Deve responder `"status":"pending_approval"` e, segundos depois, aparece-te a mensagem no Telegram com
 os botões. Carrega em **Approve**. Cola-me a resposta do `curl` e diz-me o que viste no Telegram — a
 resposta não tem segredos.
+
+### Parte B — pagamentos x402 a sério (depois de eu confirmar o PR #14)
+
+Não existe nenhum servidor x402 público em devnet em que possamos confiar, por isso o projeto traz um:
+um servidor pago que faz de facilitador e liquida o pagamento na devnet. Usa a tua owner para pagar as
+taxas da rede e para receber o USDC — não precisas de carteira nova.
+
+**7. Configurar o servidor de teste.** Nada disto é secreto — é um caminho e um endereço público:
+
+```bash
+cd ~/AgentGuard && git pull && pnpm install && cp e2e/.env.example e2e/.env && sed -i -e 's|^PAYWALL_FEE_PAYER_KEYPAIR=.*|PAYWALL_FEE_PAYER_KEYPAIR=/home/joaod/.agentguard/sol-owner.json|' -e 's|^PAYWALL_PAY_TO=.*|PAYWALL_PAY_TO=AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita|' e2e/.env && echo "e2e configurado"
+```
+
+**8. Arrancar o servidor de teste — janela 3:**
+
+```bash
+cd ~/AgentGuard && pnpm --filter @agentguard/e2e paywall
+```
+
+**9. Um pagamento x402 abaixo do limiar — janela 2.** Custa 0,5 USDC, por isso passa sem te perguntar:
+
+```bash
+cd ~/AgentGuard && t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/agent/x402/fetch -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"agentId":"agent-1","url":"http://127.0.0.1:8790/data","method":"GET"}'
+```
+
+Deve responder `"status":"executed"`, e a janela 3 imprime `settled on devnet: <assinatura>`.
+
+**10. Um pagamento x402 que precisa de ti.** Na janela 3, `Ctrl+C`, e volta a arrancar o servidor a
+pedir 1,5 USDC:
+
+```bash
+cd ~/AgentGuard && PAYWALL_AMOUNT=1500000 pnpm --filter @agentguard/e2e paywall
+```
+
+Na janela 2 repete o comando do passo 9. Deve dar `"status":"pending_approval"`. Aprova no Telegram e
+**repete o mesmo comando outra vez**: a aprovação vale uma só vez, e devolve `"status":"executed"`.
+
+**11. Tirar a autorização de teste.** O `127.0.0.1` deixava o agente mandar o guard-core fazer pedidos a
+serviços da tua própria máquina, por isso não pode ficar:
+
+```bash
+cd ~/AgentGuard && t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X PUT http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"chains":["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],"tokens":["4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"],"perTxMax":"2000000","dailyMax":"10000000","approvalThreshold":"1000000","allowedRecipients":["AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita"],"allowedDomains":[],"paused":false}'
+```
+
+Cola-me as respostas dos passos 9 e 10 e o que a janela 3 imprimiu. Se a liquidação falhar, a saída da
+janela 3 não tem segredos — é a primeira vez que isto corre contra a devnet a sério.
 
 ---
 
