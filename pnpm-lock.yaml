@@ -98,6 +98,12 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      bs58:
+        specifier: ^6.0.0
+        version: 6.0.0
+      litesvm:
+        specifier: 0.8.0
+        version: 0.8.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -1661,6 +1667,9 @@ packages:
   base-x@4.0.1:
     resolution: {integrity: sha512-uAZ8x6r6S3aUM9rbHGVOIsR15U/ZSc82b3ymnCPsT45Gk1DDvhDPdIgB5MrhirZWt+5K0EEPQH985kNqZgNPFw==}
 
+  base-x@5.0.1:
+    resolution: {integrity: sha512-M7uio8Zt++eg3jPj+rHMfCC+IuygQHHCOU+IYsVtik6FWjuYpVt/+MRKcgsAMHh8mMFAwnB+Bs+mTrFiXjMzKg==}
+
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
@@ -1699,6 +1708,9 @@ packages:
 
   bs58@5.0.0:
     resolution: {integrity: sha512-r+ihvQJvahgYT50JD05dyJNKlmmSlMoOGwn1lCcEzanPglg7TxYjioQUYehQ9mAR/+hOSd2jRc/Z2y5UxBymvQ==}
+
+  bs58@6.0.0:
+    resolution: {integrity: sha512-PD0wEnEYg6ijszw/u8s+iI3H17cTymlrwkKhDhPZq+Sokl3AU4htyBFTjAeNAlCCmg0f53g6ih3jATyCKftTfw==}
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
@@ -2319,6 +2331,46 @@ packages:
 
   light-my-request@6.8.0:
     resolution: {integrity: sha512-5Q8PjoSEdtGIB8fikZsTem5vgRo4F2mR6vUKTDW/H1g6MtAt8e3duQbg/QxL5yzg6BZhor2KOUm3hhWMWLTZwg==}
+
+  litesvm-darwin-arm64@0.8.0:
+    resolution: {integrity: sha512-XYa0oOA7FVbMYKvIDbBznWUjkHQD8J/fn5kPMBSX4QWf4yfFda/+L4JHeSngx+dBCM0LyEyLeakVrnmdR1KYPQ==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [darwin]
+
+  litesvm-darwin-x64@0.8.0:
+    resolution: {integrity: sha512-lrxU6VXEqY7MHHIskdjB88xM9OiGR2ZcXf+fMESnetCk6rVUM6Llfb386wsMiqvi1+DowJwShxluBsCutWo2Sw==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [darwin]
+
+  litesvm-linux-arm64-gnu@0.8.0:
+    resolution: {integrity: sha512-D0pdYTQkoibPCfza2x1urSjIpHdwHVagHs0fBMHpzxSEvXND2qqDR3jXYf6xcE0sAq0knXjQmGz7WzP/HhFeFw==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  litesvm-linux-arm64-musl@0.8.0:
+    resolution: {integrity: sha512-g7vgYPJZC6cT1gaWA1M2SbZu+Sngs9FuxsybDSE1Mmelmaejlguf7X/ymUuhehaSjEY+QSi+ydWtwzgE95JL0w==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  litesvm-linux-x64-gnu@0.8.0:
+    resolution: {integrity: sha512-nn599p+XuOJoQN2XTSaY4Yz1ZqYxLNUbvt30kImuRUs2ZlIv5FANzM+VUsZgSzWV0phW8m6stX3mpdVv0iIuFQ==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [linux]
+
+  litesvm-linux-x64-musl@0.8.0:
+    resolution: {integrity: sha512-UH4v1GM4hNOjEIzx/dBZQ5mxWGFOd85qs7IBou070dLjH0vdZMh4avQCQyc127+A7aRfdc8+wK7t4SEIn4EEgw==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [linux]
+
+  litesvm@0.8.0:
+    resolution: {integrity: sha512-P0Ly11FSr1f77bKwaRf0VQQZYdsw6Oi3OLKBxgBN5iJcB7W7lTjFB1tnVcJqdn1NMz6upqU/04rZFCC/JfYBWg==}
+    engines: {node: '>= 20'}
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -4439,6 +4491,8 @@ snapshots:
 
   base-x@4.0.1: {}
 
+  base-x@5.0.1: {}
+
   base64-js@1.5.1: {}
 
   better-sqlite3@13.0.3:
@@ -4483,6 +4537,10 @@ snapshots:
   bs58@5.0.0:
     dependencies:
       base-x: 4.0.1
+
+  bs58@6.0.0:
+    dependencies:
+      base-x: 5.0.1
 
   buffer-from@1.1.2: {}
 
@@ -5103,6 +5161,41 @@ snapshots:
       cookie: 2.0.1
       process-warning: 5.1.1
       set-cookie-parser: 3.2.2
+
+  litesvm-darwin-arm64@0.8.0:
+    optional: true
+
+  litesvm-darwin-x64@0.8.0:
+    optional: true
+
+  litesvm-linux-arm64-gnu@0.8.0:
+    optional: true
+
+  litesvm-linux-arm64-musl@0.8.0:
+    optional: true
+
+  litesvm-linux-x64-gnu@0.8.0:
+    optional: true
+
+  litesvm-linux-x64-musl@0.8.0:
+    optional: true
+
+  litesvm@0.8.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6):
+    dependencies:
+      '@solana/web3.js': 1.99.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      fastestsmallesttextencoderdecoder: 1.0.22
+    optionalDependencies:
+      litesvm-darwin-arm64: 0.8.0
+      litesvm-darwin-x64: 0.8.0
+      litesvm-linux-arm64-gnu: 0.8.0
+      litesvm-linux-arm64-musl: 0.8.0
+      litesvm-linux-x64-gnu: 0.8.0
+      litesvm-linux-x64-musl: 0.8.0
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - typescript
+      - utf-8-validate
 
   locate-path@6.0.0:
     dependencies:
