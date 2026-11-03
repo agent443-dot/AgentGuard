@@ -1,8 +1,15 @@
-import type { Amount, ChainId, Policy } from '@agentguard/shared'
-import { and, eq, sql } from 'drizzle-orm'
+import type {
+  Amount,
+  ChainId,
+  PayIntent,
+  Policy,
+  PolicyDecision,
+  RejectCode,
+} from '@agentguard/shared'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
 import type { Db } from './client.js'
-import { agents, dailySpend, intents, policies } from './schema.js'
+import { agents, auditLog, dailySpend, intents, policies } from './schema.js'
 
 export function findAgentByToken(db: Db, token: string): { id: string } | undefined {
   // Tokens are hashed with a salt-free digest, so the lookup is a scan over a small table rather
@@ -13,6 +20,10 @@ export function findAgentByToken(db: Db, token: string): { id: string } | undefi
     .all()
   const match = rows.find((row) => row.revokedAt === null && matchesHash(token, row.hash))
   return match ? { id: match.id } : undefined
+}
+
+export function agentExists(db: Db, id: string): boolean {
+  return db.select({ id: agents.id }).from(agents).where(eq(agents.id, id)).get() !== undefined
 }
 
 export function getPolicy(db: Db, agentId: string): Policy | undefined {
@@ -51,8 +62,65 @@ export function pauseAll(db: Db, now: string): number {
   return db.update(policies).set({ paused: true, updatedAt: now }).run().changes
 }
 
-export function getIntent(db: Db, id: string) {
-  return db.select().from(intents).where(eq(intents.id, id)).get()
+type IntentRow = typeof intents.$inferSelect
+
+function toIntent(row: IntentRow): PayIntent {
+  const { domain, txId, ...rest } = row
+  return {
+    ...rest,
+    ...(domain === null ? {} : { domain }),
+    ...(txId === null ? {} : { txId }),
+  }
+}
+
+export function getIntent(db: Db, id: string): PayIntent | undefined {
+  const row = db.select().from(intents).where(eq(intents.id, id)).get()
+  return row && toIntent(row)
+}
+
+export function saveIntent(db: Db, intent: PayIntent): void {
+  const row = { ...intent, domain: intent.domain ?? null, txId: intent.txId ?? null }
+  db.insert(intents).values(row).onConflictDoUpdate({ target: intents.id, set: row }).run()
+}
+
+/**
+ * An x402 payment the owner approved, waiting for the agent to come back for it. It matches only on
+ * the terms the owner saw, and only once: executing it moves it out of `approved`.
+ */
+export function findApprovedX402(db: Db, terms: PayIntent, now: Date): PayIntent | undefined {
+  const row = db
+    .select()
+    .from(intents)
+    .where(
+      and(
+        eq(intents.agentId, terms.agentId),
+        eq(intents.kind, 'x402'),
+        eq(intents.status, 'approved'),
+        eq(intents.chain, terms.chain),
+        eq(intents.token, terms.token),
+        eq(intents.amount, terms.amount),
+        eq(intents.recipient, terms.recipient),
+        eq(intents.domain, terms.domain ?? ''),
+        gt(intents.expiresAt, now.toISOString()),
+      ),
+    )
+    .get()
+  return row && toIntent(row)
+}
+
+export interface AuditEntry {
+  event: string
+  intentId?: string
+  agentId?: string
+  decision?: PolicyDecision
+  reasons?: RejectCode[]
+  detail?: Record<string, unknown>
+}
+
+export function audit(db: Db, entry: AuditEntry, at: Date): void {
+  db.insert(auditLog)
+    .values({ ...entry, at: at.toISOString() })
+    .run()
 }
 
 /** The policy's daily max applies to the sum across chains; the onchain caps are per chain. */
