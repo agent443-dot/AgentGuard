@@ -46,6 +46,12 @@ Each line can be checked by someone other than its author.
 - [x] **GC-13: `pnpm revoke-agent <agentId>`** (#19). The token gets a 401 on every agent route from
       its next request on. The agent's intents and audit history are kept.
 
+- [x] **SVM-9: owner signing on a Ledger** (#20). Every owner script (`create-multisig`,
+      `add-spending-limit`, `fund-vault`, `kill`) takes `SOLANA_OWNER_KEYPAIR=usb://ledger?key=0`.
+      Before each signature it prints the Message Hash the device must show. `kill` refuses before
+      asking the device if the key is not the config authority. **Proven against a fake device
+      only**: the real-hardware run is open, below.
+
 ### Open
 
 - [ ] **HUMAN-11**: the full stack on devnet. That covers a transfer approved on Telegram (real Solana
@@ -53,13 +59,23 @@ Each line can be checked by someone other than its author.
 - [ ] **SVM-8**: the fourth cap property, the refill after the period, plus all four as automated
       LiteSVM tests. Needs the Squads binary (HUMAN-10).
 - [ ] **INT-5 done**: needs the two items above. It is also the gate for the Base work.
-- [ ] **SVM-9, launch blocker: kill with a hardware wallet** (§4). Today `pnpm kill` needs the owner
-      key as a file. Onchain adds an owner signing path that works with a hardware wallet, kill first,
-      tested on devnet.
+- [ ] **Launch blocker, tied to D4: the Ledger path on real hardware, on devnet.** Follow
+      "The owner on a Ledger" in `packages/onchain/README.md` with a real device. Pass criteria:
+  - for `create-multisig`, `add-spending-limit` and `kill`, the **Message Hash shown on the device
+    equals the one the script printed**, character for character. The tests only show that the
+    script and the fake device agree with each other, not that the formula matches the real Solana
+    app. If it does not match, the owner would see a mismatch every time and, in an emergency,
+    reject his own kill;
+  - each of the three lands on devnet, signed by the Ledger;
+  - after the kill, `pnpm status` prints `spending limit:   none at <address>`;
+  - blind signing is off again at the end.
 - [ ] **Mainnet keys** generated fresh (key rule above). The owner key goes on the hardware wallet
       (D4), and the hot wallet key into the secrets manager (D5).
 - [ ] **Mainnet setup**, with the new keys:
-  - `create-multisig` and `add-spending-limit` run with `SOLANA_CLUSTER=mainnet-beta`;
+  - `create-multisig` and `add-spending-limit` run with `SOLANA_CLUSTER=mainnet-beta` and
+    `SOLANA_OWNER_KEYPAIR=usb://ledger?key=0`. **The multisig is created by the Ledger from the
+    start**: the creating key becomes the config authority, the only key that can remove the limit,
+    and no script here moves it afterwards;
   - `USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (Circle; also in
     `packages/shared/src/addresses.ts`);
   - `DAILY_CAP` set from D1;
@@ -114,18 +130,25 @@ leaked token or key, or any doubt at all. A kill is cheap to undo; a drain is no
 
 2. **Remove the onchain limit.** This is what actually stops the hot wallet drawing from the vault;
    step 1 only stops the guard. The bot's message gives the `removeSpendingLimit` instruction, which
-   must be signed by the config authority (the owner key). With the owner key as a file, as on
-   devnet today:
+   must be signed by the config authority, the owner key.
 
-   ```bash
-   pnpm --filter @agentguard/onchain kill          # shows the limit, changes nothing
-   pnpm --filter @agentguard/onchain kill --yes    # removes it
-   ```
+   With the owner key on a Ledger (mainnet):
+   1. Plug the Ledger in, unlock it, and open the Solana app.
+   2. Turn **Blind signing** on (Solana app, Settings). The app cannot display Squads instructions.
+   3. Run:
 
-   **Open, before mainnet (SVM-9, §2):** with the owner key on a hardware wallet, this needs a signing path
-   that is written down and tested. Either `kill.ts` learns to sign through the hardware wallet, or
-   the owner removes the limit in the Squads app with the hardware wallet. Decide and test it on
-   devnet before mainnet.
+      ```bash
+      SOLANA_OWNER_KEYPAIR='usb://ledger?key=0' pnpm --filter @agentguard/onchain kill --yes
+      ```
+
+   4. Compare the **Message Hash** on the device with the one the script printed, character by
+      character. Approve only on an exact match. On any difference, reject, and treat the computer as
+      compromised: run the kill from another machine. Do it within a minute, before the blockhash
+      expires.
+   5. Turn **Blind signing** off again.
+
+   With the owner key as a file (devnet today): `pnpm --filter @agentguard/onchain kill` shows the
+   limit and changes nothing; `kill --yes` removes it.
 
 3. **Confirm it is gone.** `pnpm --filter @agentguard/onchain status` must print
    `spending limit:   none at <address>`. On explorer.solana.com, on the right cluster, that
