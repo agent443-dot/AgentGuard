@@ -61,13 +61,33 @@ falhar com `The token '&&' is not a valid statement separator`.
 
 A partir daqui, **todos os comandos correm nesta janela do Ubuntu.** Para sair, `exit`.
 
-### 2.3 Atualizar o Ubuntu e instalar o git
+### 2.3 Ver o que já está instalado
+
+O Ubuntu do dono não é novo (tem oh-my-zsh e git), por isso **verifica antes de instalar**. Instalar o
+Node por cima de um `nvm` existente, por exemplo, dá conflitos chatos de diagnosticar.
+
+Primeiro vai para a home do Linux, não para `/mnt/c`:
+
+```bash
+cd ~ && pwd
+```
+
+Tem de dizer `/home/<o-teu-utilizador>`. Depois:
+
+```bash
+node -v; pnpm -v; git --version; forge --version; echo "---"; command -v nvm fnm
+```
+
+Os `;` são de propósito: assim os que faltam falham sem parar os restantes. Salta os passos de
+instalação do que já estiver presente e na versão certa (Node >= 20, pnpm 10).
+
+### 2.4 Atualizar o Ubuntu e instalar o git
 
 ```bash
 sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl build-essential
 ```
 
-### 2.4 Instalar o Node 22 e o pnpm
+### 2.5 Instalar o Node 22 e o pnpm
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
@@ -90,7 +110,7 @@ node -v && pnpm -v
 Deve dizer `v22.x` e `10.28.0`. Se o `corepack` falhar, usa em alternativa
 `sudo npm install -g pnpm@10.28.0`.
 
-### 2.5 Instalar o Foundry
+### 2.6 Instalar o Foundry
 
 Agora sim, o comando que te dei antes funciona, porque estás em bash:
 
@@ -112,7 +132,7 @@ forge --version
 cast --version
 ```
 
-### 2.6 Clonar o repositório dentro do Ubuntu
+### 2.7 Clonar o repositório dentro do Ubuntu
 
 Importante: clona dentro do sistema de ficheiros do Linux (`~`), **não** em `/mnt/c/...`. Em `/mnt/c` o
 pnpm e o git ficam muito lentos.
@@ -127,7 +147,7 @@ Se pedir credenciais, a forma mais simples é instalar o GitHub CLI e autenticar
 sudo apt install -y gh && gh auth login
 ```
 
-### 2.7 Verificar que tudo funciona
+### 2.8 Verificar que tudo funciona
 
 ```bash
 cd ~/AgentGuard && pnpm install && pnpm check
