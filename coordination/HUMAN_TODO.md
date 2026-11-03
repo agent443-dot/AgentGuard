@@ -22,6 +22,25 @@ Estado: ✅ feito · ⏳ a aguardar-te · ⬜ ainda não é preciso
 
 ---
 
+## Endereços onchain (Solana devnet)
+
+Criados em 2026-11-03. Tudo público.
+
+| O quê                       | Endereço                                       |
+| --------------------------- | ---------------------------------------------- |
+| Multisig Squads             | `3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu` |
+| Cofre do multisig           | `EnvU6vPvQaKqFZ8cEGN1WhvAk6NZ7J4YJEfG84XgDhjJ` |
+| Owner (membro, threshold 1) | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
+| Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
+
+**O dinheiro vive no cofre, não na owner.** A owner é quem manda; o cofre é onde está o USDC que o
+agente vai gastar sob o teto diário.
+
+Um primeiro multisig (`F3Pc9pL53bArMXY9WSMk9TNkvfDdPvqx2PnL5aUppq8n`) foi criado por engano e está
+abandonado e vazio. O script passou a recusar-se a criar um segundo.
+
+---
+
 ## ✅ HUMAN-1 — Criar o repositório e dar-me acesso
 
 Feito. O repositório é `kikume/AgentGuard` e esta sessão já tem acesso de escrita. O branch `main` já
