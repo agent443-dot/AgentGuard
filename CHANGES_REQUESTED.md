@@ -140,3 +140,67 @@ way). If the chain is ever reconsidered, verify both against official sources fi
 
 Approve all three changes and the sequencing. The type change (item 2) should be applied by the
 integrator before any session writes code, since every package imports those types.
+
+### CR-002 — Unmark the Solana CAIP-2 ids: confirmed against the chain
+
+- **From:** manager
+- **Date:** 2026-11-03
+- **Status:** confirmed — no value changes; integrator removes the marker
+- **What:** `packages/shared/src/constants.ts` marks `CHAINS.solanaDevnet` and `CHAINS.solanaMainnet` as
+  UNVERIFIED. The owner ran `solana genesis-hash` against both clusters:
+
+  | Cluster      | Genesis hash                                   | First 32 characters                | In the code |
+  | ------------ | ---------------------------------------------- | ---------------------------------- | ----------- |
+  | devnet       | `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG` | `EtWTRABZaYq6iMfeYKouRu166VU2xqa1` | match       |
+  | mainnet-beta | `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d` | `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | match       |
+
+  Both values in the code are correct. The change is to delete the UNVERIFIED comment block and replace
+  it with one line naming this check as the source.
+
+- **Why:** an unverified chain id is a standing doubt in code that every x402 network check depends on.
+- **Blast radius:** a comment in `packages/shared`; no behaviour changes.
+
+### CR-003 — x402 signing in `ChainAdapter`; x402 fetch responses without a payment
+
+- **From:** guard-core
+- **Date:** 2026-11-03
+- **Status:** proposed
+
+#### What
+
+1. **`ChainAdapter` gains one method** so guard-core can stop importing Solana SDKs:
+
+   ```ts
+   /** A scheme client for @x402/core that signs this intent and nothing else. */
+   x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient
+   ```
+
+   Today `packages/guard-core/src/adapters/svm-x402.ts` does this with `@x402/svm`, `@solana/kit`,
+   `@solana/web3.js` and onchain's `inspectTransfer`, behind a guard-core interface of the same
+   shape (`PaymentScheme.forIntent`). The code would move to `packages/onchain/src/svm/` unchanged.
+
+2. **`POST /v1/agent/x402/fetch` response.** Current text:
+   `-> 200 { intentId, status, response?: { status, headers, body } , rejectReasons }`.
+   Proposed: `intentId` and `status` are optional. They are absent when the resource did not ask for
+   a payment (the response passes through, `rejectReasons: []`), and `intentId` is absent when the
+   host is refused before any request (`status: "rejected"`, `DOMAIN_NOT_ALLOWED`).
+
+3. **Approved x402 payments.** Add under the x402 route: "After the owner approves, the agent repeats
+   the same request; the approval is redeemed once, for exactly the approved chain, token, amount,
+   recipient and domain. An approval not redeemed before `expiresAt` expires with `APPROVAL_TIMEOUT`."
+
+#### Why
+
+1. SPEC says guard-core never imports a chain SDK, but `ChainAdapter` has no way to sign an x402
+   payment, and the SDK has to see a signer to build one. Without this, either guard-core imports
+   Solana SDKs (today) or x402 cannot be paid.
+2. The SPEC shape has no answer for a free resource or a host refused before an intent exists.
+3. Only the agent's request can receive the paid response, so the guard cannot complete an x402
+   payment by itself when the owner approves. Implemented this way in guard-core today.
+
+#### Blast radius
+
+- `packages/onchain`: one method per adapter (SVM-3, EVM-3); the Solana one is already written.
+- `packages/guard-core`: deletes `adapters/svm-x402.ts`, calls the adapter instead.
+- `packages/mcp-server`: `paid_fetch` must accept a response without `intentId`, and should tell the
+  agent to repeat the call once `check_intent` reports `approved`.

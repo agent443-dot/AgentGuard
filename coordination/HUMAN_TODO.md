@@ -424,10 +424,10 @@ inteira dos comandos anteriores.
 
 ---
 
-## ⏳ HUMAN-4 — Pôr fundos de teste
+## ✅ HUMAN-4 — Pôr fundos de teste
 
-A Solana é a primeira chain, por isso só a parte Solana é urgente. A da Base espera pelas tarefas
-`EVM-*`.
+Feito para a Solana em 2026-11-03: SOL nas duas keypairs, USDC no cofre do multisig. A parte da Base
+espera pelas tarefas `EVM-*`.
 
 ### Solana devnet (agora)
 
@@ -483,6 +483,61 @@ cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --ether --rpc-url https:
 ```bash
 cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https://sepolia.base.org
 ```
+
+---
+
+## ✅ HUMAN-9 — Confirmar os genesis hashes da Solana
+
+Desbloqueia: `SVM-7`. Os identificadores de rede da Solana no código (`solana:5eykt4...`,
+`solana:EtWTRA...`) estão marcados como não verificados. São os primeiros 32 caracteres do genesis
+hash de cada rede, e só se confirmam perguntando à própria rede — coisa que as sessões na nuvem não
+conseguem fazer. Se estiverem errados, todas as verificações de rede do x402 falham.
+
+```bash
+solana genesis-hash --url devnet
+```
+
+```bash
+solana genesis-hash --url mainnet-beta
+```
+
+Cola as duas saídas no chat. São públicas.
+
+Feito em 2026-11-03: os dois identificadores no código estão corretos. Registado em CR-002.
+
+---
+
+## ⏳ HUMAN-10 — Descarregar o programa Squads para os testes automáticos
+
+Desbloqueia: `SVM-8`, os testes automáticos do teto onchain. Correm o programa Squads verdadeiro dentro
+de um validador local, e para isso precisam do binário dele — que se descarrega da mainnet, coisa que as
+sessões na nuvem não conseguem fazer. Os quatro testes estão escritos e à espera, marcados como
+`skipped`.
+
+O binário é público e vem do endereço oficial do programa, por isso os testes correm contra o código
+que está mesmo em produção, e não contra uma imitação.
+
+Vai para um branch próprio, `fixture/squads-v4`, e não para o `feat/onchain`: a Sessão 1 está a
+empurrar para esse branch, e assim os dois nunca se pisam.
+
+```bash
+cd ~/AgentGuard && git fetch origin && git checkout -b fixture/squads-v4 origin/main
+```
+
+```bash
+mkdir -p packages/onchain/test/fixtures && solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf packages/onchain/test/fixtures/squads_v4.so
+```
+
+```bash
+git add packages/onchain/test/fixtures/squads_v4.so && git commit -m "test: add the Squads v4 program binary for the LiteSVM cap tests"
+```
+
+```bash
+git push -u origin fixture/squads-v4 && git checkout main
+```
+
+Se o `git commit` responder `Please tell me who you are`, configura o git uma vez e repete o commit:
+`git config --global user.name "O teu nome"` e `git config --global user.email "o-teu@email"`.
 
 ---
 

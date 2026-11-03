@@ -4,13 +4,13 @@ The opening prompt for each build session, written against the real state of the
 2026-11-03 (SPEC v0.2.2). Each one says what already exists in that package so the session builds on
 it instead of redoing it.
 
-| Session        | Package                   | Branch            | Start                  |
-| -------------- | ------------------------- | ----------------- | ---------------------- |
-| 1 — onchain    | `packages/onchain`        | `feat/onchain`    | now                    |
-| 2 — guard-core | `packages/guard-core`     | `feat/guard-core` | now                    |
-| 3 — mcp        | `packages/mcp-server`     | `feat/mcp`        | now                    |
-| 4 — bot        | `packages/telegram-bot`   | `feat/bot`        | now                    |
-| 5 — integrator | `packages/shared`, `/e2e` | `feat/integrator` | once 1–4 have PRs open |
+| Session        | Package                   | Branch            | Status                             | Cloud session                      |
+| -------------- | ------------------------- | ----------------- | ---------------------------------- | ---------------------------------- |
+| 1 — onchain    | `packages/onchain`        | `feat/onchain`    | running since 2026-11-03 21:31 UTC | `session_01JbATMwyBXxF9XQfFsLKXSr` |
+| 2 — guard-core | `packages/guard-core`     | `feat/guard-core` | running since 2026-11-03 21:31 UTC | `session_01JbATMz7nmfUHJLa7w9bcKu` |
+| 3 — mcp        | `packages/mcp-server`     | `feat/mcp`        | running since 2026-11-03 21:31 UTC | `session_01JbATMvP1CCop59cWkcpwoe` |
+| 4 — bot        | `packages/telegram-bot`   | `feat/bot`        | running since 2026-11-03 21:31 UTC | `session_01JbATMzpGbP64syCMYQxB15` |
+| 5 — integrator | `packages/shared`, `/e2e` | `feat/integrator` | running since 2026-11-03 22:13 UTC | `session_01JbATMzmAa2N45kuqQrBTK1` |
 
 ## Rules every prompt carries
 
