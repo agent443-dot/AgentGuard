@@ -58,6 +58,7 @@ export function inspectTransfer(
   const keys = message.staticAccountKeys
   const reasons = new Set<RejectCode>()
   let matchingTransfers = 0
+  let memos = 0
 
   if (!keys[0]?.equals(expected.feePayer)) {
     reasons.add('SIM_UNEXPECTED_EFFECT')
@@ -92,8 +93,9 @@ export function inspectTransfer(
       }
     } else if (programId.equals(MEMO_PROGRAM_ID)) {
       // A memo with accounts makes the memo program demand their signatures, which is no payment's
-      // business.
-      if (instruction.keys.length > 0 || instruction.data.length > MAX_MEMO_BYTES) {
+      // business. The client writes one; a second has no reason to be there.
+      memos++
+      if (memos > 1 || instruction.keys.length > 0 || instruction.data.length > MAX_MEMO_BYTES) {
         reasons.add('SIM_UNEXPECTED_EFFECT')
       }
     } else if (programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)) {

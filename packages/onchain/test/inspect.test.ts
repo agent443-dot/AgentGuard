@@ -105,6 +105,11 @@ describe('inspectTransfer bounds what a memo may carry', () => {
     expect(inspectTransfer(message([pay(), long]), expected)).toContain('SIM_UNEXPECTED_EFFECT')
   })
 
+  it('a second memo', () => {
+    const twice = [pay(), memo(Buffer.from('one')), memo(Buffer.from('two'))]
+    expect(inspectTransfer(message(twice), expected)).toContain('SIM_UNEXPECTED_EFFECT')
+  })
+
   it('a memo at the ceiling', () => {
     expect(inspectTransfer(message([pay(), memo(Buffer.alloc(256, 0x61))]), expected)).toEqual([])
   })
