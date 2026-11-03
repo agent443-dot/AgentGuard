@@ -41,6 +41,11 @@ Each line can be checked by someone other than its author.
 - [x] Security review, first pass (`docs/security-review.md`): no secrets in git history, no keys in
       logs, auth checked on every endpoint, no reachable critical advisory.
 
+- [x] **GC-12: guard-core binds a deployable interface** (#19). `HOST` defaults to `127.0.0.1`. A
+      deployment sets it, `0.0.0.0` behind its own TLS and firewall, once D3 is decided.
+- [x] **GC-13: `pnpm revoke-agent <agentId>`** (#19). The token gets a 401 on every agent route from
+      its next request on. The agent's intents and audit history are kept.
+
 ### Open
 
 - [ ] **HUMAN-11**: the full stack on devnet. That covers a transfer approved on Telegram (real Solana
@@ -63,12 +68,6 @@ Each line can be checked by someone other than its author.
 - [ ] **guard-core on mainnet**: `SOLANA_CHAIN=solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`, set
       explicitly, because the default is devnet. Also `GUARD_STUB_CHAINS=false`, a mainnet
       `SOLANA_RPC_URL`, and the new `SQUADS_MULTISIG`. The mcp-server `DEFAULT_CHAIN` must match.
-- [ ] **GC-12, launch blocker: guard-core binds a deployable interface.** It listens on a hard-coded
-      `127.0.0.1` (`packages/guard-core/src/main.ts`). It needs a `HOST` setting like the bot's,
-      chosen with D3.
-- [ ] **GC-13, launch blocker: `pnpm revoke-agent`.** `agents.revoked_at` exists and guard-core refuses
-      revoked tokens, but nothing sets the column. A leaked agent token can't be revoked without
-      editing the database.
 - [ ] **Persistent database.** `DATABASE_URL` defaults to `file:./data/guard.db`. The host needs a
       persistent volume, or intents, the audit log and daily spend are lost on redeploy.
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
@@ -155,6 +154,7 @@ Do this after any suspected exposure, and after any kill caused by one.
 
 `ADMIN_TOKEN`, `BOT_TOKEN` and `BOT_WEBHOOK_SECRET` are generated with `openssl rand -hex 32` and must
 match between guard-core and the bot. Change them in both, restart both, and let the `pnpm dev:all`
-preflight (or its equivalent at deploy) confirm they agree. An agent token can't be rotated in place
-yet: `create-agent` issues a new agent. Revoking a single token (`agents.revoked_at`) has no command
-yet: that is GC-13, a launch blocker.
+preflight (or its equivalent at deploy) confirm they agree. A leaked agent token is revoked with
+`pnpm --filter @agentguard/guard-core revoke-agent <agentId>`, which takes effect on the token's next
+request. A token can't be rotated in place: `create-agent` issues a new agent with its own token and a
+deny-all policy, which the owner then sets.
