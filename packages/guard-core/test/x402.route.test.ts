@@ -1,7 +1,7 @@
 import { CHAINS } from '@agentguard/shared'
 import { decodePaymentSignatureHeader } from '@x402/core/http'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SigningRefused } from '../src/adapters/x402.js'
+import { SigningRefused } from '@agentguard/onchain'
 import { expirePending } from '../src/service/approvals.js'
 import { harness, offer, paid, paymentRequired, spent, type Harness } from './harness.js'
 
@@ -108,11 +108,11 @@ describe('malicious 402 responses (GC-10)', () => {
     ['the wrong network', offer({ network: CHAINS.solanaMainnet }), 'CHAIN_NOT_ALLOWED'],
     ['a scheme we never sign', offer({ scheme: 'upto' }), 'INVALID_402'],
   ])('refuses %s without signing', async (_case, terms, code) => {
-    const forIntent = vi.spyOn(h.scheme, 'forIntent')
+    const x402Scheme = vi.spyOn(h.chain, 'x402Scheme')
     serve(paymentRequired([terms]))
     const res = await paidFetch()
     expect(res.json()).toMatchObject({ status: 'rejected', rejectReasons: [code] })
-    expect(forIntent).not.toHaveBeenCalled()
+    expect(x402Scheme).not.toHaveBeenCalled()
     expect(h.fetch).toHaveBeenCalledOnce()
     expect(spent(h.db)).toBe(0n)
   })
@@ -129,6 +129,23 @@ describe('malicious 402 responses (GC-10)', () => {
     expect((await paidFetch()).json().rejectReasons).toEqual(['INVALID_402'])
   })
 
+  it('records a refused 402 in terms the bot can read', async () => {
+    serve(new Response('{}', { status: 402 }))
+    const res = await paidFetch()
+    const intent = await h.agent('GET', `/v1/agent/intents/${res.json().intentId}`)
+    expect(intent.json()).toMatchObject({
+      chain: 'unknown',
+      token: 'unknown',
+      recipient: 'unknown',
+      amount: '0',
+    })
+  })
+
+  it('refuses an offer with an oversized payTo as INVALID_402', async () => {
+    serve(paymentRequired([offer({ payTo: 'x'.repeat(129) })]))
+    expect((await paidFetch()).json().rejectReasons).toEqual(['INVALID_402'])
+  })
+
   it('refuses a version 1 402', async () => {
     const v1 = Buffer.from(JSON.stringify({ x402Version: 1, accepts: [offer()] })).toString(
       'base64',
@@ -138,7 +155,7 @@ describe('malicious 402 responses (GC-10)', () => {
   })
 
   it('refuses an approval disguised as a payment at signing time', async () => {
-    vi.spyOn(h.scheme, 'forIntent').mockImplementation(() => ({
+    vi.spyOn(h.chain, 'x402Scheme').mockImplementation(() => ({
       scheme: 'exact',
       createPaymentPayload: async () => {
         throw new SigningRefused(['DELEGATE_DETECTED'])

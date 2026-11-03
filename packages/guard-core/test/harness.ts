@@ -6,8 +6,7 @@ import type { PaymentRequirements } from '@x402/core/types'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { vi } from 'vitest'
 import type { BotNotifier } from '../src/adapters/bot.js'
-import { StubChain, stubScheme } from '../src/adapters/stub.js'
-import type { PaymentScheme } from '../src/adapters/x402.js'
+import { StubChain } from '../src/adapters/stub.js'
 import { loadConfig } from '../src/config.js'
 import { openDb, schema, type Db } from '../src/db/client.js'
 import { hashToken } from '../src/domain/auth.js'
@@ -36,7 +35,6 @@ export interface Harness {
   app: Server
   db: Db
   chain: StubChain
-  scheme: PaymentScheme
   bot: BotNotifier
   fetch: ReturnType<typeof vi.fn<typeof fetch>>
   clock: { now: Date }
@@ -68,7 +66,6 @@ export async function harness(
     .run()
 
   const chain = new StubChain(CHAIN, options.balance ?? 100_000_000n)
-  const scheme = stubScheme(CHAIN)
   const bot: BotNotifier = {
     requestApproval: vi.fn(async () => {}),
     intentEvent: vi.fn(async () => {}),
@@ -86,7 +83,6 @@ export async function harness(
       LOG_LEVEL: 'fatal',
     }),
     chains: new Map([[CHAIN, chain]]),
-    schemes: new Map([[CHAIN, scheme]]),
     bot,
     fetch: fetchMock,
     now: () => clock.now,
@@ -97,7 +93,6 @@ export async function harness(
     app,
     db,
     chain,
-    scheme,
     bot,
     fetch: fetchMock,
     clock,

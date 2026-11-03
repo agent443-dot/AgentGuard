@@ -2,7 +2,7 @@ import type { Policy } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import type { PaymentRequirements } from '@x402/core/types'
 import { describe, expect, it } from 'vitest'
-import { chooseAccept, requirementsChanged } from '../src/domain/x402.js'
+import { chooseAccept, refusedTerms, requirementsChanged } from '../src/domain/x402.js'
 
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const MERCHANT = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
@@ -114,5 +114,36 @@ describe('requirementsChanged', () => {
 
   it('tolerates cosmetic fields changing', () => {
     expect(requirementsChanged(offer(), offer({ maxTimeoutSeconds: 120 }))).toBe(false)
+  })
+})
+
+describe('refusedTerms', () => {
+  it('keeps readable terms as offered', () => {
+    const o = offer()
+    expect(refusedTerms(o)).toEqual({
+      chain: o.network,
+      token: o.asset,
+      recipient: o.payTo,
+      amount: o.amount,
+    })
+  })
+
+  it('records a missing offer as unknown', () => {
+    expect(refusedTerms(undefined)).toEqual({
+      chain: 'unknown',
+      token: 'unknown',
+      recipient: 'unknown',
+      amount: '0',
+    })
+  })
+
+  it.each([
+    ['an empty payTo', { payTo: '' }, 'recipient', 'unknown'],
+    ['an oversized asset', { asset: 'x'.repeat(129) }, 'token', 'unknown'],
+    ['an oversized network', { network: `solana:${'x'.repeat(64)}` as const }, 'chain', 'unknown'],
+    ['a decimal amount', { amount: '1.5' }, 'amount', '0'],
+    ['a negative amount', { amount: '-1' }, 'amount', '0'],
+  ])('replaces %s', (_case, overrides, field, value) => {
+    expect(refusedTerms(offer(overrides))[field as 'chain']).toBe(value)
   })
 })

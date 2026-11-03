@@ -1,12 +1,6 @@
-import type { ApprovalRequest, PayIntent } from '@agentguard/shared'
+import type { ApprovalRequest, IntentEvent } from '@agentguard/shared'
 import type { Config } from '../config.js'
 import { signWebhook } from '../domain/auth.js'
-
-/** Body of POST {BOT_URL}/hooks/intent-event (CR-004). `sentAt` lets the bot refuse replays. */
-export interface IntentEvent {
-  intent: PayIntent
-  sentAt: string
-}
 
 export interface BotNotifier {
   requestApproval(request: ApprovalRequest): Promise<void>

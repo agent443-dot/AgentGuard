@@ -9,6 +9,7 @@ import { parseAmount, toAmount } from '../domain/amount.js'
 import { evaluate } from '../domain/policy.js'
 import { checkSimulation } from '../domain/simulation.js'
 import { expirePending, expiresAt, requestApproval } from './approvals.js'
+import { notify } from './events.js'
 import type { Serial } from './serial.js'
 
 export interface PaymentDeps {
@@ -141,18 +142,6 @@ async function askOwner(
     )
   }
   return pending
-}
-
-/**
- * Tells the bot an intent reached a final state (CR-004); the bot decides what the owner sees. Never
- * awaited: a bot that is down must not hold up or fail a payment that already happened.
- */
-export function notify(deps: PaymentDeps, intent: PayIntent): void {
-  deps.bot
-    .intentEvent({ intent, sentAt: deps.now().toISOString() })
-    .catch((error: unknown) =>
-      deps.log.warn({ err: error, intentId: intent.id }, 'intent event webhook failed'),
-    )
 }
 
 export function reject(deps: PaymentDeps, intent: PayIntent, reasons: RejectCode[]): PayIntent {
