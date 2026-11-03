@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.test.ts'],
     passWithNoTests: true,
-    // End-to-end runs talk to Base Sepolia (or a local fork) and to live services.
+    // Generous for the devnet runs on the owner's machine; the in-process suite takes seconds.
     testTimeout: 120_000,
     hookTimeout: 120_000,
   },
