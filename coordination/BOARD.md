@@ -20,12 +20,12 @@ tells us what the second adapter has to satisfy.
 
 ## manager
 
-| id    | owner   | status | depends_on | notes                                                                                                                     |
-| ----- | ------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| MGR-1 | manager | done   | —          | Repo bootstrap: pnpm workspace, strict tsconfig, ESLint/Prettier, vitest, CI, package skeletons, `coordination/`, ADR-001 |
-| MGR-2 | manager | done   | MGR-1      | Board and `HUMAN_TODO.md`                                                                                                 |
-| MGR-3 | manager | doing  | —          | Coordination rounds: read every inbox, unblock, route questions, detect drift against SPEC                                |
-| MGR-4 | manager | done   | —          | CR-001 presented and applied: SPEC v0.2, two chains, ADR-002                                                              |
+| id    | owner   | status | depends_on | notes                                                                                                                                                                                                                                          |
+| ----- | ------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MGR-1 | manager | done   | —          | Repo bootstrap: pnpm workspace, strict tsconfig, ESLint/Prettier, vitest, CI, package skeletons, `coordination/`, ADR-001                                                                                                                      |
+| MGR-2 | manager | done   | MGR-1      | Board and `HUMAN_TODO.md`                                                                                                                                                                                                                      |
+| MGR-3 | manager | doing  | —          | Coordination rounds. Sessions 1–4 run in the cloud since 2026-11-03 21:31 UTC (ids in `SESSION_PROMPTS.md`). The manager stops writing product code and goes back to coordinating: reading inboxes, unblocking, routing owner tasks, reviewing |
+| MGR-4 | manager | done   | —          | CR-001 presented and applied: SPEC v0.2, two chains, ADR-002                                                                                                                                                                                   |
 
 ## Session 1 — onchain (`packages/onchain`, branch `feat/onchain`)
 
