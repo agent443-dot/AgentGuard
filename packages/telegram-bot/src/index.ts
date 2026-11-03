@@ -1,5 +1,7 @@
-/**
- * @agentguard/telegram-bot — owner: Session 4 (bot).
- * Scaffold only: no implementation yet. Tasks: BOT-1 .. BOT-7 in /coordination/BOARD.md.
- */
-export const PACKAGE_NAME = '@agentguard/telegram-bot'
+export { httpGuardClient, GuardError } from './adapters/guard.js'
+export type { GuardClient, DecisionResult, KillResult } from './adapters/guard.js'
+export { createBot } from './bot/index.js'
+export { Desk } from './bot/desk.js'
+export { loadConfig } from './config.js'
+export { buildServer } from './http/server.js'
+export { sign, signatureValid } from './domain/signature.js'

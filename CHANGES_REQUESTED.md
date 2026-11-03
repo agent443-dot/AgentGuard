@@ -140,3 +140,48 @@ way). If the chain is ever reconsidered, verify both against official sources fi
 
 Approve all three changes and the sequencing. The type change (item 2) should be applied by the
 integrator before any session writes code, since every package imports those types.
+
+### CR-002 — Bot needs an intent-event webhook, an admin budget read, and a pinned kill response
+
+- **From:** bot
+- **Date:** 2026-11-03
+- **Status:** proposed
+- **What:** three additions to [`/SPEC.md`](./SPEC.md). None changes an existing interface.
+
+  1. **New webhook guard-core -> telegram-bot**, under "Webhook guard-core -> telegram-bot":
+
+     ```
+     POST {BOT_URL}/hooks/intent-event   (same X-Guard-Signature scheme as approval-request)
+     { intent: PayIntent, sentAt: string }   // sentAt: ISO time guard-core sent it
+     Sent when an intent reaches executed, rejected, failed or expired.
+     ```
+
+     The bot decides what to show (executed at or above `NOTIFY_ABOVE_AMOUNT`, any attack code), so
+     guard-core needs no notification policy of its own. `sentAt` is there for replay protection: the
+     bot refuses events older than 5 minutes and deduplicates on intent id plus status.
+
+  2. **New admin route**, under "guard-core HTTP API":
+
+     ```
+     GET /v1/admin/budget/:agentId -> BudgetView   (admin token; 404 { error: "not_found" })
+     ```
+
+     Same body as `GET /v1/agent/budget/:agentId`, which needs that agent's own token.
+
+  3. **Pin the `/v1/admin/kill` response**, which the SPEC leaves as `{} -> ...`:
+
+     ```
+     -> { pausedAgents: number,
+          ownerTransactions: { chain: string, description: string, payload: unknown }[] }
+     ```
+
+     `pausedAgents` is what guard-core already returns. Each `ownerTransactions` entry is one
+     chain's `ChainAdapter.buildKillTx()` result with its CAIP-2 chain added.
+
+- **Why:** BOT-5 (notify on large executed payments and every attack code) has no way to hear about
+  them: the only webhook today is the approval request. `/budget` (BOT-4) cannot be answered: the bot
+  holds the bot and admin tokens, never an agent token. `/kill` must show each chain's owner
+  transaction and the SPEC leaves the shape open.
+- **Blast radius:** guard-core (send the event on every final state; add the route; return the kill
+  shape, which it already half does), telegram-bot (already built against all three, see
+  `packages/telegram-bot`), shared (optional: an `IntentEvent` type), e2e (INT-3 can assert alerts).

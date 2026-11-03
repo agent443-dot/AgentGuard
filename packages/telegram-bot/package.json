@@ -13,6 +13,17 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx --env-file=.env src/main.ts"
+  },
+  "dependencies": {
+    "@agentguard/shared": "workspace:*",
+    "fastify": "^5.12.8",
+    "grammy": "^1.46.0",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
