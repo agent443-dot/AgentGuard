@@ -215,7 +215,7 @@ describe('x402 over the approval threshold', () => {
 
   it('expires an approval the agent never came back for', async () => {
     const id = await approved()
-    expect(expirePending(h.db, new Date('2026-11-03T12:11:00Z'))).toBe(1)
+    expect(expirePending(h.db, new Date('2026-11-03T12:11:00Z'))).toHaveLength(1)
     const intent = await h.agent('GET', `/v1/agent/intents/${id}`)
     expect(intent.json()).toMatchObject({ status: 'expired', rejectReasons: ['APPROVAL_TIMEOUT'] })
   })

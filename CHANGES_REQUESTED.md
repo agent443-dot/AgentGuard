@@ -164,7 +164,7 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** guard-core
 - **Date:** 2026-11-03
-- **Status:** proposed
+- **Status:** approved (owner, 2026-11-03)
 
 #### What
 

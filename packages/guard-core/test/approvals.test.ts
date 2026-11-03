@@ -40,7 +40,10 @@ function intent(overrides: Partial<PayIntent> = {}): PayIntent {
 }
 
 let db: Db
-const notifier: BotNotifier = { requestApproval: vi.fn(async () => {}) }
+const notifier: BotNotifier = {
+  requestApproval: vi.fn(async () => {}),
+  intentEvent: vi.fn(async () => {}),
+}
 
 beforeEach(() => {
   db = openDb(':memory:')
@@ -113,8 +116,8 @@ describe('expirePending', () => {
       })
       .run()
 
-    expect(expirePending(db, new Date('2026-11-03T12:09:00Z'))).toBe(0)
-    expect(expirePending(db, new Date('2026-11-03T12:11:00Z'))).toBe(1)
+    expect(expirePending(db, new Date('2026-11-03T12:09:00Z'))).toEqual([])
+    expect(expirePending(db, new Date('2026-11-03T12:11:00Z'))).toHaveLength(1)
 
     const statuses = db
       .select()
@@ -155,5 +158,25 @@ describe('httpBotNotifier', () => {
         approveBefore: expiresAt(CREATED),
       }),
     ).rejects.toThrow(/bot_webhook_failed: 401/)
+  })
+
+  it('posts intent events to their own hook, signed the same way', async () => {
+    let seen: { url: string; body: string; signature: string } | undefined
+    const fakeFetch = (async (url, init) => {
+      const headers = init?.headers as Record<string, string>
+      seen = {
+        url: String(url),
+        body: init?.body as string,
+        signature: headers['x-guard-signature'] ?? '',
+      }
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+
+    const event = { intent: intent({ status: 'executed' }), sentAt: CREATED.toISOString() }
+    await httpBotNotifier(config, fakeFetch).intentEvent(event)
+
+    expect(seen?.url).toBe('http://bot.local/hooks/intent-event')
+    expect(seen?.body).toBe(JSON.stringify(event))
+    expect(webhookSignatureValid(seen!.body, SECRET, seen!.signature)).toBe(true)
   })
 })

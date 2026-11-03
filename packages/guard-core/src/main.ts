@@ -8,7 +8,6 @@ import type { PaymentScheme } from './adapters/x402.js'
 import { loadConfig } from './config.js'
 import { openDb } from './db/client.js'
 import { buildServer } from './http/server.js'
-import { expirePending } from './service/approvals.js'
 
 const config = loadConfig()
 
@@ -26,7 +25,7 @@ if (config.GUARD_STUB_CHAINS === 'true') {
   schemes.set(chain, svmPaymentScheme(chain, wallet, config.SOLANA_RPC_URL))
 }
 
-const app = await buildServer({ db, config, chains, schemes })
+const app = await buildServer({ db, config, chains, schemes, sweepMs: config.EXPIRY_SWEEP_MS })
 
 if (config.GUARD_STUB_CHAINS === 'true') {
   app.log.warn('stub chains: nothing is signed and no money moves')
@@ -36,16 +35,8 @@ if (config.GUARD_STUB_CHAINS === 'true') {
   app.log.warn('no chain adapter configured: every payment will be refused')
 }
 
-const sweep = setInterval(() => {
-  const expired = expirePending(db, new Date())
-  if (expired > 0) {
-    app.log.info({ expired }, 'expired pending intents')
-  }
-}, config.EXPIRY_SWEEP_MS)
-
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
-    clearInterval(sweep)
     void app.close()
   })
 }

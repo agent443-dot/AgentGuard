@@ -13,6 +13,7 @@ import type { PaymentScheme } from '../adapters/x402.js'
 import type { Config } from '../config.js'
 import type { Db } from '../db/client.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
+import { sweep } from '../service/payments.js'
 import { serial } from '../service/serial.js'
 import type { X402Deps } from '../service/x402.js'
 import { adminRoutes } from './admin.js'
@@ -33,6 +34,8 @@ export interface ServerDeps {
   bot?: BotNotifier
   fetch?: typeof fetch
   now?: () => Date
+  /** Runs the expiry sweep on this interval. Off when unset, as in tests that drive it directly. */
+  sweepMs?: number
 }
 
 export async function buildServer(options: ServerDeps) {
@@ -95,6 +98,16 @@ export async function buildServer(options: ServerDeps) {
   )
 
   app.get('/health', async () => ({ status: 'ok' }))
+
+  if (options.sweepMs !== undefined) {
+    const timer = setInterval(() => {
+      const expired = sweep(deps)
+      if (expired > 0) {
+        app.log.info({ expired }, 'expired pending intents')
+      }
+    }, options.sweepMs)
+    app.addHook('onClose', async () => clearInterval(timer))
+  }
 
   return app
 }
