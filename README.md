@@ -45,6 +45,27 @@ pnpm install
 pnpm check        # lint + typecheck + test
 ```
 
+### Running the whole stack
+
+`pnpm dev:all` starts guard-core (:8787), telegram-bot (:8788) and mcp-server over HTTP (:8789). It
+first cross-checks the three `.env` files and refuses to start if they disagree: a webhook secret or
+token that differs between guard-core and the bot, a service pointed at the wrong port, or no agent.
+
+1. Copy each `packages/<name>/.env.example` to `.env`. Generate every secret with
+   `openssl rand -hex 32`. Give guard-core's `BOT_WEBHOOK_SECRET`, `BOT_TOKEN` and `ADMIN_TOKEN` to
+   the bot as `BOT_WEBHOOK_SECRET`, `GUARD_BOT_TOKEN` and `GUARD_ADMIN_TOKEN`.
+2. Create an agent: `pnpm --filter @agentguard/guard-core create-agent agent-1`. Put the printed
+   token in mcp-server's `AGENT_TOKEN`. In mcp-server's `.env`, set `MCP_TRANSPORT=http` and an
+   `MCP_HTTP_TOKEN`.
+3. Set the agent's policy with `PUT /v1/admin/policy/agent-1`. A new agent's policy denies
+   everything.
+4. `pnpm dev:all`.
+
+With `GUARD_STUB_CHAINS=true`, guard-core runs on an offline chain that signs nothing. For Solana
+devnet, set `SOLANA_RPC_URL`, `SOLANA_HOT_WALLET_KEYPAIR` and `SQUADS_MULTISIG` instead. Without
+them every payment is refused. Agent clients that start the MCP server themselves over stdio don't
+need it in `dev:all`; see [`packages/mcp-server`](./packages/mcp-server).
+
 On Windows, develop inside **WSL2 + Ubuntu** and clone the repo into the Linux filesystem (`~`), not
 `/mnt/c`. Foundry's installer does not run in PowerShell or Cmd, and pnpm and git are far slower across
 the `/mnt/c` boundary.
