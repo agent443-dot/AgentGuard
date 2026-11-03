@@ -75,6 +75,11 @@ From `POST /hooks/intent-event`:
   `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED`. The alert says in
   plain words what the payment tried to do and suggests `/pause`.
 
+Attack alerts are throttled, because an attacker can drive an agent to send malicious payments in a
+loop and each rejection would otherwise be a message. The first alert for an agent and code goes out
+at once; repeats in the next 5 minutes are counted, and one "Attack alerts held back" message with
+the count is sent when that window closes. Large-payment alerts are never throttled.
+
 ## Layout
 
 ```

@@ -122,6 +122,21 @@ export function attackText(intent: PayIntent, codes: AttackCode[]): string {
   ].join('\n')
 }
 
+export function heldBackText(
+  agentId: string,
+  code: AttackCode,
+  repeats: number,
+  since: number,
+): string {
+  const id = `<code>${escapeHtml(agentId)}</code>`
+  return [
+    `<b>Attack alerts held back</b>: ${repeats} more <code>${code}</code> ` +
+      `${repeats === 1 ? 'rejection' : 'rejections'} for ${id} since ${utcTime(new Date(since))}.`,
+    'All were blocked. Repeated attempts mean the agent is being driven: consider ' +
+      `/pause ${id}.`,
+  ].join('\n')
+}
+
 export function budgetText(agentId: string, budget: BudgetView): string {
   const wallets = Object.entries(budget.hotWalletBalances).map(
     ([chain, balance]) => `  ${chainName(chain)}: ${formatUsd(balance)}`,

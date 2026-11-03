@@ -164,7 +164,9 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** bot
 - **Date:** 2026-11-03
-- **Status:** proposed
+- **Status:** approved (owner, 2026-11-03). Owner's addition: attack-code alerts are throttled per
+  agent and code so a loop of malicious payments cannot flood the owner's Telegram; large-payment
+  alerts are not throttled. Done in the bot.
 - **What:** three additions to [`/SPEC.md`](./SPEC.md). None changes an existing interface.
 
   1. **New webhook guard-core -> telegram-bot**, under "Webhook guard-core -> telegram-bot":

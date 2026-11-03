@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { alertsFor } from '../src/domain/alerts.js'
+import type { PayIntent, RejectCode } from '@agentguard/shared'
+import { ATTACK_WINDOW_MS, Alerts } from '../src/domain/alerts.js'
 import { ATTACK_CODES, attackCodesIn } from '../src/domain/codes.js'
 import { formatUsd } from '../src/domain/money.js'
 import { ApprovalBook, EventLog } from '../src/domain/replay.js'
@@ -117,7 +118,10 @@ describe('EventLog', () => {
   })
 })
 
-describe('alertsFor', () => {
+describe('Alerts', () => {
+  const alertsFor = (payment: PayIntent, notifyAbove: bigint) =>
+    new Alerts(notifyAbove).for(payment, NOW)
+
   it('reports executed payments at or above the threshold only', () => {
     expect(alertsFor(intent({ status: 'executed', amount: '1000000' }), 1_000_000n)).toHaveLength(1)
     expect(alertsFor(intent({ status: 'executed', amount: '999999' }), 1_000_000n)).toHaveLength(0)
@@ -136,6 +140,43 @@ describe('alertsFor', () => {
     expect(
       alertsFor(intent({ status: 'rejected', rejectReasons: ['DAILY_EXCEEDED'] }), 0n),
     ).toEqual([])
+  })
+
+  it('alerts once per agent and code per window and sums the repeats when it closes', () => {
+    const alerts = new Alerts(0n)
+    const attack = (agentId: string, code: RejectCode) =>
+      intent({ agentId, status: 'rejected', rejectReasons: [code] })
+
+    expect(alerts.for(attack('a1', 'PERMIT_DETECTED'), NOW)).toHaveLength(1)
+    expect(alerts.for(attack('a1', 'PERMIT_DETECTED'), later(1000))).toEqual([])
+    expect(alerts.for(attack('a1', 'PERMIT_DETECTED'), later(2000))).toEqual([])
+    expect(alerts.for(attack('a1', 'APPROVAL_DETECTED'), later(3000))).toHaveLength(1)
+    expect(alerts.for(attack('a2', 'PERMIT_DETECTED'), later(4000))).toHaveLength(1)
+    expect(alerts.flush(later(ATTACK_WINDOW_MS - 1))).toEqual([])
+
+    const [summary, ...rest] = alerts.flush(later(ATTACK_WINDOW_MS))
+    expect(rest).toEqual([])
+    expect(summary).toContain('2 more <code>PERMIT_DETECTED</code> rejections')
+    expect(summary).toContain('<code>a1</code> since 2026-11-03 12:00:00 UTC')
+    expect(alerts.flush(later(2 * ATTACK_WINDOW_MS))).toEqual([])
+  })
+
+  it('reports a window that ran out between ticks before opening the next', () => {
+    const alerts = new Alerts(0n)
+    const attack = intent({ status: 'rejected', rejectReasons: ['DELEGATE_DETECTED'] })
+    alerts.for(attack, NOW)
+    alerts.for(attack, later(1000))
+    const next = alerts.for(attack, later(ATTACK_WINDOW_MS + 1))
+    expect(next).toHaveLength(2)
+    expect(next[0]).toContain('1 more <code>DELEGATE_DETECTED</code> rejection ')
+    expect(next[1]).toContain('Possible attack blocked')
+  })
+
+  it('never holds back large payments', () => {
+    const alerts = new Alerts(1n)
+    for (let i = 0; i < 5; i++) {
+      expect(alerts.for(intent({ status: 'executed' }), later(i))).toHaveLength(1)
+    }
   })
 })
 

@@ -2,7 +2,7 @@ import type { ApprovalRequest } from '@agentguard/shared'
 import { type Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient } from '../adapters/guard.js'
-import { alertsFor } from '../domain/alerts.js'
+import { Alerts } from '../domain/alerts.js'
 import { type Admission, ApprovalBook, EventLog, type MessageRef } from '../domain/replay.js'
 import { approvalText, type Outcome, settledFallback, settledText } from '../domain/text.js'
 import type { IntentEvent } from '../http/schemas.js'
@@ -47,12 +47,14 @@ export function approvalKeyboard(intentId: string): InlineKeyboard {
 export class Desk {
   readonly book = new ApprovalBook()
   readonly #events = new EventLog()
+  readonly #alerts: Alerts
   readonly #deps: DeskDeps
   readonly #now: () => Date
 
   constructor(deps: DeskDeps) {
     this.#deps = deps
     this.#now = deps.now ?? (() => new Date())
+    this.#alerts = new Alerts(deps.notifyAbove)
   }
 
   async post(request: ApprovalRequest): Promise<PostResult> {
@@ -107,10 +109,17 @@ export class Desk {
     }
   }
 
+  /** Runs on the same timer: reports attack alerts that were held back. */
+  async flushAlerts(): Promise<void> {
+    for (const summary of this.#alerts.flush(this.#now())) {
+      await this.#broadcast(summary)
+    }
+  }
+
   async event({ intent, sentAt }: IntentEvent): Promise<Admission> {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
     if (admission === 'accepted') {
-      for (const alert of alertsFor(intent, this.#deps.notifyAbove)) {
+      for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }
     }

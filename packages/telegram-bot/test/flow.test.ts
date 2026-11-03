@@ -240,6 +240,27 @@ describe('POST /hooks/intent-event', () => {
     expect(sent(calls, 'sendMessage')[0]?.payload['text']).toContain('Possible attack blocked')
   })
 
+  it('does not let a loop of malicious payments flood the owners', async () => {
+    let now = NOW
+    const { desk, calls, deliver } = await harness({ now: () => now })
+    for (let i = 0; i < 50; i++) {
+      const id = `4b8f6c0e-2a8e-4f7e-9a51-${String(i).padStart(12, '0')}`
+      const response = await deliver('/hooks/intent-event', {
+        intent: intent({ id, status: 'rejected', rejectReasons: ['UNKNOWN_PROGRAM_DETECTED'] }),
+        sentAt: now.toISOString(),
+      })
+      expect(response.statusCode).toBe(200)
+    }
+    expect(sent(calls, 'sendMessage')).toHaveLength(2)
+
+    now = new Date(NOW.getTime() + 5 * 60_000)
+    await desk.flushAlerts()
+
+    const messages = sent(calls, 'sendMessage')
+    expect(messages).toHaveLength(4)
+    expect(messages[3]?.payload['text']).toContain('49 more <code>UNKNOWN_PROGRAM_DETECTED</code>')
+  })
+
   it('stays quiet on small payments and refuses old events', async () => {
     const { calls, deliver } = await harness()
     await deliver('/hooks/intent-event', event({ status: 'executed', amount: '10' }))

@@ -36,7 +36,9 @@ const server = await buildServer({
 })
 
 const sweep = setInterval(() => {
-  desk.expire().catch((err: unknown) => log.error({ err }, 'expiry sweep failed'))
+  Promise.all([desk.expire(), desk.flushAlerts()]).catch((err: unknown) =>
+    log.error({ err }, 'sweep failed'),
+  )
 }, EXPIRY_SWEEP_MS)
 
 await server.listen({ port: config.PORT, host: config.HOST })
