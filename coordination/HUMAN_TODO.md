@@ -218,18 +218,44 @@ São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteir
    cast wallet new
    ```
    Esta é a **guard hot wallet**.
-3. Preenche os ficheiros `.env` (copia primeiro o exemplo ao lado de cada um):
-   - `packages/onchain/.env`:
-     - `OWNER_PRIVATE_KEY=` chave privada da **owner EOA**
-     - `HOT_WALLET_ADDRESS=` **endereço** da hot wallet (aqui só o endereço, não a chave)
-     - `BASE_SEPOLIA_RPC_URL=https://sepolia.base.org`
-   - `packages/guard-core/.env`:
-     - `HOT_WALLET_PRIVATE_KEY=` chave privada da **hot wallet**
-     - `BASE_SEPOLIA_RPC_URL=https://sepolia.base.org`
+3. Cria os dois `.env` a partir dos exemplos. **Cada worktree é um checkout separado**, por isso o
+   `.env` tem de ficar no worktree onde a sessão dona desse pacote trabalha:
 
-   A chave da hot wallet existe num só sítio: o `.env` do `guard-core`. É de propósito.
+   ```bash
+   cp ~/ag-onchain/packages/onchain/.env.example ~/ag-onchain/packages/onchain/.env
+   ```
 
-4. Diz-me os **dois endereços** (endereços públicos podem ser ditos no chat; chaves privadas nunca).
+   ```bash
+   cp ~/ag-guard-core/packages/guard-core/.env.example ~/ag-guard-core/packages/guard-core/.env
+   ```
+
+4. Preenche o do onchain (`nano` grava com `Ctrl+O`, `Enter`, e sai com `Ctrl+X`):
+
+   ```bash
+   nano ~/ag-onchain/packages/onchain/.env
+   ```
+
+   - `OWNER_PRIVATE_KEY=` chave privada da **owner EOA**
+   - `HOT_WALLET_ADDRESS=` **endereço** da hot wallet (aqui só o endereço, nunca a chave)
+   - `BASE_SEPOLIA_RPC_URL=https://sepolia.base.org`
+
+5. Preenche o do guard-core:
+
+   ```bash
+   nano ~/ag-guard-core/packages/guard-core/.env
+   ```
+
+   - `HOT_WALLET_PRIVATE_KEY=` chave privada da **hot wallet**
+   - `BASE_SEPOLIA_RPC_URL=https://sepolia.base.org`
+
+   A chave da hot wallet existe num só sítio em todo o projeto: este ficheiro. É de propósito, e é o
+   que faz o `guard-core` ser o único componente capaz de assinar.
+
+6. Diz-me os **dois endereços** (endereços públicos podem ser ditos no chat; chaves privadas nunca).
+
+> **Cuidado com o scrollback:** o `cast wallet new` imprime a chave privada no terminal, logo ela fica
+> no histórico de scroll da janela. São carteiras de testnet, por isso o risco é baixo, mas fecha essa
+> janela quando acabares em vez de a deixar aberta, e nunca partilhes uma captura de ecrã dela.
 
 > Nota: o RPC público `https://sepolia.base.org` serve para começar. Para os testes de fork do Foundry
 > um RPC dedicado (Alchemy ou QuickNode, plano grátis) é bem mais rápido. Se quiseres, trata disso
