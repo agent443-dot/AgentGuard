@@ -3,7 +3,7 @@ import { APPROVAL_TTL_MS } from '@agentguard/shared'
 import { and, eq, inArray, lte, or } from 'drizzle-orm'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
-import { audit, saveIntent } from '../db/repo.js'
+import { audit, getIntent, saveIntent } from '../db/repo.js'
 import { intents } from '../db/schema.js'
 
 export type Decision = 'approve' | 'reject'
@@ -58,7 +58,10 @@ export function decide(db: Db, id: string, decision: Decision, now: Date): Decis
       : { status: 'rejected' as const, rejectReasons: ['OWNER_REJECTED' as const] }
 
   db.update(intents).set(next).where(eq(intents.id, id)).run()
-  return { ok: true, intent: { ...row, ...next } as PayIntent }
+  // Read back through the repo, which leaves out the columns that are null rather than sending
+  // them: the SPEC's PayIntent has no nulls, and the bot refuses one.
+  const intent = getIntent(db, id)
+  return intent ? { ok: true, intent } : { ok: false, reason: 'not_found' }
 }
 
 /**
