@@ -1,5 +1,6 @@
 import type { ChainAdapter, KillTx, SimulationOutcome } from '@agentguard/onchain'
 import type { Amount, ChainId, PayIntent } from '@agentguard/shared'
+import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
 import type { PaymentScheme } from './x402.js'
 
 /**
@@ -46,6 +47,11 @@ export class StubChain implements ChainAdapter {
     this.sent.push(intent)
     this.balance -= BigInt(intent.amount)
     return `stub-tx-${this.sent.length}`
+  }
+
+  /** CR-003: the method onchain is adding to ChainAdapter. Harmless against today's interface. */
+  x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient {
+    return stubScheme(this.chain).forIntent(intent, requirements)
   }
 
   async buildKillTx(): Promise<KillTx> {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ADMIN_TOKEN, CHAIN, harness, type Harness } from './harness.js'
+import { ADMIN_TOKEN, AGENT_TOKEN, CHAIN, harness, type Harness } from './harness.js'
 
 let h: Harness
 beforeEach(async () => {
@@ -31,7 +31,9 @@ describe('POST /v1/admin/kill (GC-7)', () => {
     const res = await admin('/v1/admin/kill')
     expect(res.json()).toEqual({
       pausedAgents: 1,
-      ownerTransactions: [{ chain: CHAIN, error: 'build_failed' }],
+      ownerTransactions: [
+        { chain: CHAIN, description: expect.stringContaining('by hand'), payload: null },
+      ],
     })
     const budget = await h.agent('GET', '/v1/agent/budget/agent-1')
     expect(budget.json().paused).toBe(true)
@@ -65,6 +67,30 @@ it('answers 404 for a policy on an agent that does not exist', async () => {
   expect(res.statusCode).toBe(404)
 })
 
+describe('GET /v1/admin/budget (CR-004)', () => {
+  const read = (agentId: string, token = ADMIN_TOKEN) =>
+    h.app.inject({
+      method: 'GET',
+      url: `/v1/admin/budget/${agentId}`,
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+  it('answers with the same view the agent gets', async () => {
+    const asAdmin = await read('agent-1')
+    const asAgent = await h.agent('GET', '/v1/agent/budget/agent-1')
+    expect(asAdmin.statusCode).toBe(200)
+    expect(asAdmin.json()).toEqual(asAgent.json())
+  })
+
+  it('answers 404 for an agent that does not exist', async () => {
+    expect((await read('ghost')).json()).toEqual({ error: 'not_found' })
+  })
+
+  it('refuses the agent token', async () => {
+    expect((await read('agent-1', AGENT_TOKEN)).statusCode).toBe(401)
+  })
+})
+
 describe('GET /v1/agent/budget', () => {
   it('reports the hot wallet balance per chain', async () => {
     const res = await h.agent('GET', '/v1/agent/budget/agent-1')
@@ -75,5 +101,14 @@ describe('GET /v1/agent/budget', () => {
     vi.spyOn(h.chain, 'getHotWalletBalance').mockRejectedValue(new Error('rpc down'))
     const res = await h.agent('GET', '/v1/agent/budget/agent-1')
     expect(res.json().hotWalletBalances).toEqual({})
+  })
+})
+
+it('gives the stub chain an x402 scheme that names the intent', async () => {
+  const intent = { id: 'i-1' } as Parameters<typeof h.chain.x402Scheme>[0]
+  const scheme = h.chain.x402Scheme(intent, {} as Parameters<typeof h.chain.x402Scheme>[1])
+  await expect(scheme.createPaymentPayload(2, {} as never)).resolves.toEqual({
+    x402Version: 2,
+    payload: { stub: true, intentId: 'i-1' },
   })
 })

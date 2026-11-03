@@ -62,7 +62,7 @@ export function registerTransfer(server: McpServer, { guard, log, defaultChain }
         if (result.txId !== undefined) {
           lines.push(`Transaction id: ${result.txId}`)
         }
-        lines.push(explainStatus(result.status, result.rejectReasons))
+        lines.push(explainStatus(result.status, result.rejectReasons, 'transfer'))
         return text(lines.join('\n'))
       })
     },

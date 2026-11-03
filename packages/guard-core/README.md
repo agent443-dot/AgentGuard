@@ -78,18 +78,31 @@ the API's own credentials.
 
 ### Admin
 
-`POST /v1/admin/kill` pauses every agent first, then returns each chain's `buildKillTx()` for the
-owner to sign. A chain that cannot build its transaction is reported as `build_failed`; the pause
+`POST /v1/admin/kill` pauses every agent first, then returns
+`{ pausedAgents, ownerTransactions: { chain, description, payload }[] }`, one entry per chain's
+`buildKillTx()` (CR-004). A chain that cannot build its transaction stays in the list with
+`payload: null` and a description telling the owner to remove its spend limit by hand; the pause
 holds regardless.
+
+`GET /v1/admin/budget/:agentId` returns the same view as the agent's own budget route, for the bot,
+which holds no agent token.
+
+### Events to the bot
+
+Every intent that reaches `executed`, `rejected`, `failed` or `expired` is posted to
+`{BOT_URL}/hooks/intent-event` as `{ intent, sentAt }`, signed like the approval request (CR-004).
+The bot decides what the owner sees. The post is never awaited: a bot that is down does not hold up
+or fail a payment.
 
 ## Known gaps
 
-- **Solana x402 is blocked on onchain.** The SDK always appends a Memo instruction, and
-  `inspectTransfer` refuses the Memo program, so every real payment is refused. A test pins this
-  (`test/svm-x402.test.ts`) and will fail once the Memo is allowed.
+- **Solana x402 waits on onchain.** The SDK always appends a Memo instruction, which
+  `inspectTransfer` on main still refuses; onchain's fix is in its open PR. A test pins the refusal
+  (`test/svm-x402.test.ts`) and moves to onchain with the signing code.
 - **No real `ChainAdapter` yet** (SVM-3). Tests and `GUARD_STUB_CHAINS` use `adapters/stub.ts`.
 - `adapters/svm-x402.ts` imports the Solana SDKs inside guard-core, because `ChainAdapter` has no
-  x402 signing method. Proposed as CR-003 in [`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md).
+  x402 signing method yet. CR-003 (approved) moves it into onchain as `ChainAdapter.x402Scheme`;
+  guard-core switches over and deletes this file when that lands.
 
 ## Layout
 

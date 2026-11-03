@@ -65,7 +65,7 @@ export function decide(db: Db, id: string, decision: Decision, now: Date): Decis
  * Closes everything the owner never answered, and every x402 approval the agent never came back to
  * use: an approval is for a payment made now, not a standing permission. Runs on a timer.
  */
-export function expirePending(db: Db, now: Date): number {
+export function expirePending(db: Db, now: Date): string[] {
   const due = db
     .select({ id: intents.id, agentId: intents.agentId })
     .from(intents)
@@ -80,7 +80,7 @@ export function expirePending(db: Db, now: Date): number {
     )
     .all()
   if (due.length === 0) {
-    return 0
+    return []
   }
   db.update(intents)
     .set({ status: 'expired', rejectReasons: ['APPROVAL_TIMEOUT'] })
@@ -98,7 +98,7 @@ export function expirePending(db: Db, now: Date): number {
       now,
     )
   }
-  return due.length
+  return due.map((row) => row.id)
 }
 
 function expire(db: Db, id: string): void {
