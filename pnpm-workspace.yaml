@@ -5,3 +5,5 @@ packages:
 # vitest needs esbuild's platform binary, so its install script must be allowed to run.
 onlyBuiltDependencies:
   - esbuild
+  # better-sqlite3 needs its native binding built or downloaded at install time.
+  - better-sqlite3
