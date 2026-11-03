@@ -1,3 +1,4 @@
+import type { IntentEvent } from '@agentguard/shared'
 import { z } from 'zod'
 import { REJECT_CODES } from '../domain/codes.js'
 
@@ -56,9 +57,7 @@ const refusedIntent = payIntent.extend({
 })
 
 /** CR-004: guard-core reports intents that reached a final state. */
-export const intentEvent = z.object({
+export const intentEvent: z.ZodType<IntentEvent> = z.object({
   intent: z.union([payIntent, refusedIntent]),
   sentAt: isoTime,
 })
-
-export type IntentEvent = z.infer<typeof intentEvent>

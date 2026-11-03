@@ -1,4 +1,4 @@
-import type { ApprovalRequest, BudgetView, PayIntent } from '@agentguard/shared'
+import type { ApprovalRequest, BudgetView, OwnerTransaction, PayIntent } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import { ATTACK_DESCRIPTIONS, type AttackCode } from './codes.js'
 import { formatUsd } from './money.js'
@@ -12,16 +12,7 @@ export type Outcome =
   | { kind: 'approved' | 'rejected'; by: string; at: Date }
   | { kind: 'expired' | 'already_decided' | 'not_found' }
 
-/**
- * One chain's kill transaction. A null payload is guard-core saying it could not build one: that
- * chain's allowance is still live and the description says what to do by hand.
- */
-export interface OwnerTransaction {
-  chain: string
-  description: string
-  payload: unknown
-}
-
+/** A null payload means guard-core could not build it: that chain's allowance is still live. */
 export function isBuilt(tx: OwnerTransaction): boolean {
   return tx.payload !== null
 }
