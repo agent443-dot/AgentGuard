@@ -1,8 +1,15 @@
-import { getMint, getOrCreateAssociatedTokenAccount, transferChecked } from '@solana/spl-token'
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  createTransferCheckedInstruction,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMint,
+} from '@solana/spl-token'
 import { PublicKey } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
-import { loadKeypair, loadSvmConfig } from '../svm/config.js'
-import { connect, VAULT_INDEX } from '../svm/squads.js'
+import { loadSvmConfig } from '../svm/config.js'
+import { loadOwner } from '../svm/owner.js'
+import { connect, sendAsOwner, VAULT_INDEX } from '../svm/squads.js'
 
 const amountArg = process.argv[2]
 if (!amountArg || !/^[1-9]\d*$/.test(amountArg)) {
@@ -16,7 +23,7 @@ if (!config.SQUADS_MULTISIG || !config.USDC_MINT) {
   process.exit(1)
 }
 
-const owner = loadKeypair(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR)
 const connection = connect(config.SOLANA_RPC_URL)
 const mint = new PublicKey(config.USDC_MINT)
 const [vault] = multisig.getVaultPda({
@@ -25,11 +32,11 @@ const [vault] = multisig.getVaultPda({
 })
 
 const { decimals } = await getMint(connection, mint)
-const from = await getOrCreateAssociatedTokenAccount(connection, owner, mint, owner.publicKey)
+const from = await getAccount(connection, getAssociatedTokenAddressSync(mint, owner.publicKey))
 
 // The vault is a PDA, so its token account has an owner off the ed25519 curve. The default refuses
 // that, which is likely why a faucet sending straight to the vault never arrives.
-const to = await getOrCreateAssociatedTokenAccount(connection, owner, mint, vault, true)
+const to = getAssociatedTokenAddressSync(mint, vault, true)
 
 const amount = BigInt(amountArg)
 if (from.amount < amount) {
@@ -38,18 +45,12 @@ if (from.amount < amount) {
 }
 
 // transferChecked rejects the transfer if the mint or the decimals are not what we think they are.
-const signature = await transferChecked(
-  connection,
-  owner,
-  from.address,
-  mint,
-  to.address,
-  owner,
-  amount,
-  decimals,
-)
+const signature = await sendAsOwner(connection, owner, [
+  createAssociatedTokenAccountIdempotentInstruction(owner.publicKey, to, vault, mint),
+  createTransferCheckedInstruction(from.address, mint, to, owner.publicKey, amount, decimals),
+])
 
 console.log(`vault:         ${vault.toBase58()}`)
-console.log(`vault account: ${to.address.toBase58()}`)
+console.log(`vault account: ${to.toBase58()}`)
 console.log(`sent:          ${amount} atomic units`)
 console.log(`tx:            ${signature}`)

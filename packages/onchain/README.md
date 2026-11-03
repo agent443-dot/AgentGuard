@@ -46,6 +46,40 @@ LiteSVM 0.6 to 0.8 abort with `std::bad_alloc` in the cloud containers after a f
 associated token or memo programs. No test executes those two; their instructions are covered by the
 static tests.
 
+### The owner on a Ledger
+
+Every script the owner signs (`create-multisig`, `add-spending-limit`, `fund-vault`, `kill`) takes
+`SOLANA_OWNER_KEYPAIR` as either a keypair file or a Ledger URI in the Solana CLI's form:
+`usb://ledger` is `44'/501'`, `usb://ledger?key=0` is `44'/501'/0'`. The key never leaves the
+device; the scripts send it the exact message and add the signature it returns, through the official
+`@ledgerhq/hw-app-solana` client. The owner pays the fee, so each action is one confirmation.
+
+Setup, once per device:
+
+1. In Ledger Live, install the **Solana** app.
+2. On the device, open the Solana app, go to **Settings** and turn **Blind signing** on. The app
+   cannot display Squads instructions, so without it the device refuses them and the scripts say
+   so. Plain SOL and token transfers still show in clear.
+3. Read the owner address: `solana-keygen pubkey usb://ledger?key=0`. It is the same address the
+   scripts use.
+
+Each action: plug the Ledger in, unlock it, open the Solana app, run the script, and confirm on the
+device within a minute, before the blockhash expires. For the kill switch:
+
+```bash
+SOLANA_OWNER_KEYPAIR='usb://ledger?key=0' pnpm kill --yes
+```
+
+`kill` refuses before asking the device when the Ledger account is not the multisig's config
+authority, which is the only key that can remove the limit.
+
+A multisig created with a file key keeps that key as its config authority. On mainnet, create the
+multisig with the Ledger from the start.
+
+The tests drive the real `hw-app-solana` client against a fake device (`test/ledger.ts`) that speaks
+the Solana app's APDUs, signs with real ed25519 keys and refuses unknown programs while blind
+signing is off. `test/cap.test.ts` signs the kill with it.
+
 ## Base (held until the Solana attack suite is green)
 
 ### Foundry fork tests (EVM-6)

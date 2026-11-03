@@ -1,5 +1,7 @@
 import { PublicKey } from '@solana/web3.js'
-import { loadKeypair, loadSvmConfig } from '../svm/config.js'
+import * as multisig from '@sqds/multisig'
+import { loadSvmConfig } from '../svm/config.js'
+import { loadOwner } from '../svm/owner.js'
 import { connect, readSpendingLimit, removeSpendingLimit, spendingLimitPda } from '../svm/squads.js'
 
 const config = loadSvmConfig()
@@ -24,6 +26,19 @@ if (!process.argv.includes('--yes')) {
   process.exit(0)
 }
 
-const owner = loadKeypair(config.SOLANA_OWNER_KEYPAIR)
+const owner = await loadOwner(config.SOLANA_OWNER_KEYPAIR)
+const { configAuthority } = await multisig.accounts.Multisig.fromAccountAddress(
+  connection,
+  multisigPda,
+)
+// Caught here rather than by the program: a Ledger on the wrong account would otherwise ask for a
+// signature that can only fail.
+if (!configAuthority.equals(owner.publicKey)) {
+  console.error(`the owner key is ${owner.publicKey.toBase58()},`)
+  console.error(`but only the config authority ${configAuthority.toBase58()} can remove the limit`)
+  process.exit(1)
+}
+
+console.log(`signing as ${owner.publicKey.toBase58()}; confirm on the device if it is a Ledger`)
 const signature = await removeSpendingLimit(connection, owner, multisigPda, limit)
 console.log(`removed. tx: ${signature}`)
