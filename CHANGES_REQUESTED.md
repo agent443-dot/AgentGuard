@@ -27,33 +27,36 @@ Verified addresses go here too, with a link to the official source, so the integ
 
 ## Open proposals
 
-### CR-001 — Target Solana in v0.1, and stop assuming EVM in the shared types
+### CR-001 — Support Solana and Base; drop Robinhood Chain
 
 - **From:** manager
 - **Date:** 2026-11-03
 - **Status:** proposed — awaiting owner approval
+- **Owner decision so far:** the product targets **Solana and Base**. Robinhood Chain is out of scope.
 
 #### What
 
-Three changes to [`/SPEC.md`](./SPEC.md), which currently targets Base only.
+Three changes to [`/SPEC.md`](./SPEC.md), which today targets Base alone.
 
-**1. v0.1 ships on Solana instead of Base.**
+**1. Two chains in scope, each with its own audited spend-limit primitive.**
 
-| SPEC today                                           | Proposed                                                         |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| Base Sepolia (84532) dev, Base mainnet (8453) launch | Solana devnet for dev, Solana mainnet-beta for launch            |
-| Safe + Safe Allowance Module                         | Squads v4 multisig + Spending Limits                             |
-| viem, `@safe-global/protocol-kit`                    | `@solana/kit`, `@sqds/multisig`                                  |
-| Foundry fork tests                                   | LiteSVM or `solana-test-validator`                               |
-| x402 TS SDK (EVM)                                    | `@x402/svm` with `@x402/core`, scheme `exact` over SPL transfers |
+|                   | Solana                                                                                  | Base (EVM)                                    |
+| ----------------- | --------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Funds held in     | Squads v4 multisig                                                                      | Safe                                          |
+| Onchain daily cap | Squads Spending Limit (per-period, refills each period, optional destination whitelist) | Safe Allowance Module (`resetTimeMin = 1440`) |
+| SDK               | `@solana/kit`, `@sqds/multisig`                                                         | viem, `@safe-global/protocol-kit`             |
+| x402              | `@x402/svm` + `@x402/core`, scheme `exact` over SPL transfers                           | x402 TS SDK `>= 2.28.0`                       |
+| Tests             | LiteSVM or `solana-test-validator`                                                      | Foundry fork tests                            |
+| Dev network       | Solana devnet                                                                           | Base Sepolia (84532)                          |
+| Launch network    | Solana mainnet-beta                                                                     | Base mainnet (8453)                           |
 
-The money flow is unchanged in shape. A Squads Spending Limit gives a designated member a per-period
-withdrawable amount on one token, refilled at the start of each period, optionally restricted to
-whitelisted destinations. That is the same guarantee the Safe Allowance Module gave us: a hard onchain
-ceiling on daily loss, from an audited program we do not write.
+The money flow is identical in shape on both. A Squads Spending Limit gives a designated member a
+per-period withdrawable amount on one token, refilled at the start of each period. That is the same
+guarantee the Allowance Module gives: a hard onchain ceiling on daily loss, from an audited program we
+do not write. Neither chain needs a contract of ours.
 
-**2. The shared types stop assuming EVM.** This is the part that must land before any package writes
-code against the current types.
+**2. The shared types stop assuming EVM.** With two chains this is mandatory, not a preference, and it
+must land before any package writes code against the current types.
 
 | Field                 | Today                 | Proposed                                                       |
 | --------------------- | --------------------- | -------------------------------------------------------------- |
@@ -66,56 +69,70 @@ code against the current types.
 
 `Amount` is unchanged: USDC has 6 decimals on both chains.
 
-**3. Base and Robinhood Chain become post-v0.1 adapters, not v0.1 targets.**
+**3. `packages/onchain` gets one interface and two implementations.**
+
+```
+packages/onchain/src/
+  ChainAdapter.ts     the interface guard-core depends on:
+                      topUpHotWallet, getAllowanceState, buildKillTx, getStatus
+  svm/                Squads v4 implementation
+  evm/                Safe + Allowance Module implementation
+```
+
+`guard-core` imports only `ChainAdapter`, never a chain SDK directly. That keeps the policy engine and
+the HTTP API chain-agnostic and lets the second chain land without touching them.
 
 #### Why
 
-- The owner states the users are on Solana.
-- Both pieces the architecture depends on exist and are mature there: Squads v4 Spending Limits, and
-  official x402 SVM support (`@x402/svm`, documented by Solana itself).
-- Nothing is lost by moving now and a lot is lost by moving later: no product code exists yet.
-- Shipping one chain in v0.1 keeps the attack surface we must actually prove small. The SPEC already
-  restricts v0.1 to one token for the same reason.
+- The owner states the users are on Solana, and wants Base supported as well.
+- Both chains have a mature, audited spend-limit primitive and working x402 support, so the security
+  argument that lets us launch with real money holds on both.
+- Nothing is lost by changing now: no product code exists yet. Changing the types after four sessions
+  have built on them would touch every package at once.
 
 #### Blast radius
 
 | Package                 | Effect                                                                                                                             |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/onchain`      | Rewritten. `ON-1`..`ON-8` are rewritten; the Safe and Allowance Module work does not carry over                                    |
-| `packages/guard-core`   | Domain logic and HTTP API survive. The chain client, signer, simulation and top-up adapters are rewritten (`GC-2`, `GC-3`, `GC-5`) |
-| `packages/shared`       | Types edited per the table above (`INT-1`)                                                                                         |
+| `packages/onchain`      | Restructured into `ChainAdapter` + `svm/` + `evm/`. The Safe work becomes `evm/`; `ON-1`..`ON-8` are rewritten and split per chain |
+| `packages/guard-core`   | Domain logic and HTTP API survive. Chain client, signer, simulation and top-up become per-chain adapters (`GC-2`, `GC-3`, `GC-5`)  |
+| `packages/shared`       | Types edited per the table above; `addresses.ts` holds program ids and mints as well as contract addresses (`INT-1`)               |
 | `packages/mcp-server`   | Nearly unaffected; address fields become opaque strings                                                                            |
-| `packages/telegram-bot` | Nearly unaffected; address display only                                                                                            |
-| `/e2e`                  | Attack suite rewritten for the Solana threat model (`INT-5`)                                                                       |
-| CI                      | The `forge test` job is replaced by the Solana test runner                                                                         |
+| `packages/telegram-bot` | Nearly unaffected; it must show which chain a payment is on                                                                        |
+| `/e2e`                  | Attack suite runs twice, once per chain, with chain-specific cases (`INT-5`)                                                       |
+| CI                      | Keeps the Foundry job for `evm/` and adds a Solana test runner for `svm/`                                                          |
 
-#### Reject codes need redesign, not translation
+#### Reject codes need redesign per chain, not translation
 
-`APPROVAL_DETECTED`, `PERMIT_DETECTED` and `DELEGATION_DETECTED` describe EVM attacks. The Solana
-equivalents are different mechanisms: an SPL `Approve` granting a delegate, `SetAuthority`,
-`CloseAccount`, a change of account owner, a CPI into an unknown program, and address lookup tables
-hiding which accounts a transaction touches. The simulation checks must be designed against that
-threat model. Solana's `simulateTransaction` returning pre/post balances helps, but it is not a
-drop-in for the EVM checks.
+`APPROVAL_DETECTED`, `PERMIT_DETECTED` and `DELEGATION_DETECTED` describe EVM attacks and stay for the
+EVM adapter. Solana needs its own set for different mechanisms: an SPL `Approve` granting a delegate,
+`SetAuthority`, `CloseAccount`, a change of account owner, a CPI into an unknown program, and address
+lookup tables hiding which accounts a transaction touches. Solana's `simulateTransaction` returns
+pre/post balances, which helps, but it is not a drop-in for the EVM checks. The shared core
+(`PAUSED`, `PER_TX_EXCEEDED`, `DAILY_EXCEEDED`, `SIM_FAILED`, ...) is unchanged.
 
-#### Robinhood Chain — blocked on facts we do not control
+#### Sequencing — recommended
 
-Robinhood Chain is EVM (Arbitrum Orbit, Nitro, chain id 4663 mainnet / 46630 testnet, ETH for gas,
-public mainnet since 2026-07-01), so it would share the EVM adapter with Base rather than needing its
-own stack. But two prerequisites are unconfirmed, and the architecture does not work without them:
+Build the chain-agnostic core and the **Solana adapter first**, prove it end to end including the
+attack suite, then add the **Base adapter**. Both are in v0.1, but Base does not start until Solana is
+green.
 
-1. **Safe and the Allowance Module deployed there.** A third-party source dated August 2026 states Safe
-   has not published official Robinhood Chain support. Unverified and possibly stale — it must be
-   checked against Safe's official deployment list. Without it, the options are self-deploying the
-   audited contracts, which weakens the "no contract we deploy ourselves" argument that justifies a
-   real-money launch, or not supporting the chain.
-2. **Circle USDC deployed there.** No evidence found either way. v0.1 is USDC-only.
+Two reasons. The users are on Solana, so that is the path that reaches them soonest. And the attack
+suite is the whole product: proving it once, on one chain, teaches us what the second adapter has to
+satisfy. Building both at once doubles the surface we must prove before we know what proving it even
+takes.
 
-Proposed: add a task to verify both against official sources before Robinhood Chain is scheduled at
-all. It is not a v0.1 target.
+#### Rejected: Robinhood Chain
+
+Dropped by the owner on 2026-11-03. Recorded here because the finding is worth keeping: Robinhood Chain
+is EVM (Arbitrum Orbit, Nitro, chain id 4663 mainnet / 46630 testnet, ETH for gas, public mainnet since
+2026-07-01), so it would have shared the EVM adapter rather than needing its own stack. But two
+prerequisites were unconfirmed and the architecture does not work without them: Safe and the Allowance
+Module deployed there (a third-party source dated August 2026 said Safe had published no official
+support — unverified and possibly stale), and Circle USDC deployed there (no evidence found either
+way). If the chain is ever reconsidered, verify both against official sources first.
 
 #### Recommendation
 
-Approve the Solana switch and the type change. Keep Base as the first post-v0.1 adapter, since the EVM
-work is well understood and the adapter then covers every EVM chain. Schedule Robinhood Chain only
-after the two prerequisites above are confirmed.
+Approve all three changes and the sequencing. The type change (item 2) should be applied by the
+integrator before any session writes code, since every package imports those types.
