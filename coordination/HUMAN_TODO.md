@@ -87,49 +87,63 @@ instalação do que já estiver presente e na versão certa (Node >= 20, pnpm 10
 sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl build-essential
 ```
 
-### 2.5 Instalar o Node 22 e o pnpm
+### 2.5 Instalar o pnpm
+
+```bash
+sudo corepack enable pnpm
+```
+
+```bash
+pnpm -v
+```
+
+Deve dizer `10.28.0` — o `packageManager` no `package.json` fixa a versão e o corepack respeita-a. Se o
+corepack falhar, usa em alternativa `sudo npm install -g pnpm@10.28.0`.
+
+### 2.5b Subir o Node para a 22
+
+O `engines` do projeto pede Node >= 20 e a 20 funciona, mas a linha 20 chegou a fim de vida em abril de
+2026: deixou de receber correções de segurança. Para um serviço que assina pagamentos isso não serve, e
+o `.nvmrc` e o CI já usam a 22.
+
+Primeiro vê de onde veio o Node que tens:
+
+```bash
+which node; apt-cache policy nodejs | head -4
+```
+
+Se vier do apt (`/usr/bin/node`), o NodeSource substitui-o limpo:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 ```
 
 ```bash
-sudo apt install -y nodejs
+sudo apt install -y nodejs && node -v
 ```
-
-```bash
-sudo corepack enable pnpm
-```
-
-Confirma:
-
-```bash
-node -v && pnpm -v
-```
-
-Deve dizer `v22.x` e `10.28.0`. Se o `corepack` falhar, usa em alternativa
-`sudo npm install -g pnpm@10.28.0`.
 
 ### 2.6 Instalar o Foundry
-
-Agora sim, o comando que te dei antes funciona, porque estás em bash:
 
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 ```
 
+O instalador escreve o PATH no ficheiro de arranque da tua shell. **A shell do dono é zsh**, por isso
+`source ~/.bashrc` não serve de nada aqui. Chama o `foundryup` pelo caminho absoluto, que funciona em
+qualquer shell:
+
 ```bash
-source ~/.bashrc && foundryup
+~/.foundry/bin/foundryup
 ```
 
-Confirma:
+Depois recarrega a shell e confirma:
 
 ```bash
-forge --version
+exec zsh
 ```
 
 ```bash
-cast --version
+forge --version; cast --version
 ```
 
 ### 2.7 Clonar o repositório dentro do Ubuntu
