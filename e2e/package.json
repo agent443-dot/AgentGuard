@@ -8,6 +8,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage --passWithNoTests"
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "dev:check": "tsx src/dev-check.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }

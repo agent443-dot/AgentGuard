@@ -1,10 +1,12 @@
 # @agentguard/e2e
 
-End-to-end and attack tests across guard-core, telegram-bot, mcp-server and the Safe on Base Sepolia
-(or a local fork).
+End-to-end and attack tests across guard-core, telegram-bot and mcp-server, run once per chain:
+Solana devnet first, then Base Sepolia (SPEC v0.3).
 
 - **Owner:** integrator (Session 5).
-- **Tasks:** INT-4, INT-5 in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
+- **Tasks:** INT-3 to INT-6 in [`/coordination/BOARD.md`](../coordination/BOARD.md).
+- **`pnpm dev:all` preflight:** `src/env-check.ts` cross-checks the three services' `.env` files
+  (INT-3). See the root README for the full setup.
 
 ## End-to-end runs (INT-4)
 
