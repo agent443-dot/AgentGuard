@@ -205,7 +205,7 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 ---
 
-## ✅ HUMAN-3 — Criar as duas carteiras de teste
+## ⏳ HUMAN-3 — Criar as duas carteiras de teste
 
 Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
@@ -217,7 +217,7 @@ gestor de senhas do dono, nunca no repositório):
 | Owner EOA (dona da Safe)    | `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890` |
 | Guard hot wallet (delegate) | `0xa95710875968439245265b977730ab69892dA470` |
 
-Os dois `.env` estão preenchidos. Para confirmar o estado a qualquer momento sem imprimir nenhum
+Os `.env` ainda não estão completos. Para confirmar o estado a qualquer momento sem imprimir nenhum
 valor — mostra só o nome de cada variável e se está preenchida:
 
 ```bash
