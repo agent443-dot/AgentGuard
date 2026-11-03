@@ -1,18 +1,16 @@
 import { createSvmAdapter, type ChainAdapter } from '@agentguard/onchain'
 import type { ChainId } from '@agentguard/shared'
 import { requireAddress } from '@agentguard/shared'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { fileURLToPath } from 'node:url'
 import { readKeypairFile } from './adapters/keypair.js'
 import { StubChain } from './adapters/stub.js'
 import { loadConfig } from './config.js'
-import { openDb } from './db/client.js'
+import { migrateDb, openDb } from './db/client.js'
 import { buildServer } from './http/server.js'
 
 const config = loadConfig()
 
 const db = openDb(config.DATABASE_URL)
-migrate(db, { migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)) })
+migrateDb(db)
 
 const chains = new Map<ChainId, ChainAdapter>()
 const chain = config.SOLANA_CHAIN
