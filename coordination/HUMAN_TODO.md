@@ -349,19 +349,24 @@ mkdir -p ~/.agentguard && chmod 700 ~/.agentguard
 ```
 
 ```bash
-solana-keygen new --no-bip39-passphrase -o ~/.agentguard/sol-owner.json
+solana-keygen new --no-bip39-passphrase --force --silent -o ~/.agentguard/sol-owner.json
 ```
 
 ```bash
-solana-keygen new --no-bip39-passphrase -o ~/.agentguard/sol-hot.json
+solana-keygen new --no-bip39-passphrase --force --silent -o ~/.agentguard/sol-hot.json
 ```
 
 ```bash
 chmod 600 ~/.agentguard/sol-*.json
 ```
 
-O comando imprime a `pubkey` de cada um e grava a chave no ficheiro. Guarda também as seed phrases num
-gestor de senhas — é o que te deixa recuperar o keypair se apagares o ficheiro.
+O `--silent` é importante: sem ele o comando imprime a **seed phrase** no terminal, e essa frase de 12
+palavras recupera o keypair inteiro — é tão secreta como o ficheiro. Imprimi-la no ecrã é convidá-la a
+acabar numa captura de ecrã ou colada num chat. Com `--silent` a chave só existe no ficheiro JSON.
+
+O ficheiro passa a ser a única cópia, por isso faz-lhe backup como farias a uma chave: copia
+`~/.agentguard/*.json` para um sítio seguro. O `--force` permite sobrescrever um ficheiro existente,
+que é o que precisas se alguma vez tiveres de substituir um par queimado.
 
 ### 3B.3 Preencher os `.env`
 
@@ -386,7 +391,8 @@ Usa caminhos absolutos, não `~`: muitas bibliotecas não expandem o til.
 solana-keygen pubkey ~/.agentguard/sol-owner.json; solana-keygen pubkey ~/.agentguard/sol-hot.json
 ```
 
-Diz-me as duas pubkeys — são públicas, podem vir pelo chat.
+Diz-me as duas pubkeys — são públicas, podem vir pelo chat. **Só essas duas linhas**, não a saída
+inteira dos comandos anteriores.
 
 ---
 
