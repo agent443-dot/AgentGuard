@@ -541,20 +541,88 @@ Se o `git commit` responder `Please tell me who you are`, configura o git uma ve
 
 ---
 
-## ⬜ HUMAN-5 — Criar o bot do Telegram
+## ⏳ HUMAN-5 — Criar o bot do Telegram
 
-Desbloqueia: `BOT-3` (testar as aprovações a sério) e, mais tarde, `INT-4`.
+Desbloqueia: `HUMAN-11`, a primeira corrida ao vivo. Isto é só do lado do Telegram — não mexes em
+ficheiro nenhum aqui; a `HUMAN-11` diz-te onde pôr cada coisa.
 
 1. No Telegram, fala com o [@BotFather](https://t.me/BotFather) e envia `/newbot`. Escolhe um nome e um
-   username. Ele devolve um token no formato `123456789:AA...`.
-2. Descobre o teu próprio ID de utilizador: fala com o [@userinfobot](https://t.me/userinfobot) e ele
-   diz-te o número.
-3. Em `packages/telegram-bot/.env`:
-   - `TELEGRAM_BOT_TOKEN=` o token do BotFather
-   - `OWNER_TELEGRAM_IDS=` o teu número de utilizador
-   - `BOT_WEBHOOK_SECRET=` um segredo aleatório — gera com `openssl rand -hex 32`
-4. O **mesmo** valor de `BOT_WEBHOOK_SECRET` tem de estar em `packages/guard-core/.env`.
-5. Diz-me quando estiver feito. O token não me mostres; só preciso de saber que está lá.
+   username (tem de acabar em `bot`). Ele devolve um token no formato `123456789:AA...`.
+   **Guarda-o no gestor de senhas e não o coles no chat** — com ele, qualquer pessoa controla o bot.
+2. Descobre o teu número de utilizador: fala com o [@userinfobot](https://t.me/userinfobot).
+3. **Abre o teu bot novo e envia-lhe `/start`.** É obrigatório: um bot do Telegram não pode escrever a
+   quem nunca lhe escreveu primeiro, e sem isto os pedidos de aprovação nunca te chegam.
+4. Diz-me "feito". Não preciso do token nem do número.
+
+---
+
+## ⬜ HUMAN-11 — Primeira corrida ao vivo do sistema completo (devnet)
+
+Desbloqueia: fecha a `INT-3`. Só quando eu disser que o PR #12 (`pnpm dev:all`) está no `main`, e
+depois da `HUMAN-5`.
+
+Até aqui tudo correu na nuvem, contra chains simuladas. Isto liga o guard-core, o bot e o servidor MCP
+ao teu multisig verdadeiro em devnet, e termina com um pagamento a sério aprovado por ti no Telegram.
+
+Tudo corre em `~/AgentGuard`. Os `.env` que tens nos worktrees passam para lá, para o sistema inteiro
+viver num sítio só.
+
+**1. Atualizar e trazer os `.env` que já existem:**
+
+```bash
+cd ~/AgentGuard && git pull && cp ~/ag-guard-core/packages/guard-core/.env packages/guard-core/.env && cp ~/ag-onchain/packages/onchain/.env packages/onchain/.env && pnpm install
+```
+
+**2. O `.env` do bot.** Este comando copia do guard-core os três segredos que têm de ser iguais nos dois
+lados, **sem os mostrar no ecrã**:
+
+```bash
+cd ~/AgentGuard && cp packages/telegram-bot/.env.example packages/telegram-bot/.env && for p in GUARD_BOT_TOKEN:BOT_TOKEN GUARD_ADMIN_TOKEN:ADMIN_TOKEN BOT_WEBHOOK_SECRET:BOT_WEBHOOK_SECRET; do v=$(grep "^${p#*:}=" packages/guard-core/.env | cut -d= -f2-); sed -i "s|^${p%%:*}=.*|${p%%:*}=$v|" packages/telegram-bot/.env; done && echo "segredos copiados"
+```
+
+Depois, à mão, as duas coisas da `HUMAN-5`:
+
+```bash
+nano ~/AgentGuard/packages/telegram-bot/.env
+```
+
+- `TELEGRAM_BOT_TOKEN=` o token do BotFather
+- `OWNER_TELEGRAM_IDS=` o teu número de utilizador
+
+**3. Criar o agente e o `.env` do MCP.** O token do agente é gerado, guardado no ficheiro e nunca
+aparece no ecrã:
+
+```bash
+cd ~/AgentGuard && cp packages/mcp-server/.env.example packages/mcp-server/.env && tok=$(pnpm --silent --filter @agentguard/guard-core create-agent agent-1 | tail -n1) && [[ "$tok" =~ ^[0-9a-f]{64}$ ]] && sed -i -e "s|^AGENT_ID=.*|AGENT_ID=agent-1|" -e "s|^AGENT_TOKEN=.*|AGENT_TOKEN=$tok|" -e "s|^MCP_TRANSPORT=.*|MCP_TRANSPORT=http|" -e "s|^# MCP_HTTP_TOKEN=.*|MCP_HTTP_TOKEN=$(openssl rand -hex 32)|" packages/mcp-server/.env && echo "agent-1 criado" || echo "FALHOU, cola-me a saida"
+```
+
+**4. Arrancar tudo.** Fica a correr nesta janela — não a feches:
+
+```bash
+cd ~/AgentGuard && pnpm dev:all
+```
+
+Antes de arrancar, ele cruza os três `.env`. Se algum segredo ou porta não bater, recusa e diz-te qual
+variável — sem mostrar valores.
+
+**5. Dar uma política ao agente.** Abre **outra** janela do Ubuntu. Um agente novo recusa tudo; esta
+política é deliberadamente apertada: até 2 USDC por pagamento, 10 por dia (abaixo dos 100 do teto
+onchain), só USDC em devnet, só para a tua owner, e **tudo a partir de 1 USDC passa por ti no Telegram**:
+
+```bash
+cd ~/AgentGuard && t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X PUT http://localhost:8787/v1/admin/policy/agent-1 -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"chains":["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],"tokens":["4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"],"perTxMax":"2000000","dailyMax":"10000000","approvalThreshold":"1000000","allowedRecipients":["AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita"],"allowedDomains":[],"paused":false}'
+```
+
+**6. O primeiro pagamento a sério.** O agente pede 1,5 USDC para a tua owner. Está acima do limiar, por
+isso tem de te chegar ao Telegram para aprovares:
+
+```bash
+cd ~/AgentGuard && t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/agent/transfer -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"agentId":"agent-1","chain":"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1","token":"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU","amount":"1500000","recipient":"AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita","reason":"first live test"}'
+```
+
+Deve responder `"status":"pending_approval"` e, segundos depois, aparece-te a mensagem no Telegram com
+os botões. Carrega em **Approve**. Cola-me a resposta do `curl` e diz-me o que viste no Telegram — a
+resposta não tem segredos.
 
 ---
 
