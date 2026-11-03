@@ -10,7 +10,8 @@ import type { Config } from '../config.js'
 import type { Db } from '../db/client.js'
 import * as repo from '../db/repo.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
-import { agentIdParam, intentIdParam, policyBody } from './schemas.js'
+import { decide } from '../service/approvals.js'
+import { agentIdParam, botDecisionRequest, intentIdParam, policyBody } from './schemas.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -137,6 +138,26 @@ export async function buildServer({ db, config, now = () => new Date() }: Server
       }
     },
     { prefix: '/v1/admin' },
+  )
+
+  app.register(
+    async (botRoutes) => {
+      botRoutes.addHook('preHandler', requireFixedToken(config.BOT_TOKEN))
+
+      botRoutes.post('/decision', async (request, reply) => {
+        const { intentId, decision } = botDecisionRequest.parse(request.body)
+        const result = decide(db, intentId, decision, now())
+        if (!result.ok) {
+          // A decision on something already settled is a conflict, not a bad request: the caller
+          // was right about the id and only lost the race.
+          return reply
+            .code(result.reason === 'not_found' ? 404 : 409)
+            .send({ error: result.reason })
+        }
+        return result.intent
+      })
+    },
+    { prefix: '/v1/bot' },
   )
 
   app.get('/health', async () => ({ status: 'ok' }))

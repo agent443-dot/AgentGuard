@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.js'
 import { openDb, schema, type Db } from '../src/db/client.js'
 import { hashToken } from '../src/domain/auth.js'
+import { expiresAt } from '../src/service/approvals.js'
 import { buildServer, type Server } from '../src/http/server.js'
 
 const ADMIN_TOKEN = 'a'.repeat(64)
@@ -250,5 +251,81 @@ describe('admin routes', () => {
       })
       expect(budget.json().paused).toBe(true)
     }
+  })
+})
+
+describe('bot routes', () => {
+  const INTENT_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+  const created = new Date('2026-11-03T12:00:00Z')
+
+  beforeEach(() => {
+    db.insert(schema.intents)
+      .values({
+        id: INTENT_ID,
+        agentId: 'agent-1',
+        kind: 'transfer',
+        chain: CHAINS.solanaDevnet,
+        token: MINT,
+        amount: '3000000',
+        recipient: 'merchant',
+        reason: 'over the threshold',
+        status: 'pending_approval',
+        rejectReasons: [],
+        createdAt: created.toISOString(),
+        expiresAt: expiresAt(created),
+      })
+      .run()
+  })
+
+  it('refuses an agent token on the bot route', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/bot/decision',
+      headers: auth(AGENT_TOKEN),
+      payload: { intentId: INTENT_ID, decision: 'approve', telegramUserId: '1' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('records the owner approval', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/bot/decision',
+      headers: auth(BOT_TOKEN),
+      payload: { intentId: INTENT_ID, decision: 'approve', telegramUserId: '1' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().status).toBe('approved')
+  })
+
+  it('answers 409 when the intent was already decided', async () => {
+    const body = { intentId: INTENT_ID, decision: 'approve', telegramUserId: '1' }
+    await app.inject({
+      method: 'POST',
+      url: '/v1/bot/decision',
+      headers: auth(BOT_TOKEN),
+      payload: body,
+    })
+    const again = await app.inject({
+      method: 'POST',
+      url: '/v1/bot/decision',
+      headers: auth(BOT_TOKEN),
+      payload: body,
+    })
+    expect(again.statusCode).toBe(409)
+  })
+
+  it('answers 404 for an intent that does not exist', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/bot/decision',
+      headers: auth(BOT_TOKEN),
+      payload: {
+        intentId: '00000000-0000-4000-8000-000000000000',
+        decision: 'approve',
+        telegramUserId: '1',
+      },
+    })
+    expect(res.statusCode).toBe(404)
   })
 })
