@@ -55,12 +55,13 @@ export async function call(
   }
 }
 
+// Bounded so that whatever an accepted offer puts in an intent fits the audit log and the bot.
 const requirements = z.object({
-  scheme: z.string(),
-  network: z.templateLiteral([z.string(), ':', z.string()]),
-  asset: z.string(),
-  amount: z.string(),
-  payTo: z.string(),
+  scheme: z.string().max(32),
+  network: z.templateLiteral([z.string(), ':', z.string()]).check(z.maxLength(64)),
+  asset: z.string().max(128),
+  amount: z.string().max(78),
+  payTo: z.string().max(128),
   maxTimeoutSeconds: z.number(),
   extra: z.record(z.string(), z.unknown()).default({}),
 })

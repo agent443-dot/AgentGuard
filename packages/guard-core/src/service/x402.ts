@@ -1,11 +1,11 @@
-import type { ChainId, IntentStatus, PayIntent, Policy, RejectCode } from '@agentguard/shared'
+import { SigningRefused, type ChainAdapter } from '@agentguard/onchain'
+import type { IntentStatus, PayIntent, Policy, RejectCode } from '@agentguard/shared'
 import { x402Client } from '@x402/core/client'
 import { encodePaymentSignatureHeader } from '@x402/core/http'
 import type { PaymentPayload, PaymentRequired, PaymentRequirements } from '@x402/core/types'
 import * as repo from '../db/repo.js'
-import { chooseAccept, requirementsChanged } from '../domain/x402.js'
+import { chooseAccept, refusedTerms, requirementsChanged } from '../domain/x402.js'
 import { call, decode402, settledTx, type Upstream } from '../adapters/upstream.js'
-import { SigningRefused, type PaymentScheme } from '../adapters/x402.js'
 import type { X402FetchRequest } from '../http/schemas.js'
 import {
   clear,
@@ -18,7 +18,6 @@ import {
 } from './payments.js'
 
 export interface X402Deps extends PaymentDeps {
-  schemes: ReadonlyMap<ChainId, PaymentScheme>
   fetch: typeof fetch
 }
 
@@ -70,17 +69,7 @@ export async function paidFetch(
     ? chooseAccept(required.accepts, policy, request.maxAmount)
     : { reasons: ['INVALID_402' as const] }
   if (required === undefined || choice.chosen === undefined) {
-    const offered = required?.accepts[0]
-    const intent = newIntent(
-      {
-        ...terms,
-        chain: offered?.network ?? '',
-        token: offered?.asset ?? '',
-        amount: offered?.amount ?? '0',
-        recipient: offered?.payTo ?? '',
-      },
-      deps.now(),
-    )
+    const intent = newIntent({ ...terms, ...refusedTerms(required?.accepts[0]) }, deps.now())
     return view(reject(deps, intent, choice.reasons))
   }
 
@@ -108,11 +97,6 @@ async function pay(
   chosen: PaymentRequirements,
   fresh: PayIntent,
 ): Promise<FetchOutcome> {
-  const scheme = deps.schemes.get(chosen.network)
-  if (scheme === undefined) {
-    return view(reject(deps, fresh, ['CHAIN_NOT_ALLOWED']))
-  }
-
   // An approval the owner already gave for exactly these terms is redeemed here, once.
   const approved = repo.findApprovedX402(deps.db, fresh, deps.now())
   const clearance = await clear(deps, approved ?? fresh, policy, approved !== undefined)
@@ -128,7 +112,7 @@ async function pay(
     return view(finish(deps, intent, { status: 'failed' }))
   }
 
-  const signed = await sign(deps, scheme, intent, required, chosen)
+  const signed = await sign(deps, adapter, intent, required, chosen)
   if ('refused' in signed) {
     return view(reject(deps, intent, signed.refused))
   }
@@ -167,7 +151,7 @@ type Signed = { payload: PaymentPayload } | { refused: RejectCode[] } | { failed
 
 async function sign(
   deps: X402Deps,
-  scheme: PaymentScheme,
+  adapter: ChainAdapter,
   intent: PayIntent,
   required: PaymentRequired,
   chosen: PaymentRequirements,
@@ -175,7 +159,7 @@ async function sign(
   try {
     // The SDK's own spend control, set to exactly this payment, as a second lock behind ours.
     const client = new x402Client()
-      .register(chosen.network, scheme.forIntent(intent, chosen))
+      .register(chosen.network, adapter.x402Scheme(intent, chosen))
       .setSpendControls({
         maxAmountPerPayment: false,
         allowedAssets: [

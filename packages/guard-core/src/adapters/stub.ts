@@ -1,7 +1,6 @@
 import type { ChainAdapter, KillTx, SimulationOutcome } from '@agentguard/onchain'
 import type { Amount, ChainId, PayIntent } from '@agentguard/shared'
 import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
-import type { PaymentScheme } from './x402.js'
 
 /**
  * An offline chain for tests and for `pnpm dev` before the real adapters land. It moves no money:
@@ -49,26 +48,18 @@ export class StubChain implements ChainAdapter {
     return `stub-tx-${this.sent.length}`
   }
 
-  /** CR-003: the method onchain is adding to ChainAdapter. Harmless against today's interface. */
-  x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient {
-    return stubScheme(this.chain).forIntent(intent, requirements)
-  }
-
-  async buildKillTx(): Promise<KillTx> {
-    return { description: `stub: remove the spend limit on ${this.chain}`, payload: {} }
-  }
-}
-
-/** Signs nothing: the payload only names the intent, which is enough for a stub server to accept. */
-export function stubScheme(chain: ChainId): PaymentScheme {
-  return {
-    chain,
-    forIntent: (intent) => ({
+  /** Signs nothing: the payload only names the intent, which is enough for a stub server. */
+  x402Scheme(intent: PayIntent, _requirements: PaymentRequirements): SchemeNetworkClient {
+    return {
       scheme: 'exact',
       createPaymentPayload: async (x402Version) => ({
         x402Version,
         payload: { stub: true, intentId: intent.id },
       }),
-    }),
+    }
+  }
+
+  async buildKillTx(): Promise<KillTx> {
+    return { description: `stub: remove the spend limit on ${this.chain}`, payload: {} }
   }
 }

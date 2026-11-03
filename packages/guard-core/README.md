@@ -18,9 +18,9 @@ pnpm --filter @agentguard/guard-core dev                     # API on 127.0.0.1:
 A new agent's policy is empty, so it can pay nothing until the owner sets one with
 `PUT /v1/admin/policy/:agentId`.
 
-Until the Solana `ChainAdapter` lands (SVM-3), set `GUARD_STUB_CHAINS=true` to run against an
-offline stub chain. Nothing is signed and no money moves. Without it, and with no adapter, every
-payment is refused.
+For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
+builds onchain's adapter from them. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
+is signed and no money moves. With neither, there is no adapter and every payment is refused.
 
 ## Pipeline
 
@@ -66,12 +66,15 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
 4. Policy, simulation, approval and top-up as above. Over the threshold it returns
    `pending_approval` at once. Once the owner approves, the agent repeats the same request and the
    approval is redeemed, once, for exactly those terms. Unused approvals expire with the sweep.
-5. The payment is built by the SDK and signed by a signer bound to the intent
-   (`adapters/svm-x402.ts`): it runs onchain's `inspectTransfer` over the exact message first and
-   refuses anything but that one transfer. The SDK's own spend control is set to the intent's
-   amount as a second lock.
+5. The payment is built by the SDK through `ChainAdapter.x402Scheme` (CR-003), whose signer is
+   bound to the intent: onchain inspects and simulates the exact message first and throws
+   `SigningRefused` for anything but that one transfer, which guard-core records as `rejected`.
+   The SDK's own spend control is set to the intent's amount as a second lock.
 6. The request is retried with `PAYMENT-SIGNATURE`. A second 402 with different terms is
    `INVALID_402`. The paid response is returned as untrusted content.
+
+A 402 that is refused before an offer qualifies is still recorded, with any field the server sent
+missing or unreadably as `unknown` (an unreadable amount as `0`), so the bot can show it.
 
 The reason shown to the owner is the method and URL without the query string, which often carries
 the API's own credentials.
@@ -96,13 +99,9 @@ or fail a payment.
 
 ## Known gaps
 
-- **Solana x402 waits on onchain.** The SDK always appends a Memo instruction, which
-  `inspectTransfer` on main still refuses; onchain's fix is in its open PR. A test pins the refusal
-  (`test/svm-x402.test.ts`) and moves to onchain with the signing code.
-- **No real `ChainAdapter` yet** (SVM-3). Tests and `GUARD_STUB_CHAINS` use `adapters/stub.ts`.
-- `adapters/svm-x402.ts` imports the Solana SDKs inside guard-core, because `ChainAdapter` has no
-  x402 signing method yet. CR-003 (approved) moves it into onchain as `ChainAdapter.x402Scheme`;
-  guard-core switches over and deletes this file when that lands.
+- Nothing here has paid on devnet yet: the routes are tested end to end against
+  `adapters/stub.ts`, and onchain's adapter has its own tests. INT-3 runs them together.
+- Base has no adapter yet (EVM-3), so the policy cannot clear a payment on it.
 
 ## Layout
 
@@ -110,7 +109,7 @@ or fail a payment.
 | --------------- | -------------------------------------------------------------------------- |
 | `src/domain/`   | Pure logic: policy, amount math, x402 offer choice, simulation check, auth |
 | `src/service/`  | The pipeline, transfers, x402, approvals, the per-agent lock               |
-| `src/adapters/` | I/O: bot webhook, the paid API, x402 signing per chain, the stub chain     |
+| `src/adapters/` | I/O: bot webhook, the paid API, the keypair file, the stub chain           |
 | `src/http/`     | Fastify routes per role, zod schemas, bearer auth, rate limits             |
 | `src/db/`       | Drizzle + SQLite schema, migrations, queries                               |
 | `src/main.ts`   | Startup: config, migrations, adapters, the expiry sweep timer              |

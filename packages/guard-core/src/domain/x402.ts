@@ -99,3 +99,24 @@ export function requirementsChanged(
     quoted.payTo !== retried.payTo
   )
 }
+
+const UNKNOWN = 'unknown'
+const ATOMIC = /^(0|[1-9]\d{0,77})$/
+
+/**
+ * What a refused 402 asked for, in a form the audit log and the bot can read. The server chose
+ * these values, so anything missing, empty or oversized is recorded as "unknown" (and an
+ * unreadable amount as 0) rather than passed along.
+ */
+export function refusedTerms(offer: PaymentRequirements | undefined) {
+  return {
+    chain: bounded(offer?.network, 3, 64),
+    token: bounded(offer?.asset, 1, 128),
+    recipient: bounded(offer?.payTo, 1, 128),
+    amount: offer !== undefined && ATOMIC.test(offer.amount) ? offer.amount : '0',
+  }
+}
+
+function bounded(value: string | undefined, min: number, max: number): string {
+  return value !== undefined && value.length >= min && value.length <= max ? value : UNKNOWN
+}

@@ -9,7 +9,6 @@ import Fastify, {
 } from 'fastify'
 import { z } from 'zod'
 import { httpBotNotifier, type BotNotifier } from '../adapters/bot.js'
-import type { PaymentScheme } from '../adapters/x402.js'
 import type { Config } from '../config.js'
 import type { Db } from '../db/client.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
@@ -30,7 +29,6 @@ export interface ServerDeps {
   db: Db
   config: Config
   chains?: ReadonlyMap<ChainId, ChainAdapter>
-  schemes?: ReadonlyMap<ChainId, PaymentScheme>
   bot?: BotNotifier
   fetch?: typeof fetch
   now?: () => Date
@@ -51,7 +49,6 @@ export async function buildServer(options: ServerDeps) {
   const deps: X402Deps = {
     db,
     chains: options.chains ?? new Map(),
-    schemes: options.schemes ?? new Map(),
     bot: options.bot ?? httpBotNotifier(config),
     fetch: options.fetch ?? fetch,
     now: options.now ?? (() => new Date()),

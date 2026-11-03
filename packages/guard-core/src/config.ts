@@ -17,6 +17,7 @@ export const configSchema = z.object({
   SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
   SOLANA_RPC_URL: z.string().min(1).optional(),
   SOLANA_HOT_WALLET_KEYPAIR: z.string().min(1).optional(),
+  SQUADS_MULTISIG: z.string().min(1).optional(),
 
   /** Offline chains that move no money. For local development only. */
   GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
