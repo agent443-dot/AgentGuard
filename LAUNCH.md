@@ -48,7 +48,9 @@ Each line can be checked by someone other than its author.
 - [ ] **SVM-8**: the fourth cap property, the refill after the period, plus all four as automated
       LiteSVM tests. Needs the Squads binary (HUMAN-10).
 - [ ] **INT-5 done**: needs the two items above. It is also the gate for the Base work.
-- [ ] **Kill with a hardware wallet** (§4): today `pnpm kill` needs the owner key as a file.
+- [ ] **SVM-9, launch blocker: kill with a hardware wallet** (§4). Today `pnpm kill` needs the owner
+      key as a file. Onchain adds an owner signing path that works with a hardware wallet, kill first,
+      tested on devnet.
 - [ ] **Mainnet keys** generated fresh (key rule above). The owner key goes on the hardware wallet
       (D4), and the hot wallet key into the secrets manager (D5).
 - [ ] **Mainnet setup**, with the new keys:
@@ -61,8 +63,12 @@ Each line can be checked by someone other than its author.
 - [ ] **guard-core on mainnet**: `SOLANA_CHAIN=solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`, set
       explicitly, because the default is devnet. Also `GUARD_STUB_CHAINS=false`, a mainnet
       `SOLANA_RPC_URL`, and the new `SQUADS_MULTISIG`. The mcp-server `DEFAULT_CHAIN` must match.
-- [ ] **guard-core binds a deployable interface.** It listens on a hard-coded `127.0.0.1`
-      (`packages/guard-core/src/main.ts`). It needs a `HOST` setting like the bot's, chosen with D3.
+- [ ] **GC-12, launch blocker: guard-core binds a deployable interface.** It listens on a hard-coded
+      `127.0.0.1` (`packages/guard-core/src/main.ts`). It needs a `HOST` setting like the bot's,
+      chosen with D3.
+- [ ] **GC-13, launch blocker: `pnpm revoke-agent`.** `agents.revoked_at` exists and guard-core refuses
+      revoked tokens, but nothing sets the column. A leaked agent token can't be revoked without
+      editing the database.
 - [ ] **Persistent database.** `DATABASE_URL` defaults to `file:./data/guard.db`. The host needs a
       persistent volume, or intents, the audit log and daily spend are lost on redeploy.
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
@@ -117,7 +123,7 @@ leaked token or key, or any doubt at all. A kill is cheap to undo; a drain is no
    pnpm --filter @agentguard/onchain kill --yes    # removes it
    ```
 
-   **Open, before mainnet (§2):** with the owner key on a hardware wallet, this needs a signing path
+   **Open, before mainnet (SVM-9, §2):** with the owner key on a hardware wallet, this needs a signing path
    that is written down and tested. Either `kill.ts` learns to sign through the hardware wallet, or
    the owner removes the limit in the Squads app with the hardware wallet. Decide and test it on
    devnet before mainnet.
@@ -151,4 +157,4 @@ Do this after any suspected exposure, and after any kill caused by one.
 match between guard-core and the bot. Change them in both, restart both, and let the `pnpm dev:all`
 preflight (or its equivalent at deploy) confirm they agree. An agent token can't be rotated in place
 yet: `create-agent` issues a new agent. Revoking a single token (`agents.revoked_at`) has no command
-yet. **Open:** add one before launch.
+yet: that is GC-13, a launch blocker.
