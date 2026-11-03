@@ -29,8 +29,12 @@ Neither chain needs a contract we write. Both primitives are audited and already
 - Chains: Solana first, Base second. Both ship in v0.1, in that order. Token: USDC only in v0.1.
 - Shared: @modelcontextprotocol/sdk, grammY (Telegram), Fastify (HTTP), Drizzle + SQLite (MVP DB),
   zod (validation), vitest (tests)
-- Solana: @solana/kit, @sqds/multisig, @x402/svm + @x402/core (scheme `exact` over SPL transfers),
-  LiteSVM or solana-test-validator for tests
+- Solana: @sqds/multisig (depends on @solana/web3.js v1) for the multisig and the spending limit;
+  @x402/svm + @x402/core (scheme `exact` over SPL transfers, peer dependency on @solana/kit >= 8) for
+  payments; LiteSVM or solana-test-validator for tests. Both Solana client libraries are present
+  because the ecosystem is mid-migration and each half of the work sits on a different one. Keep each
+  confined to the code that needs it; addresses are base58 strings in both, so the boundary is a
+  `PublicKey` to string conversion and nothing more.
 - Base: viem, @safe-global/protocol-kit, x402 TS SDK (@x402/* >= 2.28.0 ONLY), Foundry for fork tests
 - Always verify current library APIs in official docs before use. Never guess an address, mint or
   program id: read it from official sources and put it in packages/shared/src/addresses.ts.
@@ -150,6 +154,10 @@ Pending intents expire after 10 minutes -> status "expired", reason APPROVAL_TIM
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.2.2 (2026-11-03): the Solana stack carries both client libraries. @sqds/multisig depends on
+  @solana/web3.js v1 while @x402/svm requires @solana/kit >= 8, so the choice is the ecosystem's, not
+  ours. Recorded rather than papered over: a wrapper hiding one behind the other would add a layer
+  nobody can audit against either library's docs.
 - v0.2.1 (2026-11-03): `ChainAdapter.simulate` returns `SimulationOutcome` rather than a bare
   `SimulationResult`. The per-chain checks in the adapters produce reject codes, and the caller needs
   both the summary shown to the owner and the codes written to the audit log. Correction to the
