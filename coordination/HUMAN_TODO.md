@@ -486,7 +486,7 @@ cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https:
 
 ---
 
-## ⏳ HUMAN-9 — Confirmar os genesis hashes da Solana
+## ✅ HUMAN-9 — Confirmar os genesis hashes da Solana
 
 Desbloqueia: `SVM-7`. Os identificadores de rede da Solana no código (`solana:5eykt4...`,
 `solana:EtWTRA...`) estão marcados como não verificados. São os primeiros 32 caracteres do genesis
@@ -502,6 +502,8 @@ solana genesis-hash --url mainnet-beta
 ```
 
 Cola as duas saídas no chat. São públicas.
+
+Feito em 2026-11-03: os dois identificadores no código estão corretos. Registado em CR-002.
 
 ---
 

@@ -141,7 +141,26 @@ way). If the chain is ever reconsidered, verify both against official sources fi
 Approve all three changes and the sequencing. The type change (item 2) should be applied by the
 integrator before any session writes code, since every package imports those types.
 
-### CR-002 — Bot needs an intent-event webhook, an admin budget read, and a pinned kill response
+### CR-002 — Unmark the Solana CAIP-2 ids: confirmed against the chain
+
+- **From:** manager
+- **Date:** 2026-11-03
+- **Status:** confirmed — no value changes; integrator removes the marker
+- **What:** `packages/shared/src/constants.ts` marks `CHAINS.solanaDevnet` and `CHAINS.solanaMainnet` as
+  UNVERIFIED. The owner ran `solana genesis-hash` against both clusters:
+
+  | Cluster      | Genesis hash                                   | First 32 characters                | In the code |
+  | ------------ | ---------------------------------------------- | ---------------------------------- | ----------- |
+  | devnet       | `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG` | `EtWTRABZaYq6iMfeYKouRu166VU2xqa1` | match       |
+  | mainnet-beta | `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d` | `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | match       |
+
+  Both values in the code are correct. The change is to delete the UNVERIFIED comment block and replace
+  it with one line naming this check as the source.
+
+- **Why:** an unverified chain id is a standing doubt in code that every x402 network check depends on.
+- **Blast radius:** a comment in `packages/shared`; no behaviour changes.
+
+### CR-004 — Bot needs an intent-event webhook, an admin budget read, and a pinned kill response
 
 - **From:** bot
 - **Date:** 2026-11-03
