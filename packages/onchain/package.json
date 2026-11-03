@@ -18,7 +18,9 @@
     "add-spending-limit": "tsx --env-file=.env src/scripts/add-spending-limit.ts",
     "fund-vault": "tsx --env-file=.env src/scripts/fund-vault.ts",
     "balances": "tsx --env-file=.env src/scripts/balances.ts",
-    "status": "tsx --env-file=.env src/scripts/status.ts"
+    "status": "tsx --env-file=.env src/scripts/status.ts",
+    "top-up": "tsx --env-file=.env src/scripts/top-up.ts",
+    "kill": "tsx --env-file=.env src/scripts/kill.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",

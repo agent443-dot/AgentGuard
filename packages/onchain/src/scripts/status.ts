@@ -19,7 +19,7 @@ const account = await multisig.accounts.Multisig.fromAccountAddress(connection, 
 console.log(`multisig:         ${multisigPda.toBase58()}`)
 console.log(`  threshold:      ${account.threshold}`)
 console.log(`  members:        ${account.members.map((m) => m.key.toBase58()).join(', ')}`)
-console.log(`  config authority ${account.configAuthority.toBase58()}`)
+console.log(`  config auth:    ${account.configAuthority.toBase58()}`)
 
 console.log(`vault:            ${vault.toBase58()}`)
 if (config.USDC_MINT) {
