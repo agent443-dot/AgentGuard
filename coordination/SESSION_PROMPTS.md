@@ -10,7 +10,7 @@ it instead of redoing it.
 | 2 — guard-core | `packages/guard-core`     | `feat/guard-core` | running since 2026-11-03 21:31 UTC | `session_01JbATMz7nmfUHJLa7w9bcKu` |
 | 3 — mcp        | `packages/mcp-server`     | `feat/mcp`        | running since 2026-11-03 21:31 UTC | `session_01JbATMvP1CCop59cWkcpwoe` |
 | 4 — bot        | `packages/telegram-bot`   | `feat/bot`        | running since 2026-11-03 21:31 UTC | `session_01JbATMzpGbP64syCMYQxB15` |
-| 5 — integrator | `packages/shared`, `/e2e` | `feat/integrator` | starts once 1–4 have PRs open      | —                                  |
+| 5 — integrator | `packages/shared`, `/e2e` | `feat/integrator` | running since 2026-11-03 22:13 UTC | `session_01JbATMzmAa2N45kuqQrBTK1` |
 
 ## Rules every prompt carries
 

@@ -507,6 +507,40 @@ Feito em 2026-11-03: os dois identificadores no código estão corretos. Regista
 
 ---
 
+## ⏳ HUMAN-10 — Descarregar o programa Squads para os testes automáticos
+
+Desbloqueia: `SVM-8`, os testes automáticos do teto onchain. Correm o programa Squads verdadeiro dentro
+de um validador local, e para isso precisam do binário dele — que se descarrega da mainnet, coisa que as
+sessões na nuvem não conseguem fazer. Os quatro testes estão escritos e à espera, marcados como
+`skipped`.
+
+O binário é público e vem do endereço oficial do programa, por isso os testes correm contra o código
+que está mesmo em produção, e não contra uma imitação.
+
+Vai para um branch próprio, `fixture/squads-v4`, e não para o `feat/onchain`: a Sessão 1 está a
+empurrar para esse branch, e assim os dois nunca se pisam.
+
+```bash
+cd ~/AgentGuard && git fetch origin && git checkout -b fixture/squads-v4 origin/main
+```
+
+```bash
+mkdir -p packages/onchain/test/fixtures && solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf packages/onchain/test/fixtures/squads_v4.so
+```
+
+```bash
+git add packages/onchain/test/fixtures/squads_v4.so && git commit -m "test: add the Squads v4 program binary for the LiteSVM cap tests"
+```
+
+```bash
+git push -u origin fixture/squads-v4 && git checkout main
+```
+
+Se o `git commit` responder `Please tell me who you are`, configura o git uma vez e repete o commit:
+`git config --global user.name "O teu nome"` e `git config --global user.email "o-teu@email"`.
+
+---
+
 ## ⬜ HUMAN-5 — Criar o bot do Telegram
 
 Desbloqueia: `BOT-3` (testar as aprovações a sério) e, mais tarde, `INT-4`.
