@@ -23,6 +23,9 @@ Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
   from `@agentguard/shared`. A chain whose USDC address is not configured is refused.
 - **Outcomes**: every result states the status and, on a rejection, each reject code with a short
   explanation. On `pending_approval` the model is told to tell the user and poll `check_intent`.
+  For `paid_fetch`, once `check_intent` reports `approved` the model repeats the same request, which
+  redeems the approval once and returns the paid response (CR-003). A resource that asks for no
+  payment passes straight through as "no payment needed".
 - **Untrusted content**: a `paid_fetch` body is returned in its own content block, fenced by
   `<untrusted-content id="…">` markers carrying a random nonce, after a notice that it is third-party
   data. Only a well-formed media type is shown from the response headers. Bodies over 100,000
@@ -131,7 +134,8 @@ DEMO_URL=http://127.0.0.1:8790/premium pnpm --filter @agentguard/mcp-server demo
 
 The mock guard-core implements the SPEC's agent routes with a few fixed rules (see
 [`examples/mock-guard/server.ts`](./examples/mock-guard/server.ts)): `/weather` costs $0.01 and
-executes, `/premium` costs $2.00 and is approved after 20 seconds, `/injection` returns a body that
+executes, `/premium` costs $2.00 and is approved after 20 seconds (repeat the request to redeem it),
+`/free` needs no payment, `/injection` returns a body that
 tries to give the agent orders. Credentials are `demo-agent` / `demo-token`.
 
 To click through the tools in the MCP Inspector with the mock running:

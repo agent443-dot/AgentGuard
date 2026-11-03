@@ -11,18 +11,22 @@ const intentStatus = z.enum([
 
 const rejectReasons = z.array(z.string()).default([])
 
-export const fetchResult = z.object({
-  intentId: z.string().optional(),
-  status: intentStatus,
-  rejectReasons,
-  response: z
-    .object({
-      status: z.number().int(),
-      headers: z.record(z.string(), z.string()).default({}),
-      body: z.unknown(),
-    })
-    .optional(),
-})
+export const fetchResult = z
+  .object({
+    // CR-003: both are absent when the resource asked for no payment, and intentId is absent when the
+    // host was refused before an intent existed.
+    intentId: z.string().optional(),
+    status: intentStatus.optional(),
+    rejectReasons,
+    response: z
+      .object({
+        status: z.number().int(),
+        headers: z.record(z.string(), z.string()).default({}),
+        body: z.unknown(),
+      })
+      .optional(),
+  })
+  .refine((result) => result.status !== undefined || result.response !== undefined)
 
 export const transferResult = z.object({
   intentId: z.string(),

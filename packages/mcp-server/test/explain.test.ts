@@ -17,13 +17,24 @@ describe('explainReject', () => {
 
 describe('explainStatus', () => {
   it('tells the model to inform the user and poll on pending_approval', () => {
-    const text = explainStatus('pending_approval', [])
+    const text = explainStatus('pending_approval', [], 'transfer')
     expect(text).toMatch(/Tell the user/)
     expect(text).toMatch(/check_intent/)
+    expect(text).not.toMatch(/paid_fetch/)
+  })
+
+  it('tells the model to repeat an approved x402 request, and only an x402 one', () => {
+    expect(explainStatus('pending_approval', [], 'x402')).toMatch(
+      /Once check_intent reports approved, call paid_fetch again with exactly the same url/,
+    )
+    expect(explainStatus('approved', [], 'x402')).toMatch(/that one request only/)
+    expect(explainStatus('approved', [], 'transfer')).toBe(
+      'The payment was approved and is being sent.',
+    )
   })
 
   it('lists each reject reason', () => {
-    const text = explainStatus('rejected', ['DAILY_EXCEEDED', 'PAUSED'])
+    const text = explainStatus('rejected', ['DAILY_EXCEEDED', 'PAUSED'], 'transfer')
     expect(text).toMatch(/Do not retry/)
     expect(text).toMatch(/- DAILY_EXCEEDED: the payment would go over the daily spending limit/)
     expect(text).toMatch(/- PAUSED: /)

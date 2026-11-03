@@ -27,6 +27,10 @@ describe('tool listing', () => {
       expect(description).toMatch(/pending_approval: tell the user/)
       expect(description).toMatch(/check_intent/)
     }
+    const paidFetch = tools.find((tool) => tool.name === 'paid_fetch')?.description ?? ''
+    expect(paidFetch).toMatch(/reports approved: call paid_fetch again with exactly the same/)
+    const checkIntent = tools.find((tool) => tool.name === 'check_intent')?.description ?? ''
+    expect(checkIntent).toMatch(/"approved" means the owner said yes/)
   })
 })
 
@@ -213,6 +217,33 @@ describe('paid_fetch', () => {
     expect(fenced).toContain(hostile)
   })
 
+  it('passes a resource that asked for no payment straight through', async () => {
+    const client = await connect(
+      fakeGuard({
+        fetch: async () => ({
+          rejectReasons: [],
+          response: { status: 200, headers: { 'content-type': 'text/html' }, body: '<p>free</p>' },
+        }),
+      }),
+    )
+    const result = await call(client, 'paid_fetch', { url: 'https://api.test/free' })
+    expect(result.texts[0]).toMatch(/^Request to https:\/\/api\.test\/free: no payment needed\./)
+    expect(result.texts[0]).not.toMatch(/Intent id/)
+    expect(result.texts[1]).toContain('<p>free</p>')
+  })
+
+  it('explains a host refused before any intent existed', async () => {
+    const client = await connect(
+      fakeGuard({
+        fetch: async () => ({ status: 'rejected', rejectReasons: ['DOMAIN_NOT_ALLOWED'] }),
+      }),
+    )
+    const { text } = await call(client, 'paid_fetch', { url: 'https://evil.test' })
+    expect(text).toMatch(/: rejected\./)
+    expect(text).not.toMatch(/Intent id/)
+    expect(text).toMatch(/DOMAIN_NOT_ALLOWED/)
+  })
+
   it('serializes a body that is not a string', async () => {
     const client = await connect(
       fakeGuard({
@@ -304,6 +335,17 @@ describe('check_intent', () => {
     const { text } = await call(client, 'check_intent', { intentId: INTENT_ID })
     expect(text).toMatch(/transfer to PayTo/)
     expect(text).toMatch(/Transaction id: sig9/)
+  })
+
+  it('tells the model to repeat the request once an x402 payment is approved', async () => {
+    const client = await connect(
+      fakeGuard({ intent: async () => ({ ...intent, status: 'approved', rejectReasons: [] }) }),
+    )
+    const { text } = await call(client, 'check_intent', { intentId: INTENT_ID })
+    expect(text).toMatch(/: approved\./)
+    expect(text).toMatch(
+      /call paid_fetch again with exactly the same url, method, headers and body/i,
+    )
   })
 
   it('refuses an id that is not a uuid', async () => {

@@ -8,11 +8,12 @@ import { CHAINS } from '@agentguard/shared'
  * nothing more. Its "policy" is a few fixed rules so every result the MCP tools can show is easy to
  * reach by hand in the MCP inspector:
  *
- * - x402 fetch costs $0.01 and really calls the URL, retrying a 402 with a fake payment header.
- *   A URL whose path contains "/premium" costs $2.00 and needs approval.
- *   A host not in `allowedDomains` is rejected with DOMAIN_NOT_ALLOWED.
+ * - x402 fetch refuses a host not in `allowedDomains` before any request (no intent). It calls the
+ *   URL; an answer other than 402 passes straight through with no intent. A 402 costs $0.01 and is
+ *   paid with a fake payment header; under a "/premium" path it costs $2.00 and needs approval.
  * - transfer to a recipient outside `allowedRecipients` is rejected; $1.00 or more needs approval.
- * - a pending intent is approved and executed after `approveAfterMs`.
+ * - after `approveAfterMs` a pending transfer executes, and a pending x402 payment becomes approved.
+ *   Repeating the same fetch then redeems that approval once, as CR-003 specifies.
  */
 export interface MockGuardOptions {
   agentId: string
@@ -70,9 +71,11 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
   function settle(intent: MockIntent) {
     const pending = intent.status === 'pending_approval'
     if (pending && now().getTime() - Date.parse(intent.createdAt) >= approveAfterMs) {
-      intent.status = 'executed'
-      intent.txId = `mock-tx-${intent.id.slice(0, 8)}`
-      spent += BigInt(intent.amount)
+      if (intent.kind === 'x402') {
+        intent.status = 'approved'
+      } else {
+        execute(intent)
+      }
     }
     return intent
   }
@@ -87,21 +90,53 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
       ...fields,
     }
     if (intent.status === 'executed') {
-      intent.txId = `mock-tx-${intent.id.slice(0, 8)}`
-      spent += BigInt(intent.amount)
+      execute(intent)
     }
     intents.set(intent.id, intent)
     return intent
   }
 
+  function execute(intent: MockIntent) {
+    intent.status = 'executed'
+    intent.txId = `mock-tx-${intent.id.slice(0, 8)}`
+    spent += BigInt(intent.amount)
+  }
+
+  async function call(url: URL, method: string, paid: boolean) {
+    const response = await fetch(url, {
+      method,
+      headers: paid ? { 'x-payment': 'mock-payment' } : {},
+    })
+    const headers: Record<string, string> = {}
+    response.headers.forEach((value, key) => (headers[key] = value))
+    return { status: response.status, headers, body: await response.text() }
+  }
+
   async function x402(body: Record<string, unknown>) {
     const url = new URL(String(body['url']))
+    const method = String(body['method'] ?? 'GET')
+    if (!allowedDomains.includes(url.hostname)) {
+      return { status: 'rejected', rejectReasons: ['DOMAIN_NOT_ALLOWED'] }
+    }
+    const free = await call(url, method, false)
+    if (free.status !== 402) {
+      return { rejectReasons: [], response: free }
+    }
     const amount = url.pathname.includes('/premium') ? PREMIUM : CHEAP
+    const approved = [...intents.values()].find(
+      (intent) =>
+        intent.kind === 'x402' &&
+        settle(intent).status === 'approved' &&
+        intent.domain === url.hostname &&
+        intent.amount === amount.toString(),
+    )
+    if (approved) {
+      execute(approved)
+      const response = await call(url, method, true)
+      return { intentId: approved.id, status: 'executed', rejectReasons: [], response }
+    }
     const max = typeof body['maxAmount'] === 'string' ? BigInt(body['maxAmount']) : undefined
-    const reasons = [
-      ...(allowedDomains.includes(url.hostname) ? [] : ['DOMAIN_NOT_ALLOWED']),
-      ...(max !== undefined && amount > max ? ['PER_TX_EXCEEDED'] : []),
-    ]
+    const reasons = max !== undefined && amount > max ? ['PER_TX_EXCEEDED'] : []
     const status =
       reasons.length > 0
         ? 'rejected'
@@ -120,17 +155,7 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
       rejectReasons: reasons,
     })
     const result = { intentId: intent.id, status, rejectReasons: reasons }
-    if (status !== 'executed') {
-      return result
-    }
-    const init = {
-      method: String(body['method'] ?? 'GET'),
-      headers: { 'x-payment': 'mock-payment' },
-    }
-    const paid = await fetch(url, init)
-    const headers: Record<string, string> = {}
-    paid.headers.forEach((value, key) => (headers[key] = value))
-    return { ...result, response: { status: paid.status, headers, body: await paid.text() } }
+    return status === 'executed' ? { ...result, response: await call(url, method, true) } : result
   }
 
   function transfer(body: Record<string, unknown>) {
