@@ -18,8 +18,13 @@ export function findAgentByToken(db: Db, token: string): { id: string } | undefi
     .select({ id: agents.id, hash: agents.tokenHash, revokedAt: agents.revokedAt })
     .from(agents)
     .all()
-  const match = rows.find((row) => row.revokedAt === null && matchesHash(token, row.hash))
-  return match ? { id: match.id } : undefined
+  let match: { id: string } | undefined
+  for (const row of rows) {
+    if (matchesHash(token, row.hash) && row.revokedAt === null) {
+      match = { id: row.id }
+    }
+  }
+  return match
 }
 
 export function agentExists(db: Db, id: string): boolean {
