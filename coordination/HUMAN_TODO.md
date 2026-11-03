@@ -28,26 +28,46 @@ escrever código, mas é preciso para tu correres testes e scripts na tua máqui
 
 Conta uns 20 a 30 minutos, a maior parte à espera de downloads.
 
-### 2.1 Instalar o WSL2 com Ubuntu
+### 2.1 Ver se o Ubuntu já está instalado
 
-1. Abre o **PowerShell como Administrador** (botão direito no menu Iniciar → Terminal (Admin)) e corre:
-   ```powershell
-   wsl --install -d Ubuntu
-   ```
-2. Reinicia o PC se ele pedir.
-3. Abre o **Ubuntu** pelo menu Iniciar. Na primeira vez pede um nome de utilizador e uma password.
-   Essa password é a do `sudo` dentro do Ubuntu, não tem nada a ver com a password do Windows —
-   escolhe uma de que te lembres.
+No PowerShell:
 
-A partir daqui, **todos os comandos são dentro desta janela do Ubuntu.**
+```powershell
+wsl --list --verbose
+```
 
-### 2.2 Atualizar o Ubuntu e instalar o git
+- Se aparecer `Ubuntu` com `VERSION 2`, está feito — salta para o 2.2.
+- Se aparecer `Ubuntu` com `VERSION 1`, converte-o: `wsl --set-version Ubuntu 2`.
+- Se não aparecer nada, instala-o num **PowerShell como Administrador** (botão direito no menu
+  Iniciar → Terminal (Admin)) com `wsl --install -d Ubuntu` e reinicia o PC se ele pedir.
+
+Se o `wsl --install` responder `ERROR_ALREADY_EXISTS`, significa que já o tens — não é um erro a
+corrigir.
+
+### 2.2 Entrar no Ubuntu (o passo que é fácil esquecer)
+
+Este é o passo mais importante da lista. No PowerShell:
+
+```powershell
+wsl -d Ubuntu
+```
+
+Na primeira vez pede um nome de utilizador e uma password. Essa password é a do `sudo` dentro do
+Ubuntu, não tem nada a ver com a password do Windows — escolhe uma de que te lembres.
+
+**Como sabes que entraste:** o prompt deixa de ser `PS C:\Users\joaod>` e passa a ser algo como
+`joaod@DESKTOP-XXXX:~$`. Se ainda vês `PS` e `C:\`, estás em PowerShell e os comandos a seguir vão
+falhar com `The token '&&' is not a valid statement separator`.
+
+A partir daqui, **todos os comandos correm nesta janela do Ubuntu.** Para sair, `exit`.
+
+### 2.3 Atualizar o Ubuntu e instalar o git
 
 ```bash
 sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl build-essential
 ```
 
-### 2.3 Instalar o Node 22 e o pnpm
+### 2.4 Instalar o Node 22 e o pnpm
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
@@ -70,7 +90,7 @@ node -v && pnpm -v
 Deve dizer `v22.x` e `10.28.0`. Se o `corepack` falhar, usa em alternativa
 `sudo npm install -g pnpm@10.28.0`.
 
-### 2.4 Instalar o Foundry
+### 2.5 Instalar o Foundry
 
 Agora sim, o comando que te dei antes funciona, porque estás em bash:
 
@@ -92,7 +112,7 @@ forge --version
 cast --version
 ```
 
-### 2.5 Clonar o repositório dentro do Ubuntu
+### 2.6 Clonar o repositório dentro do Ubuntu
 
 Importante: clona dentro do sistema de ficheiros do Linux (`~`), **não** em `/mnt/c/...`. Em `/mnt/c` o
 pnpm e o git ficam muito lentos.
@@ -107,7 +127,7 @@ Se pedir credenciais, a forma mais simples é instalar o GitHub CLI e autenticar
 sudo apt install -y gh && gh auth login
 ```
 
-### 2.6 Verificar que tudo funciona
+### 2.7 Verificar que tudo funciona
 
 ```bash
 cd ~/AgentGuard && pnpm install && pnpm check
