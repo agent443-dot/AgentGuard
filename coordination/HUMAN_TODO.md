@@ -205,7 +205,7 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 ---
 
-## ⏳ HUMAN-3 — Criar as duas carteiras de teste
+## ✅ HUMAN-3 — Criar as duas carteiras de teste
 
 Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
@@ -217,7 +217,15 @@ gestor de senhas do dono, nunca no repositório):
 | Owner EOA (dona da Safe)    | `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890` |
 | Guard hot wallet (delegate) | `0xa95710875968439245265b977730ab69892dA470` |
 
-Falta confirmar que os dois `.env` estão preenchidos (passos 3 a 5).
+Os dois `.env` estão preenchidos. Para confirmar o estado a qualquer momento sem imprimir nenhum
+valor — mostra só o nome de cada variável e se está preenchida:
+
+```bash
+for f in ~/ag-onchain/packages/onchain/.env ~/ag-guard-core/packages/guard-core/.env; do echo "== $f"; grep -E '^[A-Z_]+=' "$f" | awk -F= '{printf "%-10s %s\n", ($2=="" ? "VAZIO" : "ok"), $1}'; done
+```
+
+Devem ficar `VAZIO` apenas o `SAFE_ADDRESS` dos dois ficheiros (o `ON-1` preenche-o) e os três
+`TENDERLY_*` do guard-core (são opcionais).
 
 São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteira que já tenha dinheiro real.
 
