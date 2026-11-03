@@ -9,9 +9,21 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "dev:check": "tsx src/dev-check.ts"
+    "dev:check": "tsx src/dev-check.ts",
+    "paywall": "tsx --env-file=.env src/devnet-paywall.ts"
   },
   "devDependencies": {
-    "tsx": "^4.23.15"
+    "@agentguard/guard-core": "workspace:*",
+    "@agentguard/mcp-server": "workspace:*",
+    "@agentguard/shared": "workspace:*",
+    "@agentguard/telegram-bot": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@solana/kit": "^8.6.0",
+    "@x402/core": "^2.29.0",
+    "@x402/svm": "^2.29.0",
+    "grammy": "^1.46.0",
+    "pino": "^10.4.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
   }
 }
