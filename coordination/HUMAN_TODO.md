@@ -148,7 +148,25 @@ exec zsh
 forge --version; cast --version
 ```
 
-### 2.7 Clonar o repositório dentro do Ubuntu
+### 2.7 Autenticar no GitHub
+
+O repositório é privado, por isso o `git clone` por HTTPS vai pedir credenciais — e o GitHub já não
+aceita a password da conta, só um token. O GitHub CLI resolve isto e também configura o git:
+
+```bash
+sudo apt install -y gh
+```
+
+```bash
+gh auth login
+```
+
+É interativo. As respostas são: `GitHub.com` → `HTTPS` → `Y` para autenticar o git com as credenciais
+do GitHub → `Login with a web browser`. Ele mostra um código de 8 caracteres e abre o browser no
+Windows; cola lá o código. Se o browser não abrir, escolhe `Paste an authentication token` e cria um
+token em `github.com/settings/tokens` com o âmbito `repo`.
+
+### 2.8 Clonar o repositório dentro do Ubuntu
 
 Importante: clona dentro do sistema de ficheiros do Linux (`~`), **não** em `/mnt/c/...`. Em `/mnt/c` o
 pnpm e o git ficam muito lentos.
@@ -157,20 +175,24 @@ pnpm e o git ficam muito lentos.
 cd ~ && git clone https://github.com/kikume/AgentGuard.git && cd AgentGuard
 ```
 
-Se pedir credenciais, a forma mais simples é instalar o GitHub CLI e autenticar:
+### 2.9 Verificar que tudo funciona
 
 ```bash
-sudo apt install -y gh && gh auth login
+cd ~/AgentGuard && pnpm -v
 ```
 
-### 2.8 Verificar que tudo funciona
+Na primeira vez o corepack pode pedir confirmação para descarregar o pnpm `10.28.0` — responde `Y`. A
+versão vem fixa do `packageManager` no `package.json`, por isso é a mesma em todas as máquinas e no CI.
 
 ```bash
-cd ~/AgentGuard && pnpm install && pnpm check
+pnpm install
 ```
 
-Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado deste comando e o que o
-`forge --version` imprimiu.
+```bash
+pnpm check
+```
+
+Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 > Se usas VS Code, instala a extensão **WSL** e abre o projeto com `code .` de dentro do Ubuntu.
 
