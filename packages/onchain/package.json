@@ -2,7 +2,7 @@
   "name": "@agentguard/onchain",
   "version": "0.1.0",
   "private": true,
-  "description": "Safe + Allowance Module scripts and Foundry fork tests.",
+  "description": "ChainAdapter for Solana (Squads v4) and Base (Safe Allowance Module).",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -24,12 +24,17 @@
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
+    "@solana/kit": "^8.6.0",
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
     "@sqds/multisig": "^2.1.4",
+    "@x402/core": "^2.29.0",
+    "@x402/svm": "^2.29.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "bs58": "^6.0.0",
+    "litesvm": "0.8.0",
     "tsx": "^4.23.15"
   }
 }

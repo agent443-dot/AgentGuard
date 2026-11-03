@@ -19,7 +19,7 @@ import {
   TransactionMessage,
 } from '@solana/web3.js'
 import { describe, expect, it } from 'vitest'
-import { inspectTransfer, type ExpectedTransfer } from '../src/svm/inspect.js'
+import { inspectTransfer, MEMO_PROGRAM_ID, type ExpectedTransfer } from '../src/svm/inspect.js'
 
 const hot = Keypair.generate().publicKey
 const recipient = Keypair.generate().publicKey
@@ -37,6 +37,13 @@ const expected: ExpectedTransfer = {
   amount: 1_000_000n,
   decimals: 6,
 }
+
+const memo = (data: Buffer, keys: PublicKey[] = []) =>
+  new TransactionInstruction({
+    programId: MEMO_PROGRAM_ID,
+    keys: keys.map((pubkey) => ({ pubkey, isSigner: true, isWritable: false })),
+    data,
+  })
 
 const pay = (
   amount = 1_000_000n,
@@ -74,6 +81,37 @@ describe('inspectTransfer accepts', () => {
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }),
     ]
     expect(inspectTransfer(message([...budget, pay()]), expected)).toEqual([])
+  })
+
+  // The shape the x402 exact client builds: budget, transfer, then a nonce memo.
+  it('a memo after the transfer, as every x402 payment carries', () => {
+    const budget = [
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 20_000 }),
+    ]
+    const nonce = memo(Buffer.from('a1b2c3d4e5f60718293a4b5c6d7e8f90'))
+    expect(inspectTransfer(message([...budget, pay(), nonce]), expected)).toEqual([])
+  })
+})
+
+describe('inspectTransfer bounds what a memo may carry', () => {
+  it('a memo naming accounts', () => {
+    const signed = memo(Buffer.from('hi'), [hot])
+    expect(inspectTransfer(message([pay(), signed]), expected)).toContain('SIM_UNEXPECTED_EFFECT')
+  })
+
+  it('a memo above the x402 size ceiling', () => {
+    const long = memo(Buffer.alloc(257, 0x61))
+    expect(inspectTransfer(message([pay(), long]), expected)).toContain('SIM_UNEXPECTED_EFFECT')
+  })
+
+  it('a second memo', () => {
+    const twice = [pay(), memo(Buffer.from('one')), memo(Buffer.from('two'))]
+    expect(inspectTransfer(message(twice), expected)).toContain('SIM_UNEXPECTED_EFFECT')
+  })
+
+  it('a memo at the ceiling', () => {
+    expect(inspectTransfer(message([pay(), memo(Buffer.alloc(256, 0x61))]), expected)).toEqual([])
   })
 })
 

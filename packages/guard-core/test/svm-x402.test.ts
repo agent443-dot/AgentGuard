@@ -164,14 +164,14 @@ describe('svmPaymentScheme with the real SDK', () => {
   })
   afterAll(() => new Promise<void>((resolve) => rpc.close(() => resolve())))
 
-  // The SDK always appends a Memo instruction, and onchain's inspectTransfer does not allow the Memo
-  // program yet (message sent to onchain, 2026-11-03). Everything else in the SDK's transaction
-  // passes. When the Memo is allowed this test fails, and should then expect a signed payload.
-  it('reaches the inspection with the SDK transaction, and refuses only its Memo', async () => {
+  // The SDK appends a Memo instruction. Onchain allows exactly one, so the real SDK transaction
+  // clears the inspection and gets signed.
+  it('signs the SDK transaction, Memo included', async () => {
     const { port } = rpc.address() as AddressInfo
     const scheme = svmPaymentScheme(CHAIN, wallet, `http://127.0.0.1:${port}`)
-    await expect(
-      scheme.forIntent(intent, requirements).createPaymentPayload(2, requirements),
-    ).rejects.toEqual(new SigningRefused(['UNKNOWN_PROGRAM_DETECTED']))
+    const payload = await scheme
+      .forIntent(intent, requirements)
+      .createPaymentPayload(2, requirements)
+    expect(payload.payload).toHaveProperty('transaction')
   })
 })

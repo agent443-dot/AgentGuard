@@ -8,6 +8,7 @@ import type {
   SimulationResult,
   TxId,
 } from '@agentguard/shared'
+import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
 
 /** The transaction only the owner can sign: it zeroes the spend limit and removes the delegate. */
 export interface KillTx {
@@ -40,4 +41,17 @@ export interface ChainAdapter {
   send(intent: PayIntent): Promise<TxId>
 
   buildKillTx(): Promise<KillTx>
+
+  /**
+   * A scheme client for @x402/core that signs this intent and nothing else. Whatever the SDK puts in
+   * front of it is checked first, and anything other than that one payment throws SigningRefused
+   * instead of producing a signature.
+   */
+  x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient
+}
+
+export class SigningRefused extends Error {
+  constructor(readonly reasons: RejectCode[]) {
+    super(`signing_refused: ${reasons.join(',')}`)
+  }
 }

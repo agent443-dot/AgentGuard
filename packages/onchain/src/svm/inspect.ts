@@ -9,8 +9,8 @@ import {
 import {
   ComputeBudgetInstruction,
   ComputeBudgetProgram,
+  PublicKey,
   TransactionInstruction,
-  type PublicKey,
   type VersionedMessage,
 } from '@solana/web3.js'
 
@@ -33,6 +33,11 @@ export interface ExpectedTransfer {
 const MAX_COMPUTE_UNIT_LIMIT = 400_000
 const MAX_MICRO_LAMPORTS_PER_UNIT = 1_000_000n
 
+// The x402 exact scheme appends a memo to every payment, a random nonce when the seller sets none,
+// so a memo has to pass. 256 bytes is the x402 client's own ceiling.
+export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr')
+const MAX_MEMO_BYTES = 256
+
 /**
  * Reads the exact message we are about to sign and lists every reason not to.
  *
@@ -53,6 +58,7 @@ export function inspectTransfer(
   const keys = message.staticAccountKeys
   const reasons = new Set<RejectCode>()
   let matchingTransfers = 0
+  let memos = 0
 
   if (!keys[0]?.equals(expected.feePayer)) {
     reasons.add('SIM_UNEXPECTED_EFFECT')
@@ -83,6 +89,13 @@ export function inspectTransfer(
       }
     } else if (programId.equals(ComputeBudgetProgram.programId)) {
       if (!computeBudgetWithinLimits(instruction)) {
+        reasons.add('SIM_UNEXPECTED_EFFECT')
+      }
+    } else if (programId.equals(MEMO_PROGRAM_ID)) {
+      // A memo with accounts makes the memo program demand their signatures, which is no payment's
+      // business. The client writes one; a second has no reason to be there.
+      memos++
+      if (memos > 1 || instruction.keys.length > 0 || instruction.data.length > MAX_MEMO_BYTES) {
         reasons.add('SIM_UNEXPECTED_EFFECT')
       }
     } else if (programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)) {
