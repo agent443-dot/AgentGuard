@@ -145,7 +145,8 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** manager
 - **Date:** 2026-11-03
-- **Status:** confirmed — no value changes; integrator removes the marker
+- **Status:** applied to SPEC v0.3 on 2026-11-03. Values unchanged; the UNVERIFIED marker is gone from
+  `packages/shared/src/constants.ts` and the ids are written into the SPEC
 - **What:** `packages/shared/src/constants.ts` marks `CHAINS.solanaDevnet` and `CHAINS.solanaMainnet` as
   UNVERIFIED. The owner ran `solana genesis-hash` against both clusters:
 
@@ -164,7 +165,7 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** guard-core
 - **Date:** 2026-11-03
-- **Status:** approved (owner, 2026-11-03)
+- **Status:** approved (owner, 2026-11-03); applied to SPEC v0.3 on 2026-11-03
 
 #### What
 
@@ -211,7 +212,8 @@ integrator before any session writes code, since every package imports those typ
 - **Date:** 2026-11-03
 - **Status:** approved (owner, 2026-11-03). Owner's addition: attack-code alerts are throttled per
   agent and code so a loop of malicious payments cannot flood the owner's Telegram; large-payment
-  alerts are not throttled. Done in the bot.
+  alerts are not throttled. Done in the bot. Applied to SPEC v0.3 on 2026-11-03, with the owner's
+  throttling rule and the null `payload` for an unbuilt kill transaction written in.
 - **What:** three additions to [`/SPEC.md`](./SPEC.md). None changes an existing interface.
 
   1. **New webhook guard-core -> telegram-bot**, under "Webhook guard-core -> telegram-bot":

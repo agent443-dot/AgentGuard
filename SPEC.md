@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.2 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.3 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -49,8 +49,12 @@ Neither chain needs a contract we write. Both primitives are audited and already
 
 ## Chain identifiers
 Chains are CAIP-2 strings, never numbers: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" style for Solana,
-"eip155:8453" for Base mainnet, "eip155:84532" for Base Sepolia. The exact Solana genesis hashes go in
-packages/shared/src/constants.ts, read from official sources.
+"eip155:8453" for Base mainnet, "eip155:84532" for Base Sepolia. The values live in
+packages/shared/src/constants.ts. The Solana references are the first 32 characters of each cluster's
+genesis hash, confirmed with `solana genesis-hash` (CR-002):
+
+  mainnet-beta | solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
+  devnet       | solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1
 
 Addresses, token identifiers and transaction ids are opaque strings. Solana uses base58, EVM uses hex;
 nothing outside a chain adapter may assume either.
@@ -114,16 +118,28 @@ interface ChainAdapter {
   buildKillTx(): Promise<{ description: string; payload: unknown }>  // owner signs this
   simulate(intent: PayIntent): Promise<SimulationOutcome>
   send(intent: PayIntent): Promise<string>         // returns txId
+  x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient
 }
+
+x402Scheme returns a scheme client for @x402/core that signs this one intent and nothing else: it
+inspects the exact message before signing and refuses anything that differs from the intent.
+PaymentRequirements and SchemeNetworkClient are the @x402/core types. This keeps chain SDKs out of
+guard-core even for x402 signing.
 
 ## guard-core HTTP API (port 8787). Auth: header `Authorization: Bearer <token>`
 Agent token (per agent) for /v1/agent/*; admin token for /v1/admin/*; bot token for /v1/bot/*.
 
 POST /v1/agent/x402/fetch   { agentId, url, method, headers?, body?, maxAmount? }
-  -> 200 { intentId, status, response?: { status, headers, body } , rejectReasons }
+  -> 200 { intentId?, status?, response?: { status, headers, body } , rejectReasons }
   Guard performs the request; on 402 parses requirements, runs policy + simulation,
   signs the payment ONLY if approved, retries, returns the paid response.
   If pending_approval: returns { status: "pending_approval", intentId } immediately.
+  No payment, no intent: when the resource does not ask for a payment, intentId and status are absent
+  and the response passes through with rejectReasons: []. When the host is refused before any request
+  is made, intentId is absent and the result is { status: "rejected", rejectReasons: ["DOMAIN_NOT_ALLOWED"] }.
+  After the owner approves, the agent repeats the same request. The approval is redeemed once, for
+  exactly the approved chain, token, amount, recipient and domain. An approval not redeemed before
+  expiresAt expires with APPROVAL_TIMEOUT.
 POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason } -> { intentId, status, txId?, rejectReasons }
 GET  /v1/agent/intents/:id  -> PayIntent
 GET  /v1/agent/budget/:agentId -> { spentToday, dailyMax, perTxMax, hotWalletBalances, paused }
@@ -132,12 +148,26 @@ POST /v1/bot/decision       { intentId, decision: "approve" | "reject", telegram
 POST /v1/admin/pause        { agentId } ; POST /v1/admin/resume { agentId }
 POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chain, the owner tx that
                                   sets the allowance to 0 and removes the delegate
+  -> { pausedAgents: number,
+       ownerTransactions: { chain: string, description: string, payload: unknown }[] }
+  Each ownerTransactions entry is one chain's ChainAdapter.buildKillTx() with its CAIP-2 chain added.
+  A chain whose kill tx could not be built stays in the list with payload: null and a description
+  telling the owner to remove the spend limit by hand: that chain's allowance is still live.
 GET/PUT /v1/admin/policy/:agentId  Policy
+GET  /v1/admin/budget/:agentId -> BudgetView   same body as GET /v1/agent/budget/:agentId;
+                                  404 { error: "not_found" } for an unknown agent
 
 ## Webhook guard-core -> telegram-bot
 POST {BOT_URL}/hooks/approval-request  (header X-Guard-Signature: HMAC-SHA256 of body with BOT_WEBHOOK_SECRET)
 { intent: PayIntent, simulation: { summary: string, balanceChanges: {token, delta}[] }, approveBefore: string }
 Pending intents expire after 10 minutes -> status "expired", reason APPROVAL_TIMEOUT.
+
+POST {BOT_URL}/hooks/intent-event      (same X-Guard-Signature scheme as approval-request)
+{ intent: PayIntent, sentAt: string }  // sentAt: ISO time guard-core sent it
+Sent when an intent reaches executed, rejected, failed or expired. The bot decides what to show
+(executed at or above NOTIFY_ABOVE_AMOUNT, any per-chain attack code); guard-core has no notification
+policy of its own. The bot refuses events older than 5 minutes and deduplicates on intent id plus
+status. Attack-code alerts are throttled per agent and code; large-payment alerts are not.
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
@@ -154,6 +184,14 @@ Pending intents expire after 10 minutes -> status "expired", reason APPROVAL_TIM
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.3 (2026-11-03): three owner-approved changes.
+  CR-002: the Solana CAIP-2 ids are confirmed against each cluster's genesis hash and written here; the
+  values did not change.
+  CR-003: ChainAdapter.x402Scheme, so x402 signing lives in the adapter and guard-core imports no chain
+  SDK. intentId and status are optional on x402 fetch responses when no payment happens. An approved
+  x402 payment is redeemed once, on exactly the approved terms.
+  CR-004: the intent-event webhook to the bot, GET /v1/admin/budget/:agentId, and a pinned
+  /v1/admin/kill response.
 - v0.2.2 (2026-11-03): the Solana stack carries both client libraries. @sqds/multisig depends on
   @solana/web3.js v1 while @x402/svm requires @solana/kit >= 8, so the choice is the ecosystem's, not
   ours. Recorded rather than papered over: a wrapper hiding one behind the other would add a layer
