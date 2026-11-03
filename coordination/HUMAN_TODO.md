@@ -4,6 +4,9 @@ Este ficheiro é escrito **só pelo manager** e é o único documento do reposit
 dirigido a ti. As outras sessões não falam contigo diretamente: se precisarem de algo teu, deixam um
 recado em `coordination/messages/manager/` e eu peço-te.
 
+**Ambiente:** Windows com **WSL2 + Ubuntu**. Todos os comandos deste ficheiro correm **dentro do
+Ubuntu**, nunca em PowerShell nem em Cmd. Abre as sessões do Claude Code também de dentro do Ubuntu.
+
 **Regra de ouro: nunca coles chaves privadas no chat.** Geras a chave na tua máquina e colas tu mesmo no
 ficheiro `.env` do pacote certo. O `.gitignore` já ignora todos os `.env`.
 
@@ -13,43 +16,120 @@ Estado: ✅ feito · ⏳ a aguardar-te · ⬜ ainda não é preciso
 
 ## ✅ HUMAN-1 — Criar o repositório e dar-me acesso
 
-Feito. O repositório é `kikume/AgentGuard` e esta sessão já tem acesso de escrita.
+Feito. O repositório é `kikume/AgentGuard` e esta sessão já tem acesso de escrita. O branch `main` já
+existe e é a base de onde as sessões abrem os `feat/<role>`.
 
 ---
 
-## ⏳ HUMAN-2 — Instalar o Foundry (5 min)
+## ⏳ HUMAN-2 — Preparar o ambiente: WSL2, Node, pnpm e Foundry
 
-Desbloqueia: `ON-6` (os testes onchain que provam o limite de gasto) e o comando `cast`, que usamos
-no passo seguinte para criar as carteiras.
+Desbloqueia: tudo o que corras localmente. Nada disto é urgente para as sessões 1 a 4 começarem a
+escrever código, mas é preciso para tu correres testes e scripts na tua máquina.
 
-1. Abre um terminal e corre:
-   ```bash
-   curl -L https://foundry.paradigm.xyz | bash
-   ```
-2. Fecha e reabre o terminal (ou corre `source ~/.bashrc` / `source ~/.zshrc`).
-3. Corre:
-   ```bash
-   foundryup
-   ```
-4. Confirma que ficou instalado:
-   ```bash
-   forge --version && cast --version
-   ```
+Conta uns 20 a 30 minutos, a maior parte à espera de downloads.
 
-Diz-me o que o último comando imprimiu.
+### 2.1 Instalar o WSL2 com Ubuntu
+
+1. Abre o **PowerShell como Administrador** (botão direito no menu Iniciar → Terminal (Admin)) e corre:
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+2. Reinicia o PC se ele pedir.
+3. Abre o **Ubuntu** pelo menu Iniciar. Na primeira vez pede um nome de utilizador e uma password.
+   Essa password é a do `sudo` dentro do Ubuntu, não tem nada a ver com a password do Windows —
+   escolhe uma de que te lembres.
+
+A partir daqui, **todos os comandos são dentro desta janela do Ubuntu.**
+
+### 2.2 Atualizar o Ubuntu e instalar o git
+
+```bash
+sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl build-essential
+```
+
+### 2.3 Instalar o Node 22 e o pnpm
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+```
+
+```bash
+sudo apt install -y nodejs
+```
+
+```bash
+sudo corepack enable pnpm
+```
+
+Confirma:
+
+```bash
+node -v && pnpm -v
+```
+
+Deve dizer `v22.x` e `10.28.0`. Se o `corepack` falhar, usa em alternativa
+`sudo npm install -g pnpm@10.28.0`.
+
+### 2.4 Instalar o Foundry
+
+Agora sim, o comando que te dei antes funciona, porque estás em bash:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+```bash
+source ~/.bashrc && foundryup
+```
+
+Confirma:
+
+```bash
+forge --version
+```
+
+```bash
+cast --version
+```
+
+### 2.5 Clonar o repositório dentro do Ubuntu
+
+Importante: clona dentro do sistema de ficheiros do Linux (`~`), **não** em `/mnt/c/...`. Em `/mnt/c` o
+pnpm e o git ficam muito lentos.
+
+```bash
+cd ~ && git clone https://github.com/kikume/AgentGuard.git && cd AgentGuard
+```
+
+Se pedir credenciais, a forma mais simples é instalar o GitHub CLI e autenticar:
+
+```bash
+sudo apt install -y gh && gh auth login
+```
+
+### 2.6 Verificar que tudo funciona
+
+```bash
+cd ~/AgentGuard && pnpm install && pnpm check
+```
+
+Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado deste comando e o que o
+`forge --version` imprimiu.
+
+> Se usas VS Code, instala a extensão **WSL** e abre o projeto com `code .` de dentro do Ubuntu.
 
 ---
 
-## ⏳ HUMAN-3 — Criar as duas carteiras de teste
+## ⬜ HUMAN-3 — Criar as duas carteiras de teste
 
-Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
+Depois do HUMAN-2. Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
 São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteira que já tenha dinheiro real.
 
 - **Owner EOA** — é a dona da Safe. É quem aprova mudanças e quem carrega no botão do kill switch.
 - **Guard hot wallet** — é a carteira que o serviço Guard usa para pagar. Fica sempre com pouco dinheiro.
 
-1. Cria a primeira:
+1. Dentro do Ubuntu, cria a primeira:
    ```bash
    cast wallet new
    ```

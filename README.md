@@ -45,6 +45,10 @@ pnpm install
 pnpm check        # lint + typecheck + test
 ```
 
+On Windows, develop inside **WSL2 + Ubuntu** and clone the repo into the Linux filesystem (`~`), not
+`/mnt/c`. Foundry's installer does not run in PowerShell or Cmd, and pnpm and git are far slower across
+the `/mnt/c` boundary.
+
 Per-package commands: `pnpm --filter @agentguard/guard-core test`.
 
 `packages/onchain` also needs [Foundry](https://getfoundry.sh) for the fork tests (`forge test`).
