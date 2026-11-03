@@ -35,9 +35,9 @@ is left.
 | Telegram updates | Ignored unless the sender is in `OWNER_TELEGRAM_IDS`                                                                                       |
 | mcp-server HTTP  | Bearer token of at least 32 chars, constant-time compare. Host header checked against DNS rebinding on loopback                            |
 
-Low, no action needed: `findAgentByToken`'s comment says every row is compared, so the work is
-constant, but `Array.find` stops at the first match. With 256-bit random tokens, the timing reveals
-nothing usable. Fix the comment, or compare every row, the next time guard-core touches the function.
+Low, resolved in #16: `findAgentByToken`'s comment said every row was compared, but `Array.find`
+stopped at the first match. It now compares every row. With 256-bit random tokens the early exit never
+revealed anything usable.
 
 The e2e suite exercises the bad HMAC, the replayed webhook, the stranger pressing Approve, and the
 cross-agent checks.
@@ -55,7 +55,8 @@ cross-agent checks.
 
 ## Dependency audit (`pnpm audit`)
 
-2 critical, 1 high, 12 moderate. None is reachable from the guard's runtime paths.
+First pass: 2 critical, 1 high, 12 moderate. After the vitest 4.1.12 upgrade: 0 critical, 1 high,
+7 moderate. None of either set is reachable from the guard's runtime paths.
 
 | Advisory                                           | Path                                      | Reachable?                                                                                                   |
 | -------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -67,13 +68,13 @@ cross-agent checks.
 | uuid buffer bounds                                 | `@solana/web3.js` > jayson                | No: jayson calls only `v4`; the advisory is v3/v5/v6                                                         |
 | stream-json DoS, prototype pollution (×3)          | `@solana/web3.js` > jayson                | No: only jayson's server-side request parser uses it, and web3.js uses its client                            |
 
-**Recommended:** upgrade vitest to 4.1.12 or later across the workspace, in its own PR. That clears
-both criticals and the vitest moderates. Do not force stream-json to 3.x through an override: jayson
-asks for `^1.9` and nothing reaches the vulnerable code.
+**Done:** vitest and `@vitest/coverage-v8` are on 4.1.12, which clears both criticals and the vitest
+moderates. The configs needed no change, and coverage still meets guard-core's 90% threshold on
+`domain/`. minimatch is still reported, now through eslint: dev only. Do not force stream-json to 3.x
+through an override: jayson asks for `^1.9` and nothing reaches the vulnerable code.
 
 ## Left for INT-7
 
 - Re-run this review on the devnet stack (HUMAN-11), and again once the Base adapter lands (INT-6).
-- The vitest upgrade above.
 - A deployment review once HUMAN-7 picks a host: TLS, what fronts each service, and secrets in a
   manager rather than files.
