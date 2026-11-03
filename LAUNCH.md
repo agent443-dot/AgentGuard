@@ -44,8 +44,7 @@ Each line can be checked by someone other than its author.
 ### Open
 
 - [ ] **HUMAN-11**: the full stack on devnet. That covers a transfer approved on Telegram (real Solana
-      signing, inspection and simulation) and an x402 payment through `pnpm --filter @agentguard/e2e
-    paywall`, settled on devnet. Closes INT-3 and the devnet half of INT-4.
+      signing, inspection and simulation) and an x402 payment through `pnpm --filter @agentguard/e2e paywall`, settled on devnet. Closes INT-3 and the devnet half of INT-4.
 - [ ] **SVM-8**: the fourth cap property, the refill after the period, plus all four as automated
       LiteSVM tests. Needs the Squads binary (HUMAN-10).
 - [ ] **INT-5 done**: needs the two items above. It is also the gate for the Base work.
