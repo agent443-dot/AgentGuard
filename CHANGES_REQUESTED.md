@@ -238,14 +238,11 @@ integrator before any session writes code, since every package imports those typ
 
      ```
      -> { pausedAgents: number,
-          ownerTransactions: ({ chain: string, description: string, payload: unknown }
-                              | { chain: string, error: string })[] }
+          ownerTransactions: { chain: string, description: string, payload: unknown }[] }
      ```
 
      `pausedAgents` is what guard-core already returns. Each `ownerTransactions` entry is one
-     chain's `ChainAdapter.buildKillTx()` result with its CAIP-2 chain added, or, when building it
-     failed, `{ chain, error }` (as merged in guard-core: `error: "build_failed"`). The bot shows
-     that chain's allowance as still live.
+     chain's `ChainAdapter.buildKillTx()` result with its CAIP-2 chain added.
 
 - **Why:** BOT-5 (notify on large executed payments and every attack code) has no way to hear about
   them: the only webhook today is the approval request. `/budget` (BOT-4) cannot be answered: the bot

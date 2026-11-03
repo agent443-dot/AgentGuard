@@ -4,6 +4,7 @@ import type { GuardClient } from '../adapters/guard.js'
 import {
   budgetText,
   escapeHtml,
+  isBuilt,
   killedText,
   ownerTransactionText,
   statusText,
@@ -91,7 +92,7 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
     log.warn({ owner: ctx.from.id }, 'kill switch pressed')
     try {
       const { pausedAgents, ownerTransactions } = await guard.kill()
-      const built = ownerTransactions.filter((tx) => !('error' in tx)).length
+      const built = ownerTransactions.filter(isBuilt).length
       await ctx.editMessageText(killedText(pausedAgents, built), HTML)
       for (const tx of ownerTransactions) {
         await ctx.reply(ownerTransactionText(tx), HTML)

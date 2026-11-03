@@ -12,9 +12,18 @@ export type Outcome =
   | { kind: 'approved' | 'rejected'; by: string; at: Date }
   | { kind: 'expired' | 'already_decided' | 'not_found' }
 
-/** guard-core reports a chain whose kill transaction could not be built instead of dropping it. */
+/**
+ * One chain's kill transaction. A null payload is guard-core saying it could not build one: that
+ * chain's allowance is still live and the description says what to do by hand.
+ */
 export type OwnerTransaction =
-  { chain: string; description: string; payload: unknown } | { chain: string; error: string }
+  | { chain: string; description: string; payload: unknown }
+  // TODO(remove when guard-core PR #5 merges): main's guard-core still sends this pre-CR-004 shape.
+  | { chain: string; error: string }
+
+export function isBuilt(tx: OwnerTransaction): boolean {
+  return !('error' in tx) && tx.payload !== null
+}
 
 const CHAIN_NAMES = new Map<string, string>([
   [CHAINS.solanaMainnet, 'Solana'],
@@ -25,6 +34,9 @@ const CHAIN_NAMES = new Map<string, string>([
 
 // Telegram rejects messages over 4096 characters; the payload is the only part that can be that long.
 const PAYLOAD_LIMIT = 3000
+
+const NOT_BUILT =
+  '<b>no owner transaction could be built. The allowance on this chain is still live.</b>'
 
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -173,18 +185,15 @@ export function killedText(pausedAgents: number, transactions: number): string {
 }
 
 export function ownerTransactionText(tx: OwnerTransaction): string {
+  const chain = `<b>${chainName(tx.chain)}</b>`
   if ('error' in tx) {
-    return (
-      `<b>${chainName(tx.chain)}</b>: <b>the owner transaction could not be built</b> ` +
-      `(<code>${escapeHtml(tx.error)}</code>). The allowance on this chain is still live: remove ` +
-      'it from the multisig directly.'
-    )
+    return `${chain}: ${NOT_BUILT} Remove it from the multisig by hand.`
+  }
+  if (tx.payload === null) {
+    return `${chain}: ${NOT_BUILT}\n${escapeHtml(tx.description)}`
   }
   const payload = JSON.stringify(tx.payload, null, 2) ?? 'null'
   const shown =
     payload.length > PAYLOAD_LIMIT ? `${payload.slice(0, PAYLOAD_LIMIT)}\n… (truncated)` : payload
-  return [
-    `<b>${chainName(tx.chain)}</b>: ${escapeHtml(tx.description)}`,
-    `<pre>${escapeHtml(shown)}</pre>`,
-  ].join('\n')
+  return [`${chain}: ${escapeHtml(tx.description)}`, `<pre>${escapeHtml(shown)}</pre>`].join('\n')
 }

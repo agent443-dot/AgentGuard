@@ -102,25 +102,30 @@ describe('/kill', () => {
   })
 
   it('keeps the other chains when one owner transaction could not be built', async () => {
+    const manual = 'Could not build the kill transaction. Remove the spend limit by hand.'
     const kill = vi.fn().mockResolvedValue({
       pausedAgents: 1,
       ownerTransactions: [
         { chain: 'eip155:84532', description: 'Reset allowance', payload: { to: '0xabc' } },
-        { chain: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', error: 'build_failed' },
+        { chain: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', description: manual, payload: null },
+        // Pre-CR-004 shape still on main; drop with the matching branch once guard-core #5 merges.
+        { chain: 'eip155:8453', error: 'build_failed' },
       ],
     })
     const { bot, calls } = setup({ guard: fakeGuard({ kill }) })
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
 
-    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain(
-      'Sign the transaction below',
+    const summary = String(sent(calls, 'editMessageText')[0]?.payload['text'])
+    expect(summary).toContain('Paused agents: 1')
+    expect(summary).toContain('Sign the transaction below')
+    const [built, unbuilt, legacy] = sent(calls, 'sendMessage').map((call) =>
+      String(call.payload['text']),
     )
-    const [built, failed] = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
-    expect(built).toContain('Reset allowance')
-    expect(failed).toContain(
-      '<b>Solana devnet</b>: <b>the owner transaction could not be built</b>',
-    )
-    expect(failed).toContain('still live')
+    expect(built).toContain('<pre>')
+    expect(unbuilt).toContain('<b>Solana devnet</b>: <b>no owner transaction could be built')
+    expect(unbuilt).toContain(manual)
+    expect(unbuilt).not.toContain('<pre>')
+    expect(legacy).toContain('<b>Base</b>: <b>no owner transaction could be built')
   })
 
   it('warns when the allowances are still live', async () => {
