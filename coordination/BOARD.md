@@ -6,7 +6,7 @@ their inbox (`coordination/messages/<owner>/`).
 
 `HUMAN-n` dependencies are items in [`HUMAN_TODO.md`](./HUMAN_TODO.md) that only the human owner can do.
 
-Target: [`/SPEC.md`](../SPEC.md) v0.2 — **Solana first, then Base**, both in v0.1. See
+Target: [`/SPEC.md`](../SPEC.md) v0.3 — **Solana first, then Base**, both in v0.1. See
 [ADR 002](../docs/adr/002-two-chains.md) for why.
 
 ## Can start right now (no human input needed)
