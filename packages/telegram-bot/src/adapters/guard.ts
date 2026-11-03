@@ -115,7 +115,7 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
 
     async budget(agentId) {
       const response = await admin('GET', `/v1/admin/budget/${encodeURIComponent(agentId)}`)
-      // Until CR-002 lands the route itself is missing, and Fastify's 404 for that has a different
+      // Until CR-004 lands the route itself is missing, and Fastify's 404 for that has a different
       // body: only guard-core's own answer means the agent does not exist.
       if (response.status === 404 && notFound.safeParse(await response.json()).success) {
         return undefined

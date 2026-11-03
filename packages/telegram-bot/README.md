@@ -6,7 +6,7 @@ guard-core calls).
 
 - **Owner:** Session 4 (bot). Tasks BOT-1 .. BOT-7 in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Contract:** [`/SPEC.md`](../../SPEC.md) — webhook and `/v1/bot/decision`. The parts not in the
-  SPEC yet are proposed in CR-002 in [`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md).
+  SPEC yet are proposed in CR-004 in [`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md).
 
 ## Run
 
@@ -31,7 +31,7 @@ Both are signed: `X-Guard-Signature` is the hex HMAC-SHA256 of the exact request
 | Route                          | Body                                    | Answers                                                                                       |
 | ------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `POST /hooks/approval-request` | `{ intent, simulation, approveBefore }` | 200 posted, 401 bad signature, 400 bad body, 409 duplicate, 410 stale, 502 no owner reachable |
-| `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-002)           | same                                                                                          |
+| `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-004)           | same                                                                                          |
 
 **Replay.** A valid signature proves guard-core wrote a body, not that it is sending it now. An
 approval request is refused once `approveBefore` has passed, or if it claims a window longer than
@@ -60,7 +60,7 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 | Command             | Does                                                                                                                                                                                                    |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/status`           | Whether guard-core is reachable, and the approvals waiting                                                                                                                                              |
-| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-002)                                                                                    |
+| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                    |
 | `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                  |
 | `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                 |
 | `/kill`             | Asks to confirm, then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |

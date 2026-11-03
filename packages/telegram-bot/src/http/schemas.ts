@@ -38,7 +38,7 @@ export const approvalRequest = z.object({
   approveBefore: isoTime,
 })
 
-/** Proposed in CR-002: guard-core reports intents that reached a final state. */
+/** Proposed in CR-004: guard-core reports intents that reached a final state. */
 export const intentEvent = z.object({
   intent: payIntent,
   sentAt: isoTime,
