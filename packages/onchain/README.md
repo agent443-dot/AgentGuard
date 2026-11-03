@@ -1,28 +1,54 @@
 # @agentguard/onchain
 
-Safe + Safe Allowance Module setup for AgentGuard. **No custom contracts** — the onchain spend limit is
-enforced by the audited Allowance Module, so we can launch with real money without waiting on a contract
-audit.
+The `ChainAdapter` interface guard-core depends on, and its implementations. **No custom contracts:**
+the onchain cap is a Squads v4 Spending Limit on Solana and the Safe Allowance Module on Base, both
+audited and already deployed.
 
 - **Owner:** Session 1 (onchain). This session edits only this package.
-- **Tasks:** ON-1 .. ON-8 in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
+- **Tasks:** `SVM-*` and `EVM-*` in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Source of truth:** [`/SPEC.md`](../../SPEC.md).
 
-## What this package will contain
+## Solana
 
-| Script                            | Purpose                                                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `src/scripts/create-safe.ts`      | Deploy a Safe for the owner on Base Sepolia (owner EOA from env, threshold 1 for the MVP)                                      |
-| `src/scripts/enable-allowance.ts` | Enable the Allowance Module, add the guard hot wallet as delegate, set USDC allowance = `DAILY_CAP` with `resetTimeMin = 1440` |
-| `src/scripts/kill.ts`             | Build (and optionally execute) a Safe tx that sets the allowance to 0 and removes the delegate                                 |
-| `src/scripts/status.ts`           | Print Safe balance, delegate, allowance, spent, next reset                                                                     |
+`createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
+built from plain values, so guard-core never handles a Solana SDK type.
 
-`src/index.ts` exports the reusable functions guard-core imports:
+| Method                | What it does                                                                                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAllowanceState`   | Cap, spent and next reset, read from the spending limit account                                                                                                                                                      |
+| `getHotWalletBalance` | The hot wallet's token account; zero when it has none                                                                                                                                                                |
+| `topUpHotWallet`      | Draws on the spending limit into the hot wallet. The Squads program refuses anything past the cap                                                                                                                    |
+| `simulate`            | Builds the exact message `send` would sign, runs `inspectTransfer`, then `simulateTransaction`. Both balances must move by exactly the amount, or `SIM_UNEXPECTED_EFFECT`                                            |
+| `send`                | Rebuilds, re-inspects, signs and confirms a `TransferChecked` from the hot wallet                                                                                                                                    |
+| `buildKillTx`         | The unsigned `removeSpendingLimit` instruction for the config authority, as JSON, with a description for the owner                                                                                                   |
+| `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                                                                  |
+| `x402Scheme`          | A scheme client for `@x402/core` bound to one intent. The hot wallet signs only after the SDK's transaction passes the inspection and the simulation; otherwise it throws `SigningRefused` with the reasons (CR-003) |
 
-- `topUpHotWallet(amount)` — the delegate calls `executeAllowanceTransfer` to move USDC from the Safe to itself
-- `getAllowanceState()` — current cap, spent and next reset
+### Tests
 
-## Foundry fork tests (ON-6)
+```bash
+pnpm --filter @agentguard/onchain test
+```
+
+The adapter tests run against [LiteSVM](https://github.com/LiteSVM/litesvm): the token program
+executes for real and only the RPC transport is faked (`test/litesvm.ts`).
+
+`test/cap.test.ts` proves the onchain cap with the real Squads program: a draw inside the cap, `cap +
+1` refused, the refill after a warped day, and nothing after the kill. It needs the program binary,
+which is skipped until it is committed:
+
+```bash
+solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf \
+  packages/onchain/test/fixtures/squads_v4.so
+```
+
+LiteSVM 0.6 to 0.8 abort with `std::bad_alloc` in the cloud containers after a few runs of the
+associated token or memo programs. No test executes those two; their instructions are covered by the
+static tests.
+
+## Base (held until the Solana attack suite is green)
+
+### Foundry fork tests (EVM-6)
 
 Fork Base Sepolia and prove the onchain guarantee:
 
