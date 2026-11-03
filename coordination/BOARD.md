@@ -11,9 +11,9 @@ Target: [`/SPEC.md`](../SPEC.md) v0.2 — **Solana first, then Base**, both in v
 
 ## Can start right now (no human input needed)
 
-`SVM-7`, `EVM-7`, `GC-2`, `GC-3`, `GC-9`, `MCP-1`, `MCP-4`, `BOT-1`, `INT-1`.
+`SVM-1`, `SVM-7`, `EVM-7`, `GC-2`, `GC-3`, `MCP-1`, `MCP-4`, `BOT-1`, `INT-1`.
 
-`ON-0` and `GC-1` are done.
+`ON-0`, `GC-1` and `GC-9` are done.
 
 The Base adapter (`EVM-*`) is deliberately held until the Solana attack suite is green: proving it once
 tells us what the second adapter has to satisfy.

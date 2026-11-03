@@ -310,9 +310,18 @@ São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteir
 
 ---
 
-## ⏳ HUMAN-3B — Criar o par de carteiras Solana
+## ✅ HUMAN-3B — Criar o par de carteiras Solana
 
 Desbloqueia: `SVM-1` e `SVM-2`, que são o caminho crítico agora que a Solana é a primeira chain.
+
+**Keypairs gerados em 2026-11-03** (pubkeys; as chaves vivem só nos ficheiros JSON em
+`~/.agentguard/`, com permissões 600, e nunca no repositório). Um primeiro par foi descartado no mesmo
+dia porque a seed phrase foi impressa no terminal e colada no chat:
+
+| Papel                                       | Pubkey                                         | Ficheiro                       |
+| ------------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| Owner (dona do multisig Squads)             | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` | `~/.agentguard/sol-owner.json` |
+| Guard hot wallet (membro do spending limit) | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` | `~/.agentguard/sol-hot.json`   |
 
 Em Solana as chaves não vivem num `.env`: guardam-se em ficheiros JSON de keypair, que é a convenção do
 ecossistema e o que as ferramentas esperam. O `.env` guarda o **caminho** para o ficheiro.
