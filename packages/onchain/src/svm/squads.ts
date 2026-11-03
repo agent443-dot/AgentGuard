@@ -1,7 +1,15 @@
 import type { Amount } from '@agentguard/shared'
 import * as multisig from '@sqds/multisig'
-import { Connection, Keypair } from '@solana/web3.js'
-import type { PublicKey, TransactionSignature } from '@solana/web3.js'
+import {
+  Connection,
+  Keypair,
+  TransactionMessage,
+  VersionedTransaction,
+  type PublicKey,
+  type TransactionInstruction,
+  type TransactionSignature,
+} from '@solana/web3.js'
+import type { OwnerSigner } from './owner.js'
 
 const { Period } = multisig.generated
 
@@ -38,6 +46,29 @@ export async function confirm(
   throw new Error(`transaction_unconfirmed: ${signature}`)
 }
 
+/**
+ * Everything the owner signs goes through here rather than the SDK's rpc helpers, which only take a
+ * keypair. The owner pays the fee, so on mainnet one Ledger approval covers the whole transaction.
+ * A legacy message, because it is the format every version of the Ledger Solana app reads.
+ */
+export async function sendAsOwner(
+  connection: Connection,
+  owner: OwnerSigner,
+  instructions: TransactionInstruction[],
+  coSigners: Keypair[] = [],
+): Promise<TransactionSignature> {
+  const { blockhash } = await connection.getLatestBlockhash()
+  const message = new TransactionMessage({
+    payerKey: owner.publicKey,
+    recentBlockhash: blockhash,
+    instructions,
+  }).compileToLegacyMessage()
+  const transaction = new VersionedTransaction(message)
+  transaction.sign(coSigners)
+  await owner.sign(transaction)
+  return confirm(connection, await connection.sendRawTransaction(transaction.serialize()))
+}
+
 export interface CreatedMultisig {
   multisigPda: PublicKey
   vault: PublicKey
@@ -51,7 +82,7 @@ export interface CreatedMultisig {
  */
 export async function createMultisig(
   connection: Connection,
-  owner: Keypair,
+  owner: OwnerSigner,
 ): Promise<CreatedMultisig> {
   const createKey = Keypair.generate()
   const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
@@ -61,24 +92,18 @@ export async function createMultisig(
     programConfigPda,
   )
 
-  const sent = await multisig.rpc.multisigCreateV2({
-    connection,
+  const create = multisig.instructions.multisigCreateV2({
     treasury: programConfig.treasury,
-    createKey,
-    creator: owner,
+    creator: owner.publicKey,
     multisigPda,
     configAuthority: owner.publicKey,
     threshold: 1,
-    members: [
-      {
-        key: owner.publicKey,
-        permissions: multisig.types.Permissions.all(),
-      },
-    ],
+    members: [{ key: owner.publicKey, permissions: multisig.types.Permissions.all() }],
     timeLock: 0,
+    createKey: createKey.publicKey,
     rentCollector: null,
   })
-  const signature = await confirm(connection, sent)
+  const signature = await sendAsOwner(connection, owner, [create], [createKey])
 
   const [vault] = multisig.getVaultPda({ multisigPda, index: VAULT_INDEX })
   return { multisigPda, vault, signature }
@@ -95,7 +120,7 @@ export function spendingLimitPda(multisigPda: PublicKey, createKey: PublicKey): 
  */
 export async function addDailySpendingLimit(
   connection: Connection,
-  owner: Keypair,
+  owner: OwnerSigner,
   params: {
     multisigPda: PublicKey
     createKey: PublicKey
@@ -105,13 +130,11 @@ export async function addDailySpendingLimit(
     destinations: PublicKey[]
   },
 ): Promise<TransactionSignature> {
-  const sent = await multisig.rpc.multisigAddSpendingLimit({
-    connection,
-    feePayer: owner,
+  const add = multisig.instructions.multisigAddSpendingLimit({
     multisigPda: params.multisigPda,
     configAuthority: owner.publicKey,
     spendingLimit: spendingLimitPda(params.multisigPda, params.createKey),
-    rentPayer: owner,
+    rentPayer: owner.publicKey,
     createKey: params.createKey,
     vaultIndex: VAULT_INDEX,
     mint: params.mint,
@@ -120,24 +143,31 @@ export async function addDailySpendingLimit(
     members: params.members,
     destinations: params.destinations,
   })
-  return confirm(connection, sent)
+  return sendAsOwner(connection, owner, [add])
+}
+
+/** The kill switch: without its spending limit the hot wallet cannot draw on the vault at all. */
+export function removeSpendingLimitInstruction(
+  multisigPda: PublicKey,
+  configAuthority: PublicKey,
+  spendingLimit: PublicKey,
+): TransactionInstruction {
+  return multisig.instructions.multisigRemoveSpendingLimit({
+    multisigPda,
+    configAuthority,
+    spendingLimit,
+    rentCollector: configAuthority,
+  })
 }
 
 export async function removeSpendingLimit(
   connection: Connection,
-  owner: Keypair,
+  owner: OwnerSigner,
   multisigPda: PublicKey,
   spendingLimit: PublicKey,
 ): Promise<TransactionSignature> {
-  const sent = await multisig.rpc.multisigRemoveSpendingLimit({
-    connection,
-    feePayer: owner,
-    multisigPda,
-    configAuthority: owner.publicKey,
-    spendingLimit,
-    rentCollector: owner.publicKey,
-  })
-  return confirm(connection, sent)
+  const remove = removeSpendingLimitInstruction(multisigPda, owner.publicKey, spendingLimit)
+  return sendAsOwner(connection, owner, [remove])
 }
 
 export interface SpendingLimitState {

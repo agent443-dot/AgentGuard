@@ -2,7 +2,8 @@ import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { PublicKey } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { z } from 'zod'
-import { loadKeypair, loadSvmConfig } from '../svm/config.js'
+import { loadSvmConfig } from '../svm/config.js'
+import { loadOwner } from '../svm/owner.js'
 import { connect, VAULT_INDEX } from '../svm/squads.js'
 
 const parsedTokenAccount = z.object({
@@ -16,7 +17,7 @@ const config = loadSvmConfig()
 const connection = connect(config.SOLANA_RPC_URL)
 
 const wallets: [string, PublicKey][] = [
-  ['owner', loadKeypair(config.SOLANA_OWNER_KEYPAIR).publicKey],
+  ['owner', (await loadOwner(config.SOLANA_OWNER_KEYPAIR, console.log)).publicKey],
   ['hot wallet', new PublicKey(config.SOLANA_HOT_WALLET_PUBKEY)],
 ]
 if (config.SQUADS_MULTISIG) {
