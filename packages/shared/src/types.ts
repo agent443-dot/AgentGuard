@@ -121,3 +121,31 @@ export interface BudgetView {
   hotWalletBalances: Record<ChainId, Amount>
   paused: boolean
 }
+
+/** Body of POST {BOT_URL}/hooks/intent-event, sent when an intent reaches a final status. */
+export interface IntentEvent {
+  intent: PayIntent
+  /** When guard-core sent it. The bot refuses events older than 5 minutes. */
+  sentAt: string
+}
+
+export interface OwnerTransaction {
+  chain: ChainId
+  description: string
+  /** Null when the transaction could not be built: that chain's allowance is still live. */
+  payload: unknown
+}
+
+/** Response of POST /v1/admin/kill. */
+export interface KillResponse {
+  pausedAgents: number
+  ownerTransactions: OwnerTransaction[]
+}
+
+/** Response of POST /v1/agent/x402/fetch. No intent exists when no payment was asked for. */
+export interface X402FetchResponse {
+  intentId?: string
+  status?: IntentStatus
+  response?: { status: number; headers: Record<string, string>; body: string }
+  rejectReasons: RejectCode[]
+}

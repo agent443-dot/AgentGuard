@@ -5,13 +5,7 @@ import type { ChainId, SharedRejectCode } from './types.js'
 
 /**
  * CAIP-2 chain identifiers. The Solana reference is the first 32 characters of the cluster's base58
- * genesis hash.
- *
- * UNVERIFIED (task INT-1): the two Solana values below are the commonly published identifiers but have
- * not been checked against a cluster. Confirm with
- *   curl -s https://api.devnet.solana.com -H 'content-type: application/json' \
- *     -d '{"jsonrpc":"2.0","id":1,"method":"getGenesisHash"}'
- * and the same against api.mainnet-beta.solana.com. A wrong value makes every x402 network check fail.
+ * genesis hash, confirmed against both clusters with `solana genesis-hash` (CR-002).
  */
 export const CHAINS = {
   solanaMainnet: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
