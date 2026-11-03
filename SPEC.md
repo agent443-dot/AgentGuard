@@ -100,6 +100,7 @@ allowlist), HIDDEN_ACCOUNTS_DETECTED (address lookup tables obscuring touched ac
 guard-core depends on this interface only and never imports a chain SDK directly.
 
 interface AllowanceState { cap: Amount; spent: Amount; resetsAt: string; delegate: string }
+interface SimulationOutcome { simulation: SimulationResult; rejectReasons: RejectCode[] }
 
 interface ChainAdapter {
   chain: string                                  // CAIP-2
@@ -107,7 +108,7 @@ interface ChainAdapter {
   topUpHotWallet(amount: Amount): Promise<string>  // returns txId
   getHotWalletBalance(token: string): Promise<Amount>
   buildKillTx(): Promise<{ description: string; payload: unknown }>  // owner signs this
-  simulate(intent: PayIntent): Promise<SimulationResult>
+  simulate(intent: PayIntent): Promise<SimulationOutcome>
   send(intent: PayIntent): Promise<string>         // returns txId
 }
 
@@ -149,6 +150,10 @@ Pending intents expire after 10 minutes -> status "expired", reason APPROVAL_TIM
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.2.1 (2026-11-03): `ChainAdapter.simulate` returns `SimulationOutcome` rather than a bare
+  `SimulationResult`. The per-chain checks in the adapters produce reject codes, and the caller needs
+  both the summary shown to the owner and the codes written to the audit log. Correction to the
+  interface introduced in v0.2, not a change to anything decided before it.
 - v0.2 (2026-11-03): two chains, Solana first then Base, per CR-001. Chain ids are CAIP-2 strings;
   addresses, tokens and transaction ids are opaque strings. Reject codes split into a shared core plus
   per-chain sets. packages/onchain becomes a ChainAdapter interface with svm/ and evm/ implementations.

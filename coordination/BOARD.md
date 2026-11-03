@@ -11,7 +11,9 @@ Target: [`/SPEC.md`](../SPEC.md) v0.2 — **Solana first, then Base**, both in v
 
 ## Can start right now (no human input needed)
 
-`ON-0`, `SVM-7`, `GC-1`, `GC-9`, `MCP-1`, `MCP-4`, `BOT-1`, `INT-1`.
+`SVM-7`, `EVM-7`, `GC-2`, `GC-3`, `GC-9`, `MCP-1`, `MCP-4`, `BOT-1`, `INT-1`.
+
+`ON-0` and `GC-1` are done.
 
 The Base adapter (`EVM-*`) is deliberately held until the Solana attack suite is green: proving it once
 tells us what the second adapter has to satisfy.
@@ -27,9 +29,9 @@ tells us what the second adapter has to satisfy.
 
 ## Session 1 — onchain (`packages/onchain`, branch `feat/onchain`)
 
-| id   | owner   | status | depends_on | notes                                                                                                                                                                                |
-| ---- | ------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ON-0 | onchain | todo   | —          | `ChainAdapter.ts`: the interface in SPEC §ChainAdapter. No chain SDK imports. guard-core depends on this and nothing else, so land it first and tell GC when the signature is stable |
+| id   | owner   | status | depends_on | notes                                                                                                                                                                                                         |
+| ---- | ------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ON-0 | onchain | todo   | —          | `ChainAdapter.ts`: the interface in SPEC §ChainAdapter. No chain SDK imports. Landed; `simulate` returns `SimulationOutcome` (SPEC v0.2.1) because the per-chain checks produce reject codes the caller needs |
 
 ### Solana (Squads v4)
 

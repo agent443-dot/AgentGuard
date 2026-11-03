@@ -14,5 +14,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@agentguard/shared": "workspace:*"
   }
 }

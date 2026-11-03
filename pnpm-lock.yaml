@@ -38,11 +38,19 @@ importers:
 
   e2e: {}
 
-  packages/guard-core: {}
+  packages/guard-core:
+    dependencies:
+      '@agentguard/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/mcp-server: {}
 
-  packages/onchain: {}
+  packages/onchain:
+    dependencies:
+      '@agentguard/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/shared: {}
 
