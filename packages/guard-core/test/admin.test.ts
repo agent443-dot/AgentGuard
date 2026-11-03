@@ -103,3 +103,12 @@ describe('GET /v1/agent/budget', () => {
     expect(res.json().hotWalletBalances).toEqual({})
   })
 })
+
+it('gives the stub chain an x402 scheme that names the intent', async () => {
+  const intent = { id: 'i-1' } as Parameters<typeof h.chain.x402Scheme>[0]
+  const scheme = h.chain.x402Scheme(intent, {} as Parameters<typeof h.chain.x402Scheme>[1])
+  await expect(scheme.createPaymentPayload(2, {} as never)).resolves.toEqual({
+    x402Version: 2,
+    payload: { stub: true, intentId: 'i-1' },
+  })
+})
