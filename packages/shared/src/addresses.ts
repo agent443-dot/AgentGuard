@@ -16,9 +16,22 @@ export interface ChainAddresses {
   allowanceModule?: Address
 }
 
+// Squads v4 is deployed at the same program id on every Solana cluster. Source: the PROGRAM_ID the
+// official @sqds/multisig SDK exports.
+const SQUADS_V4 = 'SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf'
+
 export const ADDRESSES: Record<ChainId, ChainAddresses> = {
-  [CHAINS.solanaMainnet]: {},
-  [CHAINS.solanaDevnet]: {},
+  [CHAINS.solanaMainnet]: {
+    // https://developers.circle.com/stablecoins/usdc-contract-addresses
+    usdc: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    squadsProgram: SQUADS_V4,
+  },
+  [CHAINS.solanaDevnet]: {
+    // https://developers.circle.com/stablecoins/quickstart-transfer-10-usdc-on-solana, and the mint
+    // the Circle devnet faucet delivered on 2026-11-03.
+    usdc: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+    squadsProgram: SQUADS_V4,
+  },
   [CHAINS.base]: {},
   [CHAINS.baseSepolia]: {},
 }
