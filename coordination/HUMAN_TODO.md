@@ -424,10 +424,10 @@ inteira dos comandos anteriores.
 
 ---
 
-## ⏳ HUMAN-4 — Pôr fundos de teste
+## ✅ HUMAN-4 — Pôr fundos de teste
 
-A Solana é a primeira chain, por isso só a parte Solana é urgente. A da Base espera pelas tarefas
-`EVM-*`.
+Feito para a Solana em 2026-11-03: SOL nas duas keypairs, USDC no cofre do multisig. A parte da Base
+espera pelas tarefas `EVM-*`.
 
 ### Solana devnet (agora)
 
@@ -483,6 +483,25 @@ cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --ether --rpc-url https:
 ```bash
 cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https://sepolia.base.org
 ```
+
+---
+
+## ⏳ HUMAN-9 — Confirmar os genesis hashes da Solana
+
+Desbloqueia: `SVM-7`. Os identificadores de rede da Solana no código (`solana:5eykt4...`,
+`solana:EtWTRA...`) estão marcados como não verificados. São os primeiros 32 caracteres do genesis
+hash de cada rede, e só se confirmam perguntando à própria rede — coisa que as sessões na nuvem não
+conseguem fazer. Se estiverem errados, todas as verificações de rede do x402 falham.
+
+```bash
+solana genesis-hash --url devnet
+```
+
+```bash
+solana genesis-hash --url mainnet-beta
+```
+
+Cola as duas saídas no chat. São públicas.
 
 ---
 
