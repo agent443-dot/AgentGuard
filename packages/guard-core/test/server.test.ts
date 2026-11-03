@@ -287,7 +287,7 @@ describe('bot routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('records the owner approval', async () => {
+  it('checks an approved transfer against the policy again before sending it', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/bot/decision',
@@ -295,7 +295,12 @@ describe('bot routes', () => {
       payload: { intentId: INTENT_ID, decision: 'approve', telegramUserId: '1' },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().status).toBe('approved')
+    // The recipient was never allowlisted and no adapter serves the chain: the approval answers
+    // the threshold, not the rest of the policy.
+    expect(res.json()).toMatchObject({
+      status: 'rejected',
+      rejectReasons: expect.arrayContaining(['RECIPIENT_NOT_ALLOWED', 'CHAIN_NOT_ALLOWED']),
+    })
   })
 
   it('answers 409 when the intent was already decided', async () => {

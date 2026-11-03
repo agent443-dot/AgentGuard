@@ -9,6 +9,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "dev": "tsx watch --env-file=.env src/main.ts",
+    "start": "tsx --env-file=.env src/main.ts",
+    "create-agent": "tsx --env-file=.env src/scripts/create-agent.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
@@ -16,8 +19,12 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "@agentguard/onchain": "workspace:*",
     "@agentguard/shared": "workspace:*",
     "@fastify/rate-limit": "^11.2.2",
+    "@solana/kit": "^8.6.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
     "@x402/core": "^2.29.0",
     "@x402/evm": "^2.29.0",
     "@x402/fetch": "^2.29.0",
@@ -29,6 +36,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "drizzle-kit": "^0.31.11"
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15"
   }
 }
