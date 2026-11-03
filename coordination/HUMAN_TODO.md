@@ -106,13 +106,8 @@ O `engines` do projeto pede Node >= 20 e a 20 funciona, mas a linha 20 chegou a 
 2026: deixou de receber correções de segurança. Para um serviço que assina pagamentos isso não serve, e
 o `.nvmrc` e o CI já usam a 22.
 
-Primeiro vê de onde veio o Node que tens:
-
-```bash
-which node; apt-cache policy nodejs | head -4
-```
-
-Se vier do apt (`/usr/bin/node`), o NodeSource substitui-o limpo:
+O Node do dono está confirmado como `20.20.2-1nodesource1` em `/usr/bin/node`, ou seja, instalado pelo
+NodeSource. O upgrade é só apontar o repositório para a linha 22 e reinstalar o mesmo pacote:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
@@ -122,21 +117,28 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs && node -v
 ```
 
+Se um dia o `which node` apontar para fora de `/usr/bin` (um `nvm` ou um `fnm`, por exemplo), não uses
+o NodeSource: faz o upgrade pelo gestor de versões que estiver a mandar, senão ficas com duas
+instalações a competir.
+
 ### 2.6 Instalar o Foundry
 
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 ```
 
-O instalador escreve o PATH no ficheiro de arranque da tua shell. **A shell do dono é zsh**, por isso
-`source ~/.bashrc` não serve de nada aqui. Chama o `foundryup` pelo caminho absoluto, que funciona em
-qualquer shell:
+Isto já instala os binários em `~/.foundry/bin` e corre o `foundryup` sozinho. Confirma que a saída diz
+`verified ✓` para o `forge` e o `cast` — as binárias são verificadas contra uma atestação Sigstore.
+
+**O PATH não fica tratado.** O `curl | bash` corre o instalador sob bash, por isso ele escreve a linha
+do PATH num ficheiro de bash, e **a shell do dono é zsh**, que nunca o lê. Nem `source ~/.bashrc` nem
+`exec zsh` resolvem isso. Acrescenta o PATH ao `~/.zshenv`, que é o ficheiro que o zsh lê sempre:
 
 ```bash
-~/.foundry/bin/foundryup
+grep -q '.foundry/bin' ~/.zshenv 2>/dev/null || echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> ~/.zshenv
 ```
 
-Depois recarrega a shell e confirma:
+O `grep ||` torna o comando repetível: se a linha já existir, não a duplica. Depois recarrega e confirma:
 
 ```bash
 exec zsh
