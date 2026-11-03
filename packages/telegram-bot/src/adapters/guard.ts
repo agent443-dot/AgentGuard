@@ -44,10 +44,7 @@ const notFound = z.object({ error: z.literal('not_found') })
 const killResult = z.object({
   pausedAgents: z.number().int().nonnegative(),
   ownerTransactions: z.array(
-    z.union([
-      z.object({ chain: z.string().min(1), description: z.string(), payload: z.unknown() }),
-      z.object({ chain: z.string().min(1), error: z.string().max(200) }),
-    ]),
+    z.object({ chain: z.string().min(1), description: z.string(), payload: z.unknown() }),
   ),
 })
 

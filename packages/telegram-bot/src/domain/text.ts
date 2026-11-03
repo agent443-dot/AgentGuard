@@ -16,13 +16,14 @@ export type Outcome =
  * One chain's kill transaction. A null payload is guard-core saying it could not build one: that
  * chain's allowance is still live and the description says what to do by hand.
  */
-export type OwnerTransaction =
-  | { chain: string; description: string; payload: unknown }
-  // TODO(remove when guard-core PR #5 merges): main's guard-core still sends this pre-CR-004 shape.
-  | { chain: string; error: string }
+export interface OwnerTransaction {
+  chain: string
+  description: string
+  payload: unknown
+}
 
 export function isBuilt(tx: OwnerTransaction): boolean {
-  return !('error' in tx) && tx.payload !== null
+  return tx.payload !== null
 }
 
 const CHAIN_NAMES = new Map<string, string>([
@@ -122,8 +123,8 @@ export function attackText(intent: PayIntent, codes: AttackCode[]): string {
     ...codes.map((code) => `• ${ATTACK_DESCRIPTIONS[code]} (<code>${code}</code>)`),
     '',
     `Agent: <code>${escapeHtml(intent.agentId)}</code>`,
-    `Chain: ${chainName(intent.chain)}`,
-    `Recipient: <code>${escapeHtml(intent.recipient)}</code>`,
+    `Chain: ${intent.chain === '' ? '(not given)' : chainName(intent.chain)}`,
+    `Recipient: <code>${escapeHtml(intent.recipient) || '(not given)'}</code>`,
     destination(intent),
     `agent says: <i>${escapeHtml(intent.reason) || '(nothing)'}</i>`,
     '',
@@ -186,9 +187,6 @@ export function killedText(pausedAgents: number, transactions: number): string {
 
 export function ownerTransactionText(tx: OwnerTransaction): string {
   const chain = `<b>${chainName(tx.chain)}</b>`
-  if ('error' in tx) {
-    return `${chain}: ${NOT_BUILT} Remove it from the multisig by hand.`
-  }
   if (tx.payload === null) {
     return `${chain}: ${NOT_BUILT}\n${escapeHtml(tx.description)}`
   }

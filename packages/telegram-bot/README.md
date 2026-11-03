@@ -75,6 +75,12 @@ From `POST /hooks/intent-event`:
   `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED`. The alert says in
   plain words what the payment tried to do and suggests `/pause`.
 
+An intent guard-core refused before any valid x402 offer existed may carry whatever the 402 server
+sent: an empty chain or recipient, an amount that is not atomic units, a `payTo` that is not even a
+string. For `rejected`, `failed` and `expired` intents those four fields are taken as bounded display
+text (non-strings become empty, shown as "(not given)"), so the refusal still reaches the owner.
+Every other status keeps the strict shape, and the signature and replay checks are the same for all.
+
 Attack alerts are throttled, because an attacker can drive an agent to send malicious payments in a
 loop and each rejection would otherwise be a message. The first alert for an agent and code goes out
 at once; repeats in the next 5 minutes are counted, and one "Attack alerts held back" message with

@@ -261,6 +261,40 @@ describe('POST /hooks/intent-event', () => {
     expect(messages[3]?.payload['text']).toContain('49 more <code>UNKNOWN_PROGRAM_DETECTED</code>')
   })
 
+  it('accepts a refused x402 offer whatever the 402 server put in it', async () => {
+    const { calls, deliver } = await harness()
+    const refused = (overrides: Record<string, unknown>) => ({
+      intent: { ...intent({ status: 'rejected', rejectReasons: ['INVALID_402'] }), ...overrides },
+      sentAt: NOW.toISOString(),
+    })
+
+    const empty = refused({ chain: '', token: '', recipient: '', amount: '0' })
+    expect((await deliver('/hooks/intent-event', empty)).statusCode).toBe(200)
+    const junk = refused({
+      id: '4b8f6c0e-2a8e-4f7e-9a51-000000000001',
+      chain: { evil: true },
+      amount: '1.5e30',
+      recipient: `<b>${'x'.repeat(500)}`,
+      rejectReasons: ['APPROVAL_DETECTED'],
+    })
+    expect((await deliver('/hooks/intent-event', junk)).statusCode).toBe(200)
+
+    const [alert] = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
+    expect(alert).toContain('Chain: (not given)')
+    expect(alert).toContain('&lt;b&gt;xxx')
+    expect(alert).not.toContain('x'.repeat(200))
+  })
+
+  it('keeps the strict shape for a payment that settled', async () => {
+    const { calls, deliver } = await harness()
+    const executed = {
+      intent: intent({ status: 'executed', amount: '1.5' }),
+      sentAt: NOW.toISOString(),
+    }
+    expect((await deliver('/hooks/intent-event', executed)).statusCode).toBe(400)
+    expect(calls).toHaveLength(0)
+  })
+
   it('stays quiet on small payments and refuses old events', async () => {
     const { calls, deliver } = await harness()
     await deliver('/hooks/intent-event', event({ status: 'executed', amount: '10' }))
