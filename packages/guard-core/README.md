@@ -18,6 +18,11 @@ pnpm --filter @agentguard/guard-core dev                     # API on 127.0.0.1:
 A new agent's policy is empty, so it can pay nothing until the owner sets one with
 `PUT /v1/admin/policy/:agentId`.
 
+`pnpm --filter @agentguard/guard-core revoke-agent my-agent` revokes an agent's token. It stops
+working on its next request, on every agent route. The agent's intents and audit history stay.
+
+The API listens on `127.0.0.1` unless `HOST` is set (for example `0.0.0.0` in a deployment).
+
 For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
 builds onchain's adapter from them. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
 is signed and no money moves. With neither, there is no adapter and every payment is refused.
