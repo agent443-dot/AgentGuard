@@ -203,6 +203,16 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 
 Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
+**Carteiras geradas em 2026-11-03** (endereços públicos; as chaves privadas estão só nos `.env` e no
+gestor de senhas do dono, nunca no repositório):
+
+| Papel                       | Endereço                                     |
+| --------------------------- | -------------------------------------------- |
+| Owner EOA (dona da Safe)    | `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890` |
+| Guard hot wallet (delegate) | `0xa95710875968439245265b977730ab69892dA470` |
+
+Falta confirmar que os dois `.env` estão preenchidos (passos 3 a 5).
+
 São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteira que já tenha dinheiro real.
 
 - **Owner EOA** — é a dona da Safe. É quem aprova mudanças e quem carrega no botão do kill switch.
@@ -263,20 +273,45 @@ São duas carteiras novas, **só para testnet**. Não reutilizes nenhuma carteir
 
 ---
 
-## ⬜ HUMAN-4 — Pôr fundos de teste nas duas carteiras
+## ⏳ HUMAN-4 — Pôr fundos de teste nas duas carteiras
 
-Depois do HUMAN-3. Precisas de ETH de Base Sepolia (para gás) nas duas carteiras, e de USDC de teste na
-**owner EOA** (é a Safe que vai guardar o dinheiro).
+Precisas de **ETH de Base Sepolia** (para gás) nas duas carteiras, e de **USDC de teste** na owner EOA,
+porque é a Safe dela que vai guardar o dinheiro.
 
-1. ETH de teste: faucet da Base Sepolia no Coinbase Developer Platform
-   (`portal.cdp.coinbase.com`, secção Faucets) ou outra faucet de Base Sepolia. Pede para os dois endereços.
-2. USDC de teste: faucet oficial da Circle em `faucet.circle.com`, escolhe a rede **Base Sepolia**.
-   Pede para o endereço da **owner EOA**.
-3. Confirma os saldos:
+A lista oficial e atualizada de faucets está em `docs.base.org/chain/network-faucets`. Se algum link
+abaixo mudar, essa página é a fonte de verdade.
+
+1. **ETH nas duas carteiras.** O faucet do Coinbase Developer Platform
+   (`portal.cdp.coinbase.com`, secção Faucets) cobre Base Sepolia e dá até 0,1 ETH por 24 h, mas exige
+   conta CDP. Sem conta, o faucet da Alchemy (`alchemy.com/faucets/base-sepolia`) dá 0,1 ETH por 24 h.
+   Pede para os dois endereços:
+   - owner: `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890`
+   - hot wallet: `0xa95710875968439245265b977730ab69892dA470`
+
+2. **USDC só na owner.** O faucet da Circle (`faucet.circle.com`, rede **Base Sepolia**) é o canónico; o
+   faucet do CDP também distribui USDC em Base Sepolia.
+
+   Atenção: tem de ser o **USDC oficial da Circle**, não um token de teste qualquer. O Allowance Module
+   vai ser configurado para um endereço de token exato, o que a tarefa `ON-8` verifica nas listas
+   oficiais. Um token diferente com o mesmo nome não serve.
+
+3. **Confirma o ETH:**
+
    ```bash
-   cast balance <ENDERECO> --rpc-url https://sepolia.base.org
+   cast balance 0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890 --rpc-url https://sepolia.base.org
    ```
-4. Diz-me quando estiver feito.
+
+   ```bash
+   cast balance 0xa95710875968439245265b977730ab69892dA470 --rpc-url https://sepolia.base.org
+   ```
+
+   O valor vem em wei. `cast balance <addr> --ether --rpc-url ...` mostra em ETH.
+
+4. **Confirma o USDC** em `sepolia.basescan.org`, procurando o endereço da owner e abrindo o separador
+   de tokens. Por linha de comando precisaríamos do endereço do contrato USDC, que só fica fixado
+   depois do `ON-8`.
+
+5. Diz-me quando estiver feito.
 
 ---
 
