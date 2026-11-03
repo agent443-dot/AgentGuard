@@ -17,7 +17,7 @@
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
     "build": "pnpm -r build",
-    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
     "dev:all": "node -e \"console.error('dev:all is not wired yet. Owner: integrator, task INT-3 in coordination/BOARD.md'); process.exit(1)\""
   },
   "devDependencies": {
