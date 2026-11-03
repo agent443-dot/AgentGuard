@@ -14,7 +14,7 @@ import {
  * The handful of Connection methods the adapter and the Squads SDK call, answered by an in-process
  * LiteSVM instead of a cluster. The programs run for real; only the RPC transport is faked.
  */
-export function liteConnection(svm: LiteSVM): Connection {
+export function liteConnection(svm: LiteSVM, rpcEndpoint = 'http://127.0.0.1:0'): Connection {
   const statuses = new Map<string, { err: unknown }>()
 
   function account(address: PublicKey): AccountInfo<Buffer> | null {
@@ -39,6 +39,7 @@ export function liteConnection(svm: LiteSVM): Connection {
   }
 
   const fake = {
+    rpcEndpoint,
     getLatestBlockhash: async () => ({
       blockhash: svm.latestBlockhash(),
       lastValidBlockHeight: 0,

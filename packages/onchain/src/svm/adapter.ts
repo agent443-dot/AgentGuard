@@ -22,7 +22,13 @@ import {
   type VersionedMessage,
 } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
-import type { ChainAdapter, KillTx, SimulationOutcome } from '../ChainAdapter.js'
+import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
+import {
+  SigningRefused,
+  type ChainAdapter,
+  type KillTx,
+  type SimulationOutcome,
+} from '../ChainAdapter.js'
 import { inspectTransfer } from './inspect.js'
 import { simulateMessage } from './simulate.js'
 import {
@@ -33,6 +39,7 @@ import {
   useSpendingLimit,
 } from './squads.js'
 import { expectedTransfer, transferInstructions, type Payment } from './transfer.js'
+import { gatedScheme } from './x402.js'
 
 export interface SvmAdapterDeps {
   chain: ChainId
@@ -197,6 +204,33 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
       const tx = new VersionedTransaction(built)
       tx.sign([hotWallet])
       return confirm(connection, await connection.sendRawTransaction(tx.serialize()))
+    },
+
+    x402Scheme(intent: PayIntent, requirements: PaymentRequirements): SchemeNetworkClient {
+      const refused = refuse(intent)
+      if (refused.length > 0) {
+        throw new SigningRefused(refused)
+      }
+      // The intent is what the policy approved; requirements that disagree with it are a 402 that
+      // changed between the quote and the signature.
+      const feePayer = requirements.extra['feePayer']
+      const agreed =
+        requirements.network === intent.chain &&
+        requirements.asset === intent.token &&
+        requirements.payTo === intent.recipient &&
+        requirements.amount === intent.amount
+      if (!agreed || typeof feePayer !== 'string') {
+        throw new SigningRefused(['INVALID_402'])
+      }
+      let pay: Payment
+      try {
+        pay = payment(intent.recipient, intent.amount, new PublicKey(feePayer))
+      } catch {
+        throw new SigningRefused(['INVALID_402'])
+      }
+      const gate = async (received: VersionedMessage) =>
+        (await simulateMessage(connection, received, pay)).rejectReasons
+      return gatedScheme(hotWallet, gate, connection.rpcEndpoint)
     },
 
     async buildKillTx(): Promise<KillTx> {

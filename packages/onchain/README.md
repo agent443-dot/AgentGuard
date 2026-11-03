@@ -13,15 +13,16 @@ audited and already deployed.
 `createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
 built from plain values, so guard-core never handles a Solana SDK type.
 
-| Method                | What it does                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getAllowanceState`   | Cap, spent and next reset, read from the spending limit account                                                                                                           |
-| `getHotWalletBalance` | The hot wallet's token account; zero when it has none                                                                                                                     |
-| `topUpHotWallet`      | Draws on the spending limit into the hot wallet. The Squads program refuses anything past the cap                                                                         |
-| `simulate`            | Builds the exact message `send` would sign, runs `inspectTransfer`, then `simulateTransaction`. Both balances must move by exactly the amount, or `SIM_UNEXPECTED_EFFECT` |
-| `send`                | Rebuilds, re-inspects, signs and confirms a `TransferChecked` from the hot wallet                                                                                         |
-| `buildKillTx`         | The unsigned `removeSpendingLimit` instruction for the config authority, as JSON, with a description for the owner                                                        |
-| `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                       |
+| Method                | What it does                                                                                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAllowanceState`   | Cap, spent and next reset, read from the spending limit account                                                                                                                                                      |
+| `getHotWalletBalance` | The hot wallet's token account; zero when it has none                                                                                                                                                                |
+| `topUpHotWallet`      | Draws on the spending limit into the hot wallet. The Squads program refuses anything past the cap                                                                                                                    |
+| `simulate`            | Builds the exact message `send` would sign, runs `inspectTransfer`, then `simulateTransaction`. Both balances must move by exactly the amount, or `SIM_UNEXPECTED_EFFECT`                                            |
+| `send`                | Rebuilds, re-inspects, signs and confirms a `TransferChecked` from the hot wallet                                                                                                                                    |
+| `buildKillTx`         | The unsigned `removeSpendingLimit` instruction for the config authority, as JSON, with a description for the owner                                                                                                   |
+| `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                                                                  |
+| `x402Scheme`          | A scheme client for `@x402/core` bound to one intent. The hot wallet signs only after the SDK's transaction passes the inspection and the simulation; otherwise it throws `SigningRefused` with the reasons (CR-003) |
 
 ### Tests
 
