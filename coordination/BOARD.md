@@ -76,7 +76,7 @@ running against Base Sepolia needs `HUMAN-3` / `HUMAN-4`.
 | BOT-6 | bot   | todo   | BOT-1..BOT-5 | Tests with a mocked Telegram API and a mocked guard-core                                                                                                                          |
 | BOT-7 | bot   | todo   | BOT-1..BOT-6 | Finalize `README.md`                                                                                                                                                              |
 
-## Session 5 — integrator (`packages/shared`, `/e2e`, branch `feat/integration`)
+## Session 5 — integrator (`packages/shared`, `/e2e`, branch `feat/integrator`)
 
 | id    | owner      | status  | depends_on                | notes                                                                                                                                                                                                             |
 | ----- | ---------- | ------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
