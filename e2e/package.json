@@ -12,6 +12,14 @@
     "dev:check": "tsx src/dev-check.ts"
   },
   "devDependencies": {
+    "@agentguard/guard-core": "workspace:*",
+    "@agentguard/mcp-server": "workspace:*",
+    "@agentguard/shared": "workspace:*",
+    "@agentguard/telegram-bot": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@x402/core": "^2.29.0",
+    "grammy": "^1.46.0",
+    "pino": "^10.4.0",
     "tsx": "^4.23.15"
   }
 }
