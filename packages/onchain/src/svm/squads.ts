@@ -12,6 +12,32 @@ export function connect(rpcUrl: string): Connection {
   return new Connection(rpcUrl, 'confirmed')
 }
 
+/**
+ * The Squads rpc helpers return as soon as a transaction is submitted, not when it lands, and never
+ * look at whether it failed. Every call goes through here so that a returned signature means the
+ * transaction actually executed.
+ */
+export async function confirm(
+  connection: Connection,
+  signature: TransactionSignature,
+  timeoutMs = 60_000,
+): Promise<TransactionSignature> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const {
+      value: [status],
+    } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true })
+    if (status?.err) {
+      throw new Error(`transaction_failed: ${signature} ${JSON.stringify(status.err)}`)
+    }
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+      return signature
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+  throw new Error(`transaction_unconfirmed: ${signature}`)
+}
+
 export interface CreatedMultisig {
   multisigPda: PublicKey
   vault: PublicKey
@@ -35,7 +61,7 @@ export async function createMultisig(
     programConfigPda,
   )
 
-  const signature = await multisig.rpc.multisigCreateV2({
+  const sent = await multisig.rpc.multisigCreateV2({
     connection,
     treasury: programConfig.treasury,
     createKey,
@@ -52,6 +78,7 @@ export async function createMultisig(
     timeLock: 0,
     rentCollector: null,
   })
+  const signature = await confirm(connection, sent)
 
   const [vault] = multisig.getVaultPda({ multisigPda, index: VAULT_INDEX })
   return { multisigPda, vault, signature }
@@ -78,7 +105,7 @@ export async function addDailySpendingLimit(
     destinations: PublicKey[]
   },
 ): Promise<TransactionSignature> {
-  return multisig.rpc.multisigAddSpendingLimit({
+  const sent = await multisig.rpc.multisigAddSpendingLimit({
     connection,
     feePayer: owner,
     multisigPda: params.multisigPda,
@@ -93,6 +120,7 @@ export async function addDailySpendingLimit(
     members: params.members,
     destinations: params.destinations,
   })
+  return confirm(connection, sent)
 }
 
 export async function removeSpendingLimit(
@@ -101,7 +129,7 @@ export async function removeSpendingLimit(
   multisigPda: PublicKey,
   spendingLimit: PublicKey,
 ): Promise<TransactionSignature> {
-  return multisig.rpc.multisigRemoveSpendingLimit({
+  const sent = await multisig.rpc.multisigRemoveSpendingLimit({
     connection,
     feePayer: owner,
     multisigPda,
@@ -109,6 +137,7 @@ export async function removeSpendingLimit(
     spendingLimit,
     rentCollector: owner.publicKey,
   })
+  return confirm(connection, sent)
 }
 
 export interface SpendingLimitState {
@@ -162,7 +191,7 @@ export async function useSpendingLimit(
   if (params.amount > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error(`amount_exceeds_sdk_precision: ${params.amount}`)
   }
-  return multisig.rpc.spendingLimitUse({
+  const sent = await multisig.rpc.spendingLimitUse({
     connection,
     feePayer: member,
     member,
@@ -174,4 +203,5 @@ export async function useSpendingLimit(
     decimals: params.decimals,
     destination: params.destination,
   })
+  return confirm(connection, sent)
 }
