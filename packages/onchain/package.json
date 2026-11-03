@@ -15,10 +15,12 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "build": "tsc -p tsconfig.build.json",
     "create-multisig": "tsx --env-file=.env src/scripts/create-multisig.ts",
-    "add-spending-limit": "tsx --env-file=.env src/scripts/add-spending-limit.ts"
+    "add-spending-limit": "tsx --env-file=.env src/scripts/add-spending-limit.ts",
+    "fund-vault": "tsx --env-file=.env src/scripts/fund-vault.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
+    "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
     "@sqds/multisig": "^2.1.4",
     "zod": "^4.6.7"
