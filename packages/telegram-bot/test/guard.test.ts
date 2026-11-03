@@ -69,8 +69,15 @@ describe('httpGuardClient', () => {
   })
 
   it('reads the kill result', async () => {
-    const { guard } = client(json(200, { pausedAgents: 3, ownerTransactions: [] }))
-    expect(await guard.kill()).toEqual({ pausedAgents: 3, ownerTransactions: [] })
+    const body = {
+      pausedAgents: 3,
+      ownerTransactions: [
+        { chain: 'eip155:8453', description: 'Reset allowance', payload: { to: '0xabc' } },
+        { chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', error: 'build_failed' },
+      ],
+    }
+    const { guard } = client(json(200, body))
+    expect(await guard.kill()).toEqual(body)
   })
 
   it('tells a missing agent from a missing route on /budget', async () => {

@@ -12,11 +12,9 @@ export type Outcome =
   | { kind: 'approved' | 'rejected'; by: string; at: Date }
   | { kind: 'expired' | 'already_decided' | 'not_found' }
 
-export interface OwnerTransaction {
-  chain: string
-  description: string
-  payload: unknown
-}
+/** guard-core reports a chain whose kill transaction could not be built instead of dropping it. */
+export type OwnerTransaction =
+  { chain: string; description: string; payload: unknown } | { chain: string; error: string }
 
 const CHAIN_NAMES = new Map<string, string>([
   [CHAINS.solanaMainnet, 'Solana'],
@@ -169,12 +167,19 @@ export function killedText(pausedAgents: number, transactions: number): string {
     transactions > 0
       ? `Sign the ${transactions === 1 ? 'transaction' : `${transactions} transactions`} below from ` +
         'the owner multisig to set each allowance to 0 and remove the delegate.'
-      : '<b>guard-core returned no owner transactions.</b> The onchain allowances are still live: ' +
+      : '<b>No owner transaction is ready.</b> The onchain allowances are still live: ' +
         'remove them from the multisig directly.'
   return [`<b>Kill switch engaged.</b> Paused agents: ${pausedAgents}.`, next].join('\n')
 }
 
 export function ownerTransactionText(tx: OwnerTransaction): string {
+  if ('error' in tx) {
+    return (
+      `<b>${chainName(tx.chain)}</b>: <b>the owner transaction could not be built</b> ` +
+      `(<code>${escapeHtml(tx.error)}</code>). The allowance on this chain is still live: remove ` +
+      'it from the multisig directly.'
+    )
+  }
   const payload = JSON.stringify(tx.payload, null, 2) ?? 'null'
   const shown =
     payload.length > PAYLOAD_LIMIT ? `${payload.slice(0, PAYLOAD_LIMIT)}\n… (truncated)` : payload

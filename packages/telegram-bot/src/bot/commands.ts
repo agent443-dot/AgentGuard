@@ -91,7 +91,8 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
     log.warn({ owner: ctx.from.id }, 'kill switch pressed')
     try {
       const { pausedAgents, ownerTransactions } = await guard.kill()
-      await ctx.editMessageText(killedText(pausedAgents, ownerTransactions.length), HTML)
+      const built = ownerTransactions.filter((tx) => !('error' in tx)).length
+      await ctx.editMessageText(killedText(pausedAgents, built), HTML)
       for (const tx of ownerTransactions) {
         await ctx.reply(ownerTransactionText(tx), HTML)
       }

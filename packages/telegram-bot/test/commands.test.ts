@@ -101,6 +101,28 @@ describe('/kill', () => {
     expect(txs[1]).toContain('0xabc')
   })
 
+  it('keeps the other chains when one owner transaction could not be built', async () => {
+    const kill = vi.fn().mockResolvedValue({
+      pausedAgents: 1,
+      ownerTransactions: [
+        { chain: 'eip155:84532', description: 'Reset allowance', payload: { to: '0xabc' } },
+        { chain: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', error: 'build_failed' },
+      ],
+    })
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }) })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain(
+      'Sign the transaction below',
+    )
+    const [built, failed] = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
+    expect(built).toContain('Reset allowance')
+    expect(failed).toContain(
+      '<b>Solana devnet</b>: <b>the owner transaction could not be built</b>',
+    )
+    expect(failed).toContain('still live')
+  })
+
   it('warns when the allowances are still live', async () => {
     const { bot, calls } = setup()
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
