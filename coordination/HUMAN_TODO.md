@@ -210,12 +210,14 @@ Tem de passar `lint`, `format:check`, `typecheck` e `test`. Diz-me o resultado.
 Desbloqueia: correr o `ON-1` e o `ON-2` (criar a Safe e ligar o limite de gasto).
 
 **Carteiras geradas em 2026-11-03** (endereços públicos; as chaves privadas estão só nos `.env` e no
-gestor de senhas do dono, nunca no repositório):
+gestor de senhas do dono, nunca no repositório). Um primeiro par foi gerado e descartado no mesmo dia
+porque as chaves se perderam antes de serem guardadas — se encontrares endereços diferentes no
+histórico do git, são esses, e não valem nada:
 
 | Papel                       | Endereço                                     |
 | --------------------------- | -------------------------------------------- |
-| Owner EOA (dona da Safe)    | `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890` |
-| Guard hot wallet (delegate) | `0xa95710875968439245265b977730ab69892dA470` |
+| Owner EOA (dona da Safe)    | `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04` |
+| Guard hot wallet (delegate) | `0x4FCEE11b4620Cb9122B83688B243bb996660F43b` |
 
 Os `.env` ainda não estão completos. Para confirmar o estado a qualquer momento sem imprimir nenhum
 valor — mostra só o nome de cada variável e se está preenchida:
@@ -299,8 +301,8 @@ abaixo mudar, essa página é a fonte de verdade.
    (`portal.cdp.coinbase.com`, secção Faucets) cobre Base Sepolia e dá até 0,1 ETH por 24 h, mas exige
    conta CDP. Sem conta, o faucet da Alchemy (`alchemy.com/faucets/base-sepolia`) dá 0,1 ETH por 24 h.
    Pede para os dois endereços:
-   - owner: `0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890`
-   - hot wallet: `0xa95710875968439245265b977730ab69892dA470`
+   - owner: `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`
+   - hot wallet: `0x4FCEE11b4620Cb9122B83688B243bb996660F43b`
 
 2. **USDC só na owner.** O faucet da Circle (`faucet.circle.com`, rede **Base Sepolia**) é o canónico; o
    faucet do CDP também distribui USDC em Base Sepolia.
@@ -312,11 +314,11 @@ abaixo mudar, essa página é a fonte de verdade.
 3. **Confirma o ETH:**
 
    ```bash
-   cast balance 0xD02dfD4b3Ff250d5B414c31affA620E07F0Ea890 --rpc-url https://sepolia.base.org
+   cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --rpc-url https://sepolia.base.org
    ```
 
    ```bash
-   cast balance 0xa95710875968439245265b977730ab69892dA470 --rpc-url https://sepolia.base.org
+   cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --rpc-url https://sepolia.base.org
    ```
 
    O valor vem em wei. `cast balance <addr> --ether --rpc-url ...` mostra em ETH.
