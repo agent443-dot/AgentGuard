@@ -41,6 +41,8 @@ export const budget = z.object({
   perTxMax: z.string(),
   hotWalletBalances: z.record(z.string(), z.string()).default({}),
   paused: z.boolean(),
+  /** CR-006: chains guard-core runs and this agent's policy allows. Absent on an older guard-core. */
+  chains: z.array(z.string()).optional(),
 })
 
 export const payIntent = z.object({

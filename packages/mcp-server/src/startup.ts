@@ -3,8 +3,8 @@ import type { Guard } from './adapters/guard.js'
 import { chainName } from './domain/chains.js'
 
 /**
- * Warns, never fails: guard-core lists a chain in the budget only when it could read the hot wallet
- * balance there, so a missing chain may be a passing RPC failure rather than a misconfiguration.
+ * Warns, never fails: refusing to start would take the agent's tools away over a setting that only
+ * affects transfers without an explicit chain, and guard-core may simply be down at startup.
  */
 export async function checkDefaultChain(
   guard: Guard,
@@ -19,11 +19,13 @@ export async function checkDefaultChain(
     )
   }
   try {
-    const { hotWalletBalances } = await guard.budget()
-    if (!(chain in hotWalletBalances)) {
+    const { chains } = await guard.budget()
+    if (chains === undefined) {
+      log.info('guard-core does not report its chains, so DEFAULT_CHAIN is not checked')
+    } else if (!chains.includes(chain)) {
       log.warn(
-        { chain, reported: Object.keys(hotWalletBalances) },
-        'guard-core reports no hot wallet balance on DEFAULT_CHAIN: check it matches the chains guard-core runs',
+        { chain, allowed: chains },
+        'DEFAULT_CHAIN is not a chain guard-core runs and this agent may pay on: transfers without a chain will be rejected',
       )
     }
   } catch (error) {

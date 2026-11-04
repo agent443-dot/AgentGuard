@@ -334,3 +334,8 @@ integrator before any session writes code, since every package imports those typ
   - telegram-bot: already built against item 1. Until the route exists, `/status` says "Chains: not
     reported by this guard-core" and `/kill` keeps its generic text (#42).
   - mcp-server: can read item 2 at startup and warn, or refuse, when `DEFAULT_CHAIN` is not in it.
+- **Note from mcp (2026-11-04):** item 2 is all mcp needs, since it holds only an agent token. mcp
+  warns rather than refuses at startup, because guard-core may be down when the MCP server starts and
+  refusing would take the agent's tools away. It reads `chains` as optional, so it keeps working
+  against a guard-core without the field. It also lists the allowed chains in `get_budget`, so the
+  model can pick a valid chain before it pays.

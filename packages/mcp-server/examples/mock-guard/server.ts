@@ -200,6 +200,7 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
         dailyMax: '5000000',
         perTxMax: '2000000',
         hotWalletBalances: { [CHAINS.solanaDevnet]: '10000000' },
+        chains: [CHAINS.solanaDevnet],
         paused: false,
       })
     }

@@ -8,7 +8,7 @@ import type { ToolDeps } from './deps.js'
 import { guarded, text } from './result.js'
 
 const BUDGET_DESCRIPTION = `Show how much this agent has spent today, its daily and per-payment limits, and whether the owner has paused payments.
-Use it before a payment to see if it can fit, and after an error whose outcome is unclear. The limits are set by the owner; a payment within them can still be rejected or need approval.`
+Use it before a payment to see if it can fit and which chains you can pay on, and after an error whose outcome is unclear. The limits are set by the owner; a payment within them can still be rejected or need approval.`
 
 const INTENT_DESCRIPTION = `Check the current status of a payment by its intent id (from paid_fetch or transfer).
 Use it to poll a payment that is pending_approval, every 15 to 30 seconds, until its status changes. Tell the user the outcome.
@@ -48,6 +48,13 @@ function describeBudget(budget: Budget): string {
     `Spent today: ${formatAmount(budget.spentToday)} of ${formatAmount(budget.dailyMax)} (daily limit, resets at 00:00 UTC).`,
     `Per-payment limit: ${formatAmount(budget.perTxMax)}.`,
   ]
+  if (budget.chains !== undefined) {
+    lines.push(
+      budget.chains.length === 0
+        ? 'Chains you can pay on: none. Every payment will be rejected.'
+        : `Chains you can pay on: ${budget.chains.map((chain) => `${chainName(chain)} (${chain})`).join(', ')}.`,
+    )
+  }
   const balances = Object.entries(budget.hotWalletBalances)
   if (balances.length > 0) {
     lines.push(
