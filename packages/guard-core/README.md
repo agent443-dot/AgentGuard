@@ -119,7 +119,6 @@ without its payload.
 
 - Nothing here has paid on devnet yet: the routes are tested end to end against
   `adapters/stub.ts`, and onchain's adapter has its own tests. INT-3 runs them together.
-- Base's hot wallet balance is left out of the budget view until `shared/addresses.ts` has its USDC.
 
 ## Layout
 

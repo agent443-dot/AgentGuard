@@ -1,5 +1,4 @@
 import type { Amount, BudgetView, ChainId, Policy } from '@agentguard/shared'
-import { getAddress } from '@agentguard/shared'
 import * as repo from '../db/repo.js'
 import type { PaymentDeps } from './payments.js'
 
@@ -19,7 +18,7 @@ async function hotWalletBalances(deps: PaymentDeps, chains: ChainId[]) {
   await Promise.all(
     chains.map(async (chain) => {
       const adapter = deps.chains.get(chain)
-      const usdc = getAddress(chain, 'usdc')
+      const usdc = deps.usdc.get(chain)
       if (adapter === undefined || usdc === undefined) {
         return
       }
