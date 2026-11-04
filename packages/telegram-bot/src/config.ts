@@ -31,6 +31,8 @@ export const configSchema = z.object({
   GUARD_ADMIN_TOKEN: secret,
   BOT_WEBHOOK_SECRET: secret,
 
+  HOOK_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+
   NOTIFY_ABOVE_AMOUNT: z
     .string()
     .regex(/^(0|[1-9]\d*)$/, 'expected USDC atomic units')

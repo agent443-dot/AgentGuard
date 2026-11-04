@@ -16,6 +16,7 @@ describe('loadConfig', () => {
     expect(config.OWNER_TELEGRAM_IDS).toEqual(new Set([1001, 1002]))
     expect(config.NOTIFY_ABOVE_AMOUNT).toBe(1_000_000n)
     expect(config.PORT).toBe(8788)
+    expect(config.HOOK_RATE_LIMIT_PER_MINUTE).toBe(300)
   })
 
   it('names the bad fields without echoing their values', () => {

@@ -35,6 +35,13 @@ Both are signed: `X-Guard-Signature` is the hex HMAC-SHA256 of the exact request
 | `POST /hooks/approval-request` | `{ intent, simulation, approveBefore }` | 200 posted, 401 bad signature, 400 bad body, 409 duplicate, 410 stale, 502 no owner reachable |
 | `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-004)           | same                                                                                          |
 
+**Before the body is read.** A request to `/hooks/*` whose `X-Guard-Signature` is missing or is not
+64 hex characters is answered 401 in Fastify's `onRequest` hook, so its body is never read. A
+well-formed signature needs the bytes to be checked, but they reach no parser until it holds.
+
+**Rate limit.** `HOOK_RATE_LIMIT_PER_MINUTE` (default 300) requests per minute per client address, then 429. Only guard-core calls the hooks, and each payment costs it at most two calls (an approval
+request and an intent event). The hooks still bind to `127.0.0.1` by default.
+
 **Replay.** A valid signature proves guard-core wrote a body, not that it is sending it now. An
 approval request is refused once `approveBefore` has passed, or if it claims a window longer than
 guard-core's 10 minutes (plus 1 minute of clock skew); while it is open, a second copy of the same
