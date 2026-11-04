@@ -11,14 +11,19 @@ describe('usdcFor', () => {
     expect(usdcFor(CHAINS.solanaDevnet, BASE_USDC)).toBe(ADDRESSES[CHAINS.solanaDevnet]?.usdc)
   })
 
+  it('prefers the verified Base Sepolia USDC in shared over BASE_USDC', () => {
+    expect(usdcFor(CHAINS.baseSepolia, BASE_USDC)).toBe(
+      '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    )
+  })
+
   it('falls back to BASE_USDC on Base only', () => {
-    expect(usdcFor(CHAINS.baseSepolia, BASE_USDC)).toBe(BASE_USDC)
     expect(usdcFor(CHAINS.base, BASE_USDC)).toBe(BASE_USDC)
     expect(usdcFor('solana:unknown', BASE_USDC)).toBeUndefined()
   })
 
   it('has nothing for Base without BASE_USDC', () => {
-    expect(usdcFor(CHAINS.baseSepolia, undefined)).toBeUndefined()
+    expect(usdcFor(CHAINS.base, undefined)).toBeUndefined()
   })
 })
 

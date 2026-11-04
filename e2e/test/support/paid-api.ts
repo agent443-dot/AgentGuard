@@ -25,11 +25,9 @@ export const SOLANA: Net = {
   extra: { feePayer: 'FeePayer1111111111111111111111111111111111' },
 }
 
-// Stub chain only. shared/addresses.ts has no verified Base Sepolia USDC yet (CR-005), and the stub
-// signs nothing, so any well-formed address stands in for it.
 export const BASE: Net = {
   chain: CHAINS.baseSepolia,
-  token: '0x5dEaC602762362FE5f135FA5904351916053cF70',
+  token: requireAddress(CHAINS.baseSepolia, 'usdc'),
   merchant: '0x1111111111111111111111111111111111111111',
   attacker: '0xBAd0000000000000000000000000000000000BAD',
   extra: { name: 'USDC', version: '2' },
