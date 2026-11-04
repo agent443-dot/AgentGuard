@@ -717,16 +717,9 @@ tuas. Tudo corre em `~/AgentGuard`.
 
 ### Parte A — verificar e pôr fundos (já podes fazer)
 
-1. **O Allowance Module existe na Base Sepolia?** A lista oficial da Safe dá-o na Base mainnet em
-   `0xAA46724893dedD72658219405185Fb0Fc91e091C`, mas não lista a Base Sepolia. Este comando conta os
-   caracteres do código que está nesse endereço:
-
-   ```bash
-   cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org | wc -c
-   ```
-
-   Um número grande (milhares) quer dizer que o módulo está lá. `3` quer dizer `0x`, nada: para aqui e
-   diz-me, porque a Parte B muda.
+1. ✅ **O Allowance Module existe na Base Sepolia** — já não precisas de verificar. Os testes do GitHub
+   confirmaram, em 2026-11-04, que está em `0xAA46724893dedD72658219405185Fb0Fc91e091C` com exatamente o
+   mesmo código que a Safe publica para a Base mainnet (hash `0x7aa63aff…cf3e`, registado na `CR-005`).
 
 2. **O USDC da Base Sepolia.** O SDK x402 que usamos dá `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
    Abre [a página da Circle](https://developers.circle.com/stablecoins/usdc-contract-addresses), procura
@@ -750,11 +743,11 @@ tuas. Tudo corre em `~/AgentGuard`.
    cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https://sepolia.base.org
    ```
 
-4. Diz-me o número do passo 1, se a Circle bate com o passo 2, e os dois saldos.
+4. Diz-me se a Circle bate com o passo 2, e os dois saldos.
 
-### Parte B — criar a Safe (depois de eu te dizer que o PR #27 entrou no `main`)
+### Parte B — criar a Safe (o código já está no `main`)
 
-Só se o passo 1 deu código.
+Logo a seguir à Parte A.
 
 5. Atualiza o código e acrescenta ao `.env` do onchain as variáveis da Base. O comando substitui cada
    linha se já existir e acrescenta-a se não existir, por isso podes repeti-lo:
@@ -763,14 +756,8 @@ Só se o passo 1 deu código.
    cd ~/AgentGuard && git checkout main && git pull && pnpm install && cd packages/onchain && for kv in BASE_CHAIN_ID=84532 BASE_RPC_URL=https://sepolia.base.org BASE_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e BASE_ALLOWANCE_MODULE=0xAA46724893dedD72658219405185Fb0Fc91e091C; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done
    ```
 
-6. Confirma que o RPC da Base aceita as simulações que o guard-core faz antes de cada pagamento. Não
-   usa chave nenhuma:
-
-   ```bash
-   cd ~/AgentGuard && pnpm --filter @agentguard/onchain check:simulate
-   ```
-
-   Tem de imprimir `eth_simulateV1 supported`. Se der erro, para e cola-me a linha.
+6. ✅ O RPC da Base aceita as simulações que o guard-core faz antes de cada pagamento — os testes do
+   GitHub confirmaram-no contra `sepolia.base.org`. Não precisas de fazer nada aqui.
 
 7. Confirma que a chave da owner no `.env` é a da owner EVM. Imprime só o endereço derivado:
 
