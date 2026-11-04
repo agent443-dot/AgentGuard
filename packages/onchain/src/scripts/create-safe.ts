@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { Safe } from '../evm/kit.js'
+import { Safe, safeSigners } from '../evm/kit.js'
 import { createWalletClient, getAddress, http, type Hash } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { caip2, chainOf, loadEvmConfig } from '../evm/config.js'
@@ -15,15 +15,18 @@ if (config.SAFE_ADDRESS) {
   process.exit(1)
 }
 
-const owner = privateKeyToAccount(config.OWNER_PRIVATE_KEY as Hash)
+const { owner, executorKey } = await safeSigners(config, console.log)
+const executor = privateKeyToAccount(executorKey)
 const client = publicClient(config)
 
-console.log(`chain: ${caip2(config)}`)
-console.log(`owner: ${owner.address}`)
+console.log(`chain:    ${caip2(config)}`)
+console.log(`owner:    ${owner.address} (${config.OWNER_SIGNER})`)
+console.log(`executor: ${executor.address} (pays the gas, owns nothing)`)
 
+// Deploying needs no owner signature: the owner is fixed by the setup data, whoever sends it.
 const kit = await Safe.init({
   provider: config.BASE_RPC_URL,
-  signer: config.OWNER_PRIVATE_KEY,
+  signer: executorKey,
   predictedSafe: {
     safeAccountConfig: { owners: [owner.address], threshold: 1 },
     // Random, so a Safe created after clearing SAFE_ADDRESS does not collide with the last one.
@@ -34,7 +37,7 @@ const safeAddress = getAddress(await kit.getAddress())
 const deployment = await kit.createSafeDeploymentTransaction()
 
 const wallet = createWalletClient({
-  account: owner,
+  account: executor,
   chain: chainOf(config.BASE_CHAIN_ID),
   transport: http(config.BASE_RPC_URL),
 })
