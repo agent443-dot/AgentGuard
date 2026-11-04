@@ -20,18 +20,22 @@
     "balances": "tsx --env-file=.env src/scripts/balances.ts",
     "status": "tsx --env-file=.env src/scripts/status.ts",
     "top-up": "tsx --env-file=.env src/scripts/top-up.ts",
-    "kill": "tsx --env-file=.env src/scripts/kill.ts"
+    "kill": "tsx --env-file=.env src/scripts/kill.ts",
+    "create-safe": "tsx --env-file=.env src/scripts/create-safe.ts",
+    "enable-allowance": "tsx --env-file=.env src/scripts/enable-allowance.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
     "@ledgerhq/hw-app-solana": "^7.13.0",
     "@ledgerhq/hw-transport": "^6.36.1",
+    "@safe-global/protocol-kit": "^8.0.11",
     "@solana/kit": "^8.6.0",
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
     "@sqds/multisig": "^2.1.4",
     "@x402/core": "^2.29.0",
     "@x402/svm": "^2.29.0",
+    "viem": "^2.57.16",
     "zod": "^4.6.7"
   },
   "devDependencies": {
