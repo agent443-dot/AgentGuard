@@ -1,67 +1,58 @@
 # @agentguard/mcp-server
 
-An MCP server that lets an agent pay **only** through guard-core. It holds no keys and makes no policy
-decisions: it checks inputs, turns dollars into USDC atomic units, calls guard-core's agent API and
-explains the answer in plain English.
+An MCP server that lets an AI agent pay **only** through AgentGuard. It holds no keys and makes no
+policy decisions. It checks the agent's inputs, turns dollars into USDC atomic units, asks guard-core,
+and explains the answer in plain English.
 
 Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
 
-## Tools
+## For agent builders
 
-| Tool           | Input                                              | Calls                         |
-| -------------- | -------------------------------------------------- | ----------------------------- |
-| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | `POST /v1/agent/x402/fetch`   |
-| `transfer`     | `{ to, amountUsd, reason, chain? }`                | `POST /v1/agent/transfer`     |
-| `get_budget`   | `{}`                                               | `GET /v1/agent/budget/:agent` |
-| `check_intent` | `{ intentId }`                                     | `GET /v1/agent/intents/:id`   |
+### What your agent can and cannot do
 
-- **Amounts are decimal strings** (`"0.25"`), not JSON numbers. A JSON number has already been through
-  a float by the time it arrives, so its exact value cannot be known. Negative values, exponents, `NaN`,
-  `Infinity` and anything with more than 6 decimal places are refused before guard-core is called. A
-  value that would have to be rounded is refused, never rounded.
-- **Chains**: Solana (mainnet, devnet) and Base (mainnet, Sepolia `eip155:84532`). `transfer` without
-  `chain` uses `DEFAULT_CHAIN`. The token is always USDC on that chain: from `@agentguard/shared`, or
-  `BASE_USDC` for a Base chain shared has no verified address for yet. A chain with neither is
-  refused. At startup the server warns if guard-core reports no balance on `DEFAULT_CHAIN`.
-- **Outcomes**: every result states the status and, on a rejection, each reject code with a short
-  explanation. On `pending_approval` the model is told to tell the user and poll `check_intent`.
-  For `paid_fetch`, once `check_intent` reports `approved` the model repeats the same request, which
-  redeems the approval once and returns the paid response (CR-003). A resource that asks for no
-  payment passes straight through as "no payment needed".
-- **Untrusted content**: a `paid_fetch` body is returned in its own content block, fenced by
-  `<untrusted-content id="…">` markers carrying a random nonce, after a notice that it is third-party
-  data. Only a well-formed media type is shown from the response headers. Bodies over 100,000
-  characters are truncated.
+The agent **can**:
 
-## Configuration
+- pay for an HTTP resource that asks for an x402 payment (`paid_fetch`);
+- send USDC to an address (`transfer`), on Solana or Base;
+- see what it has spent today and its limits (`get_budget`);
+- follow a payment through owner approval (`check_intent`).
 
-| Variable                | Required    | Default                | Notes                                                                                        |
-| ----------------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `GUARD_URL`             | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
-| `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                |
-| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                         |
-| `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted                                                   |
-| `BASE_USDC`             | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
-| `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                            |
-| `MCP_HTTP_HOST`         | no          | `127.0.0.1`            | HTTP only                                                                                    |
-| `MCP_HTTP_PORT`         | no          | `8789`                 | HTTP only                                                                                    |
-| `MCP_HTTP_TOKEN`        | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
-| `MCP_HTTP_ALLOW_REMOTE` | no          | `false`                | Must be `true` to bind `MCP_HTTP_HOST` to anything but loopback                              |
-| `MCP_HTTP_RATE_LIMIT`   | no          | `60`                   | HTTP requests per minute per client address                                                  |
-| `LOG_LEVEL`             | no          | `info`                 | Logs go to stderr as JSON                                                                    |
+The agent **cannot**:
 
-The config is validated at startup; a bad value stops the server with the field name, never the value.
-Logs never contain the tokens.
+- **touch a key.** The hot wallet key lives only in guard-core. This server never sees it, and nothing
+  the agent sends can reach it. A leaked agent token lets someone spend within the policy and nothing
+  more, and the owner can revoke it.
+- **change its own limits.** The owner sets the policy: per-payment and daily maximums, the approval
+  threshold, and the allowed recipients, domains, chains and tokens. The agent can read its budget but
+  not change it.
+- **skip approval.** A payment at or above the owner's threshold waits for the owner on Telegram. The
+  agent learns the outcome by polling; it cannot approve anything.
+- **pay anyone or any site.** A recipient or domain not on the policy's allowlist is rejected. An
+  empty allowlist denies everything.
+- **be steered by what it fetches.** A paid response body comes back fenced as untrusted third-party
+  data, and the model is told never to follow instructions inside it.
 
-## Client setup
+The `reason` an agent gives for a transfer is shown to the owner and never used to decide anything.
 
-The examples run from a checkout with dependencies installed (`pnpm install` at the repo root). Replace
-`/path/to/AgentGuard` with the absolute path.
+### 1. Get an agent token
 
-### Claude Desktop
+The owner creates the agent in guard-core and sets its policy. A new agent's policy denies everything
+until then.
 
-`claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`, Windows:
-`%APPDATA%\Claude\`):
+```bash
+pnpm --filter @agentguard/guard-core create-agent my-agent   # prints the token once
+```
+
+You need three values: `GUARD_URL` (guard-core, e.g. `http://localhost:8787`), `AGENT_ID` and
+`AGENT_TOKEN`. Keep the token in your client's secret store, not in a repository.
+
+### 2. Connect your client
+
+The examples run from a checkout with dependencies installed (`pnpm install` at the repo root).
+Replace `/path/to/AgentGuard` with its absolute path.
+
+**Claude Desktop.** Edit `claude_desktop_config.json` (macOS:
+`~/Library/Application Support/Claude/`, Windows: `%APPDATA%\Claude\`) and restart the app:
 
 ```json
 {
@@ -72,7 +63,7 @@ The examples run from a checkout with dependencies installed (`pnpm install` at 
       "env": {
         "GUARD_URL": "http://localhost:8787",
         "AGENT_ID": "my-agent",
-        "AGENT_TOKEN": "<agent token from guard-core>"
+        "AGENT_TOKEN": "<agent token>"
       }
     }
   }
@@ -81,25 +72,23 @@ The examples run from a checkout with dependencies installed (`pnpm install` at 
 
 Claude Desktop starts the server from an unspecified directory, so both paths must be absolute.
 
-### Claude Code
-
-stdio, one server per agent:
+**Claude Code**, over stdio:
 
 ```bash
 claude mcp add agentguard \
-  -e GUARD_URL=http://localhost:8787 -e AGENT_ID=my-agent -e AGENT_TOKEN=<token> \
+  -e GUARD_URL=http://localhost:8787 -e AGENT_ID=my-agent -e AGENT_TOKEN=<agent token> \
   -- /path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx \
      /path/to/AgentGuard/packages/mcp-server/src/main.ts
 ```
 
-Or over HTTP, against a server started with `MCP_TRANSPORT=http`:
+**Claude Code**, over HTTP, against a server started with `MCP_TRANSPORT=http`:
 
 ```bash
 claude mcp add --transport http agentguard http://127.0.0.1:8789/mcp \
   --header "Authorization: Bearer <MCP_HTTP_TOKEN>"
 ```
 
-The same in a project's `.mcp.json`:
+or in a project's `.mcp.json`:
 
 ```json
 {
@@ -113,41 +102,163 @@ The same in a project's `.mcp.json`:
 }
 ```
 
-### Other MCP clients
+**Any stdio client.** Most clients take the same shape as Claude Desktop: a command, its arguments
+and an environment. The command is `tsx`, the argument is `src/main.ts`, and the environment needs
+`GUARD_URL`, `AGENT_ID` and `AGENT_TOKEN`.
 
-Any client that speaks stdio can launch `tsx src/main.ts` with the three required variables in its
-environment. Clients that speak streamable HTTP connect to `http://<host>:<port>/mcp` with
-`Authorization: Bearer <MCP_HTTP_TOKEN>`.
+**Any HTTP client.** Start the server once:
+
+```bash
+export MCP_HTTP_TOKEN=$(openssl rand -hex 32)
+MCP_TRANSPORT=http GUARD_URL=http://localhost:8787 AGENT_ID=my-agent AGENT_TOKEN=<agent token> \
+  /path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx \
+  /path/to/AgentGuard/packages/mcp-server/src/main.ts
+```
+
+Point the client at `http://127.0.0.1:8789/mcp` with `Authorization: Bearer <MCP_HTTP_TOKEN>`. The
+endpoint is stateless streamable HTTP, so a plain JSON-RPC call works with no session:
+
+```bash
+curl http://127.0.0.1:8789/mcp \
+  -H "Authorization: Bearer $MCP_HTTP_TOKEN" -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_budget","arguments":{}}}'
+```
+
+### The tools
+
+| Tool           | Input                                              | What it does                                   |
+| -------------- | -------------------------------------------------- | ---------------------------------------------- |
+| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | Fetches the URL, paying an x402 request if any |
+| `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends USDC to an address                       |
+| `get_budget`   | `{}`                                               | Spend today, limits, pause state, balances     |
+| `check_intent` | `{ intentId }`                                     | The current status of one payment              |
+
+- **Amounts are decimal strings** such as `"0.25"`, never JSON numbers: a number has already been
+  through a float by the time it arrives. A sign, an exponent, `NaN`, `Infinity` and more than 6
+  decimal places are refused rather than rounded.
+- **Chains** are CAIP-2 ids: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet),
+  `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (Solana devnet), `eip155:8453` (Base mainnet) and
+  `eip155:84532` (Base Sepolia). `transfer` without `chain` uses `DEFAULT_CHAIN`. `paid_fetch` takes
+  no chain: the website's payment request names one, and the policy decides whether it is allowed.
+- **`maxAmountUsd`** caps one `paid_fetch`. The tighter of it and the policy's per-payment limit
+  applies.
+
+### Handling `pending_approval`
+
+A payment at or above the owner's approval threshold returns `pending_approval` with an intent id. The
+owner has 10 minutes to answer on Telegram.
+
+1. Tell the user the payment is waiting for their approval.
+2. Call `check_intent` with the intent id every 15 to 30 seconds.
+3. Do **not** repeat the payment while it is pending.
+4. Act on the outcome:
+
+| Status     | `transfer`                              | `paid_fetch`                                                                                                                             |
+| ---------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `approved` | Being sent; keep polling                | Call `paid_fetch` again with **exactly** the same url, method, headers and body. That redeems the approval once and returns the response |
+| `executed` | Done; the result has the transaction id | Done                                                                                                                                     |
+| `rejected` | The owner said no; do not retry         | The owner said no; do not retry                                                                                                          |
+| `expired`  | No answer in time; nothing moved        | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
+| `failed`   | Approved, but sending failed            | Approved, but paying failed                                                                                                              |
+
+The tool results already tell the model this. A client that drives the tools without a model should
+follow the same steps; [`examples/demo-agent`](./examples/demo-agent/index.ts) does.
+
+### Errors and what to do
+
+Every result starts with the outcome. A tool error (`isError: true`) means the call did not reach a
+decision. A rejection is a decision, not an error.
+
+**Reject codes.** A `rejected` payment lists one or more codes, each explained in the result. None is
+worth retrying unchanged.
+
+| Code                                                                                                                               | Meaning                                                     | What the agent should do                |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
+| `PAUSED`                                                                                                                           | The owner paused payments                                   | Tell the user; wait for the owner       |
+| `PER_TX_EXCEEDED`                                                                                                                  | Above the per-payment limit, or above `maxAmountUsd`        | Pay less, or ask the owner              |
+| `DAILY_EXCEEDED`                                                                                                                   | Would pass today's limit                                    | Wait until 00:00 UTC, or ask the owner  |
+| `RECIPIENT_NOT_ALLOWED`                                                                                                            | The recipient is not on the allowlist                       | Ask the owner to allow it               |
+| `DOMAIN_NOT_ALLOWED`                                                                                                               | The website is not on the allowlist                         | Ask the owner to allow it               |
+| `CHAIN_NOT_ALLOWED`, `TOKEN_NOT_ALLOWED`                                                                                           | The policy does not allow this chain or token               | Use an allowed chain, or ask the owner  |
+| `OWNER_REJECTED`                                                                                                                   | The owner pressed Reject                                    | Do not retry                            |
+| `APPROVAL_TIMEOUT`                                                                                                                 | The owner did not answer, or the approval was not redeemed  | Ask the user before trying again        |
+| `INVALID_402`                                                                                                                      | The website's payment request was malformed or unsafe       | Do not pay this site; tell the user     |
+| `SIM_FAILED`, `SIM_UNEXPECTED_EFFECT`                                                                                              | In simulation the transaction failed, or did more than pay  | Do not retry; tell the user             |
+| `APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`                                                                      | Base: the payment would grant standing authority over funds | Do not pay this site; it may be hostile |
+| `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`, `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED` | Solana: the transaction would do more than transfer         | Do not pay this site; it may be hostile |
+
+**Tool errors.**
+
+| The result says                                                | Cause                                                  | What to do                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| `amountUsd: "…" is not a valid USD amount` (or `maxAmountUsd`) | Bad amount format                                      | Send a decimal string like `"2.50"`                                   |
+| `amountUsd: a transfer must be more than zero.`                | A zero transfer                                        | Send a positive amount                                                |
+| `This server has no USDC address for …`                        | No USDC configured for that chain                      | Use another chain; the owner sets `BASE_USDC`                         |
+| `AgentGuard could not be reached or did not answer in time.`   | guard-core is down or slow                             | Call `get_budget` before retrying a payment: it may have gone through |
+| `AgentGuard did not accept this agent's credentials.`          | Wrong or revoked `AGENT_TOKEN`                         | The owner fixes the configuration                                     |
+| `AgentGuard is rate limiting this agent.`                      | Too many calls to guard-core                           | Wait a minute                                                         |
+| `AgentGuard refused the request as invalid (…)`                | guard-core rejected an input                           | Fix the field it names                                                |
+| `AgentGuard has no record of that.`                            | Unknown intent id, or one belonging to another agent   | Check the id                                                          |
+| `AgentGuard returned an error (HTTP …)`                        | guard-core failed, or the website could not be reached | Call `get_budget` before retrying a payment                           |
+| `AgentGuard sent a response this server does not understand.`  | This server and guard-core disagree on the API         | Tell the owner                                                        |
+| `The AgentGuard MCP server hit an internal error.`             | A bug in this server                                   | Call `get_budget` before retrying; report it                          |
+
+**HTTP transport only.** Before any tool runs, the endpoint can answer `401` (a missing or wrong
+`MCP_HTTP_TOKEN`), `403` (a non-loopback `Host` header on a loopback server), `405` (not a `POST`) or
+`429` (rate limited: wait `Retry-After` seconds).
+
+## Configuration
+
+| Variable                | Required    | Default                | Notes                                                                                        |
+| ----------------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| `GUARD_URL`             | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
+| `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                |
+| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                         |
+| `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                  |
+| `BASE_USDC`             | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
+| `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                            |
+| `MCP_HTTP_HOST`         | no          | `127.0.0.1`            | HTTP only                                                                                    |
+| `MCP_HTTP_PORT`         | no          | `8789`                 | HTTP only                                                                                    |
+| `MCP_HTTP_TOKEN`        | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
+| `MCP_HTTP_ALLOW_REMOTE` | no          | `false`                | Must be `true` to bind `MCP_HTTP_HOST` to anything but loopback                              |
+| `MCP_HTTP_RATE_LIMIT`   | no          | `60`                   | HTTP requests per minute per client address                                                  |
+| `LOG_LEVEL`             | no          | `info`                 | Logs go to stderr as JSON                                                                    |
+
+The config is validated at startup; a bad value stops the server with the field name, never the
+value. Logs never contain the tokens. At startup the server also reads the budget, and warns if
+guard-core reports no balance on `DEFAULT_CHAIN` or if `DEFAULT_CHAIN` has no USDC address.
 
 ## HTTP transport
 
 Stateless streamable HTTP on `POST /mcp`: each request gets its own MCP server, so nothing is shared
-between callers. `GET` and `DELETE` answer 405 because there is no session to stream to or close.
+between callers.
 
-- Bound to `127.0.0.1` by default. Any other `MCP_HTTP_HOST` is refused at startup unless
-  `MCP_HTTP_ALLOW_REMOTE=true`, so exposing the server is a deliberate choice. On a loopback address the
-  `Host` header must also be loopback, which stops a web page from reaching the server through DNS
-  rebinding.
-- Rate limited per client address (`MCP_HTTP_RATE_LIMIT`, 60 a minute by default), before the token
-  is checked, so failed logins count too. Over the limit, the answer is `429` with `Retry-After`. The
-  address is the socket's, never `X-Forwarded-For`, which any client can write: behind a reverse proxy
-  every request shares the proxy's address, so put the per-client limit in the proxy.
-- Every request needs `Authorization: Bearer <MCP_HTTP_TOKEN>`; anyone who can call the tools spends as
-  this agent. Put TLS in front of it before exposing it beyond the machine.
+- **Loopback by default.** It binds `127.0.0.1`. Any other `MCP_HTTP_HOST` is refused at startup
+  unless `MCP_HTTP_ALLOW_REMOTE=true`, so exposing it is a deliberate choice. On a loopback address
+  the `Host` header must also be loopback, which stops a web page from reaching the server through
+  DNS rebinding.
+- **Rate limited** per client address (`MCP_HTTP_RATE_LIMIT`, 60 a minute by default), before the
+  token is checked, so failed logins count too. The address is the socket's, never
+  `X-Forwarded-For`, which any client can write. Behind a reverse proxy every request shares the
+  proxy's address, so put the per-client limit in the proxy.
+- **Every request needs** `Authorization: Bearer <MCP_HTTP_TOKEN>`; whoever holds it spends as this
+  agent. Put TLS in front before exposing it beyond the machine.
 
-## Trying it locally
+## Development
 
 ```bash
 pnpm --filter @agentguard/mcp-server mock-guard   # mock guard-core on :8787, paid test API on :8790
 pnpm --filter @agentguard/mcp-server demo         # scripted agent pays for /weather
 DEMO_URL=http://127.0.0.1:8790/premium pnpm --filter @agentguard/mcp-server demo   # approval flow
+pnpm --filter @agentguard/mcp-server test
 ```
 
 The mock guard-core implements the SPEC's agent routes with a few fixed rules (see
-[`examples/mock-guard/server.ts`](./examples/mock-guard/server.ts)): `/weather` costs $0.01 and
-executes, `/premium` costs $2.00 and is approved after 20 seconds (repeat the request to redeem it),
-`/free` needs no payment, `/injection` returns a body that
-tries to give the agent orders. Credentials are `demo-agent` / `demo-token`.
+[`examples/mock-guard/server.ts`](./examples/mock-guard/server.ts)). `/weather` costs $0.01 and
+executes. `/premium` costs $2.00 and is approved after 20 seconds; repeat the request to redeem it.
+`/free` needs no payment. `/injection` returns a body that tries to give the agent orders.
+Credentials are `demo-agent` / `demo-token`.
 
 To click through the tools in the MCP Inspector with the mock running:
 
@@ -159,21 +270,15 @@ npx @modelcontextprotocol/inspector \
 ```
 
 Against a real guard-core, set `GUARD_URL`, `AGENT_ID` and `AGENT_TOKEN` to real values and `DEMO_URL`
-to an x402 test API on a domain the agent's policy allows. A real run needs INT-3.
-
-## Layout
+to an x402 test API on a domain the agent's policy allows.
 
 ```
-src/domain/     USD parsing and formatting, reject-code explanations, untrusted-content fencing (pure)
+src/domain/     USD math, chains, reject-code wording, untrusted-content fencing, rate limit (pure)
 src/adapters/   guard-core HTTP client; every response is checked with zod
 src/tools/      the four MCP tools
 src/server.ts   builds the McpServer
-src/http.ts     streamable HTTP transport with bearer auth and Host checks
+src/http.ts     streamable HTTP transport: rate limit, Host check, bearer auth
+src/startup.ts  the DEFAULT_CHAIN check
 src/main.ts     entry point: config, logger, transport
 examples/       mock guard-core, paid test API, demo agent
-```
-
-```bash
-pnpm --filter @agentguard/mcp-server test
-pnpm --filter @agentguard/mcp-server test:coverage
 ```
