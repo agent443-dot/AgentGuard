@@ -56,6 +56,16 @@ shows all of it), domain (or "direct transfer"), the simulation summary, the exp
 agent's reason labelled `agent says:`. Everything that came from the agent is HTML-escaped, so it
 cannot pose as the bot's own text.
 
+**Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
+transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
+devnet, basescan.org on Base, sepolia.basescan.org on Base Sepolia. The explorer is looked up by the
+exact CAIP-2 id, so a chain the bot does not know gets no link at all, never one on another network.
+
+**Amounts** read as dollars only when the intent's token is the USDC listed for that chain in
+`packages/shared/src/addresses.ts`. Any other token is shown in base units with its address, marked
+"not a known USDC for this chain": a token with 6 decimals could otherwise pass for dollars. Base and
+Base Sepolia USDC are not listed there yet (CR-005), so Base amounts show as base units until they are.
+
 **Approve** / **Reject** call `POST /v1/bot/decision` with the presser's Telegram id. Then every
 owner's copy is edited to the outcome, with the full recipient, and the buttons are gone. guard-core's
 409 (`already_decided` or `expired`) and 404 are shown as such. If guard-core does not answer, the
