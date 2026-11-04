@@ -194,6 +194,9 @@ importers:
       '@agentguard/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/rate-limit':
+        specifier: ^11.2.2
+        version: 11.2.2
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
