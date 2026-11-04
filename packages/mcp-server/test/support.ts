@@ -4,12 +4,27 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { CHAINS } from '@agentguard/shared'
 import { pino } from 'pino'
 import type { Guard } from '../src/adapters/guard.js'
+import { usdcFor } from '../src/domain/chains.js'
 import { createServer } from '../src/server.js'
+import type { ToolDeps } from '../src/tools/deps.js'
 
 export const silent = pino({ level: 'silent' })
 
-export async function connect(guard: Guard): Promise<Client> {
-  const server = createServer({ guard, log: silent, defaultChain: CHAINS.solanaDevnet })
+// A placeholder, not a real token: only its shape matters to these tests.
+export const BASE_USDC = '0x1111111111111111111111111111111111111111'
+
+export function deps(guard: Guard, overrides: Partial<ToolDeps> = {}): ToolDeps {
+  return {
+    guard,
+    log: silent,
+    defaultChain: CHAINS.solanaDevnet,
+    usdc: (chain) => usdcFor(chain, BASE_USDC),
+    ...overrides,
+  }
+}
+
+export async function connect(guard: Guard, overrides?: Partial<ToolDeps>): Promise<Client> {
+  const server = createServer(deps(guard, overrides))
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
   await server.connect(serverSide)
   const client = new Client({ name: 'test', version: '0' })

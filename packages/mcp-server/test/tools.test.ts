@@ -6,7 +6,7 @@ import {
   type Intent,
   type TransferInput,
 } from '../src/adapters/guard.js'
-import { call, connect, fakeGuard } from './support.js'
+import { BASE_USDC, call, connect, fakeGuard } from './support.js'
 
 const INTENT_ID = '3f0c8f5e-8a3b-4c55-9a0e-2d6f2b1c7a10'
 
@@ -101,7 +101,7 @@ describe('transfer', () => {
   })
 
   it('refuses a chain whose USDC address is not configured', async () => {
-    const client = await connect(fakeGuard({}))
+    const client = await connect(fakeGuard({}), { usdc: () => undefined })
     const result = await call(client, 'transfer', {
       to: '0xabc',
       amountUsd: '1',
@@ -109,7 +109,35 @@ describe('transfer', () => {
       chain: CHAINS.base,
     })
     expect(result.isError).toBe(true)
-    expect(result.text).toMatch(/not configured for chain eip155:8453/)
+    expect(result.text).toMatch(/no USDC address for Base mainnet \(eip155:8453\)/)
+  })
+
+  it('sends a Base Sepolia transfer with the configured Base USDC', async () => {
+    const transfer = vi.fn(async (_input: TransferInput) => ({
+      intentId: INTENT_ID,
+      status: 'executed' as const,
+      txId: '0xhash',
+      rejectReasons: [],
+    }))
+    const client = await connect(fakeGuard({ transfer }), { defaultChain: CHAINS.baseSepolia })
+    const to = '0x' + 'ab'.repeat(20)
+    const result = await call(client, 'transfer', { to, amountUsd: '0.5', reason: 'r' })
+    expect(transfer).toHaveBeenCalledWith({
+      chain: 'eip155:84532',
+      token: BASE_USDC,
+      amount: '500000',
+      recipient: to,
+      reason: 'r',
+    })
+    expect(result.text).toMatch(/on Base Sepolia \(eip155:84532\): executed/)
+    expect(result.text).toMatch(/Transaction id: 0xhash/)
+  })
+
+  it('names every supported chain in the transfer schema', async () => {
+    const { tools } = await (await connect(fakeGuard({}))).listTools()
+    const chain = JSON.stringify(tools.find((tool) => tool.name === 'transfer')?.inputSchema)
+    expect(chain).toContain('eip155:84532 (Base Sepolia)')
+    expect(chain).toContain(`${CHAINS.solanaDevnet} (Solana devnet)`)
   })
 
   it('refuses a chain it does not know', async () => {
@@ -276,7 +304,7 @@ describe('get_budget', () => {
     const { text } = await call(client, 'get_budget')
     expect(text).toMatch(/Spent today: \$1\.25 of \$10\.00/)
     expect(text).toMatch(/Per-payment limit: \$2\.00/)
-    expect(text).toContain(`${CHAINS.solanaDevnet}: $3.00`)
+    expect(text).toContain(`Solana devnet (${CHAINS.solanaDevnet}): $3.00`)
   })
 
   it('says plainly when the owner has paused payments', async () => {

@@ -826,6 +826,18 @@ correr — decidir antes de veres o sistema funcionar em devnet seria decidir à
 | D5  | o gestor de segredos para a chave da hot wallet |
 | D6  | lançar só com Solana, ou esperar pela Base      |
 
+**As minhas recomendações**, para leres com calma. Nenhuma está decidida; respondes a uma de cada vez
+e eu registo a tua resposta no `LAUNCH.md`.
+
+|     | Recomendo                                                                                                                                       | Porquê                                                                                                                                                                                                        |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **50 USDC por dia** no arranque, com a hot wallet a guardar no máximo 20 USDC.                                                                  | A perda máxima num dia é o teto mais o que está na hot wallet: aqui, 70 USDC. Sobe-se depois de umas semanas sem incidentes; descer é que custa.                                                              |
+| D2  | Cada agente novo: **5 USDC por pagamento, 25 por dia, aprovação no Telegram acima de 1 USDC**, e só os domínios que tu puseres na lista.        | Os pagamentos pequenos do x402 passam sozinhos; tudo o resto chega-te ao telemóvel. Começa em deny-all, como em devnet.                                                                                       |
+| D3  | **Fly.io**, uma região, com um volume persistente para a base de dados e o guard-core só na rede privada; público só o webhook do bot, com TLS. | Tem volumes e rede privada entre serviços sem configuração extra, e o guard-core, que é quem assina, nunca fica exposto à internet.                                                                           |
+| D4  | **Uma Ledger** (Nano S Plus chega).                                                                                                             | O código já assina com Ledger na Solana e está a ganhar o mesmo na Base. Falta só o teste com o aparelho verdadeiro em devnet.                                                                                |
+| D5  | **Os secrets do próprio Fly.io**, escritos para um ficheiro em memória quando o guard-core arranca.                                             | Com o teto baixo do D1, um gestor de segredos externo acrescenta mais uma conta a proteger sem reduzir a perda máxima. O plano de rotação de chave já está no `LAUNCH.md`. KMS fica para quando o teto subir. |
+| D6  | **Lançar só com Solana**, e a Base umas semanas depois.                                                                                         | A Solana já correu de ponta a ponta em devnet com dinheiro verdadeiro. A Base ainda não correu ao vivo (`HUMAN-12`), e lá a hot wallet pode mandar o teto do dia para qualquer endereço.                      |
+
 E uma regra que não é decisão: **mainnet usa chaves novas, sempre.** As de devnet nunca se reutilizam
 — uma das seed phrases já passou pelo chat.
 

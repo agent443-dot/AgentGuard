@@ -6,4 +6,6 @@ export interface ToolDeps {
   log: Logger
   /** CAIP-2 chain used when `transfer` is called without one. */
   defaultChain: string
+  /** The USDC token on a chain, or undefined when this server has none configured for it. */
+  usdc: (chain: string) => string | undefined
 }

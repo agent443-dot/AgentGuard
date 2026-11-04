@@ -16,6 +16,11 @@ export const configSchema = z
     AGENT_ID: z.string().min(1).max(64),
     AGENT_TOKEN: z.string().min(1),
     DEFAULT_CHAIN: z.enum(Object.values(CHAINS)).default(CHAINS.solanaDevnet),
+    /** USDC on the Base chain guard-core runs, until shared carries a verified address for it. */
+    BASE_USDC: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/, 'expected a 0x address')
+      .optional(),
     MCP_TRANSPORT: z.enum(['stdio', 'http']).default('stdio'),
     MCP_HTTP_HOST: z.string().min(1).default('127.0.0.1'),
     MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(8789),

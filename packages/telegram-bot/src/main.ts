@@ -33,6 +33,7 @@ const server = await buildServer({
     intentEvent: (event) => desk.event(event),
   },
   logger: log,
+  rateLimitPerMinute: config.HOOK_RATE_LIMIT_PER_MINUTE,
 })
 
 const sweep = setInterval(() => {
