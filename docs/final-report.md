@@ -71,7 +71,7 @@ What only a person ran, recorded in `coordination/HUMAN_TODO.md`:
    it. On Solana it can only move the cap into the hot wallet. The loss bound is the same
    (cap + hot wallet balance), but the path differs. This bears on D6.
 2. **The Base hot key is read raw from the environment** (`HOT_WALLET_PRIVATE_KEY`). Solana's comes
-   from a file. Open, and assigned to guard-core (`docs/security-review.md`).
+   from a file. Open until the owner decides D5 (`docs/security-review.md`).
 3. **The Ledger message hash is unproven on real hardware.** If the formula does not match the
    Solana app, the owner would see a mismatch on every signature, including the kill. This is a
    launch blocker (`LAUNCH.md`).

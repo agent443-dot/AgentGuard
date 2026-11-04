@@ -111,7 +111,7 @@ chain wiring and startup checks (#35), the bot's chain-aware text (#37), mcp-ser
 **Open, medium: the Base hot wallet key is read raw from `HOT_WALLET_PRIVATE_KEY`.** Solana's comes
 from a keypair file. In env, the key is visible to anything that can read the process environment
 (`/proc/<pid>/environ`, crash reporters, a `printenv` in a debug shell). It should come from a file,
-as on Solana and as D5 assumes. This is guard-core's overnight task and has not landed yet.
+as on Solana and as D5 assumes. guard-core holds it until the owner decides D5, at the owner's request.
 
 ## Left for INT-7
 
