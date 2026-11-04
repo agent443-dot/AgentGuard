@@ -307,6 +307,28 @@ describe('get_budget', () => {
     expect(text).toContain(`Solana devnet (${CHAINS.solanaDevnet}): $3.00`)
   })
 
+  it('lists the chains the agent can pay on when guard-core reports them', async () => {
+    const view = {
+      spentToday: '0',
+      dailyMax: '1',
+      perTxMax: '1',
+      hotWalletBalances: {},
+      paused: false,
+    }
+    const listed = await connect(
+      fakeGuard({
+        budget: async () => ({ ...view, chains: [CHAINS.solanaDevnet, CHAINS.baseSepolia] }),
+      }),
+    )
+    expect((await call(listed, 'get_budget')).text).toContain(
+      `Chains you can pay on: Solana devnet (${CHAINS.solanaDevnet}), Base Sepolia (eip155:84532).`,
+    )
+    const none = await connect(fakeGuard({ budget: async () => ({ ...view, chains: [] }) }))
+    expect((await call(none, 'get_budget')).text).toMatch(/Chains you can pay on: none/)
+    const older = await connect(fakeGuard({ budget: async () => view }))
+    expect((await call(older, 'get_budget')).text).not.toMatch(/Chains you can pay on/)
+  })
+
   it('says plainly when the owner has paused payments', async () => {
     const client = await connect(
       fakeGuard({

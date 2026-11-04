@@ -38,15 +38,18 @@ describe('checkDefaultChain', () => {
   function recorder() {
     const log = pino({ level: 'silent' })
     const warn = vi.spyOn(log, 'warn')
-    return { log, warn }
+    const info = vi.spyOn(log, 'info')
+    return { log, warn, info }
   }
 
-  const budget = (chains: string[]) => async () => ({
+  const budget = (chains?: string[]) => async () => ({
     spentToday: '0',
     dailyMax: '1',
     perTxMax: '1',
-    hotWalletBalances: Object.fromEntries(chains.map((chain) => [chain, '0'])),
+    // Deliberately unrelated to `chains`: the check no longer reads balances.
+    hotWalletBalances: {},
     paused: false,
+    chains,
   })
 
   it('stays quiet when guard-core reports the chain and USDC is known', async () => {
@@ -56,11 +59,22 @@ describe('checkDefaultChain', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
-  it('warns when guard-core does not report DEFAULT_CHAIN', async () => {
+  it('warns when DEFAULT_CHAIN is not among the chains guard-core allows', async () => {
     const { log, warn } = recorder()
     const guard = fakeGuard({ budget: budget([CHAINS.solanaDevnet]) })
     await checkDefaultChain(guard, CHAINS.baseSepolia, BASE_USDC, log)
-    expect(String(warn.mock.calls[0]?.[1])).toMatch(/no hot wallet balance on DEFAULT_CHAIN/)
+    expect(warn.mock.calls[0]?.[0]).toEqual({
+      chain: CHAINS.baseSepolia,
+      allowed: [CHAINS.solanaDevnet],
+    })
+    expect(String(warn.mock.calls[0]?.[1])).toMatch(/DEFAULT_CHAIN is not a chain guard-core runs/)
+  })
+
+  it('skips the check against a guard-core that does not report chains', async () => {
+    const { log, warn, info } = recorder()
+    await checkDefaultChain(fakeGuard({ budget: budget() }), CHAINS.baseSepolia, BASE_USDC, log)
+    expect(warn).not.toHaveBeenCalled()
+    expect(String(info.mock.calls[0]?.[0])).toMatch(/does not report its chains/)
   })
 
   it('warns when DEFAULT_CHAIN has no USDC address', async () => {

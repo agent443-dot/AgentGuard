@@ -131,7 +131,7 @@ curl http://127.0.0.1:8789/mcp \
 | -------------- | -------------------------------------------------- | ---------------------------------------------- |
 | `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | Fetches the URL, paying an x402 request if any |
 | `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends USDC to an address                       |
-| `get_budget`   | `{}`                                               | Spend today, limits, pause state, balances     |
+| `get_budget`   | `{}`                                               | Spend today, limits, chains, pause, balances   |
 | `check_intent` | `{ intentId }`                                     | The current status of one payment              |
 
 - **Amounts are decimal strings** such as `"0.25"`, never JSON numbers: a number has already been
@@ -227,7 +227,10 @@ worth retrying unchanged.
 
 The config is validated at startup; a bad value stops the server with the field name, never the
 value. Logs never contain the tokens. At startup the server also reads the budget, and warns if
-guard-core reports no balance on `DEFAULT_CHAIN` or if `DEFAULT_CHAIN` has no USDC address.
+`DEFAULT_CHAIN` is not among the chains guard-core runs and this agent may pay on (`chains` in the
+budget, CR-006), or if `DEFAULT_CHAIN` has no USDC address. It warns rather than refuses to start:
+guard-core may be down at that moment. Against a guard-core that does not report `chains`, the check
+is skipped.
 
 ## HTTP transport
 

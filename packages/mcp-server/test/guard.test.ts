@@ -79,6 +79,15 @@ describe('httpGuard', () => {
     expect(error.message).toMatch(message)
   })
 
+  it('reads the CR-006 chains from the budget, and accepts a budget without them', async () => {
+    expect(
+      (await stub(200, { ...budget, chains: ['eip155:84532'] }).guard.budget()).chains,
+    ).toEqual(['eip155:84532'])
+    expect((await stub(200, budget).guard.budget()).chains).toBeUndefined()
+    const bad = stub(200, { ...budget, chains: 'eip155:84532' }).guard.budget()
+    expect((await failureOf(bad)).code).toBe('bad_response')
+  })
+
   it('refuses a response that does not match the contract', async () => {
     const error = await failureOf(stub(200, { status: 'paid_maybe' }).guard.intent('x'))
     expect(error.code).toBe('bad_response')
