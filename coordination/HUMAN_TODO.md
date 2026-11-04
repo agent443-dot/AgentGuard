@@ -706,6 +706,92 @@ Se quiseres: cria conta em `tenderly.co`, cria um projeto, gera uma access key e
 
 ---
 
+## ⏳ HUMAN-12 — A Safe na Base Sepolia
+
+Desbloqueia: `EVM-1` e `EVM-2` ao vivo, e depois a corrida da Base (`INT-6`). É o equivalente da Base ao
+que fizeste em Solana com o multisig e o spending limit: uma Safe tua, com a hot wallet como delegate
+do Allowance Module e um teto diário de 100 USDC.
+
+As sessões na nuvem não chegam à rede da Base nem ao site da Circle, por isso as verificações são
+tuas. Tudo corre em `~/AgentGuard`.
+
+### Parte A — verificar e pôr fundos (já podes fazer)
+
+1. **O Allowance Module existe na Base Sepolia?** A lista oficial da Safe dá-o na Base mainnet em
+   `0xAA46724893dedD72658219405185Fb0Fc91e091C`, mas não lista a Base Sepolia. Este comando conta os
+   caracteres do código que está nesse endereço:
+
+   ```bash
+   cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org | wc -c
+   ```
+
+   Um número grande (milhares) quer dizer que o módulo está lá. `3` quer dizer `0x`, nada: para aqui e
+   diz-me, porque a Parte B muda.
+
+2. **O USDC da Base Sepolia.** O SDK x402 que usamos dá `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
+   Abre [a página da Circle](https://developers.circle.com/stablecoins/usdc-contract-addresses), procura
+   a linha **Base Sepolia** e confirma que é exatamente esse endereço. Depois confirma na chain:
+
+   ```bash
+   cast call 0x036CbD53842c5426634e7929541eC2318f3dCF7e "symbol()(string)" --rpc-url https://sepolia.base.org
+   ```
+
+   Tem de responder `"USDC"`.
+
+3. **Fundos.** ETH de Base Sepolia nas duas carteiras (a owner paga a criação da Safe; a hot wallet vai
+   pagar os levantamentos) e USDC de teste na owner. Os faucets estão na `HUMAN-4`, secção Base Sepolia.
+   Confirma o ETH:
+
+   ```bash
+   cast balance 0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04 --ether --rpc-url https://sepolia.base.org
+   ```
+
+   ```bash
+   cast balance 0x4FCEE11b4620Cb9122B83688B243bb996660F43b --ether --rpc-url https://sepolia.base.org
+   ```
+
+4. Diz-me o número do passo 1, se a Circle bate com o passo 2, e os dois saldos.
+
+### Parte B — criar a Safe (depois de eu te dizer que o PR #27 entrou no `main`)
+
+Só se o passo 1 deu código.
+
+5. Atualiza o código e acrescenta ao `.env` do onchain as variáveis da Base. O comando substitui cada
+   linha se já existir e acrescenta-a se não existir, por isso podes repeti-lo:
+
+   ```bash
+   cd ~/AgentGuard && git checkout main && git pull && pnpm install && cd packages/onchain && for kv in BASE_CHAIN_ID=84532 BASE_RPC_URL=https://sepolia.base.org BASE_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e BASE_ALLOWANCE_MODULE=0xAA46724893dedD72658219405185Fb0Fc91e091C; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done
+   ```
+
+6. Confirma que a chave da owner no `.env` é a da owner EVM. Imprime só o endereço derivado:
+
+   ```bash
+   cast wallet address --private-key "$(grep '^OWNER_PRIVATE_KEY=' ~/AgentGuard/packages/onchain/.env | cut -d= -f2)"
+   ```
+
+   Tem de dar `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`.
+
+7. Cria a Safe:
+
+   ```bash
+   cd ~/AgentGuard/packages/onchain && pnpm create-safe
+   ```
+
+   A última linha é `SAFE_ADDRESS=0x...`. Põe esse valor no `SAFE_ADDRESS=` dos **dois** `.env`,
+   `packages/onchain/.env` e `packages/guard-core/.env`.
+
+8. Liga o Allowance Module com o teto diário:
+
+   ```bash
+   cd ~/AgentGuard/packages/onchain && pnpm enable-allowance
+   ```
+
+   Tem de acabar com `module enabled: true` e `allowance: 100000000, spent 0, resets every 1440 min`.
+
+9. Cola-me as saídas dos passos 7 e 8. É tudo público.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
