@@ -283,6 +283,7 @@ integrator before any session writes code, since every package imports those typ
     126354320884). Equal code at the same address: **proposed value for Base Sepolia
     (`eip155:84532`) is `0xAA46724893dedD72658219405185Fb0Fc91e091C`**, verified on-chain against the
     mainnet copy rather than taken from Safe's list.
+
   - **Safe Allowance Module, Base Sepolia (`eip155:84532`):** not in the official list, in either
     release; deployed with the mainnet code, see the code-hash update above.
   - **USDC, Base and Base Sepolia:** not read yet. Circle's list
