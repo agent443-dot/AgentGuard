@@ -108,7 +108,7 @@ chain wiring and startup checks (#35), the bot's chain-aware text (#37), mcp-ser
   bound is the same, but a stolen hot key can move the day's cap directly. Recorded for D6 in
   `LAUNCH.md`.
 - **Owner key.** The onchain scripts refuse Base mainnet while the Safe owner signs with a raw
-  key (#31). EVM-9, a Ledger signer for the Safe owner, is in progress.
+  key (#31). EVM-9 (#41) adds a Ledger signer for the Safe owner. The scripts print both hashes the way the device shows them, and refuse if they differ from the one protocol-kit submits. It is proven against a fake device only.
 - **Logs.** No script prints a key. Config errors in the scripts, guard-core and the e2e paywall name
   fields, not values.
 
