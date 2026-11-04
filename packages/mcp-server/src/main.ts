@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { destination, pino } from 'pino'
 import { httpGuard } from './adapters/guard.js'
 import { loadConfig } from './config.js'
+import { rateLimiter } from './domain/rate-limit.js'
 import { startHttp } from './http.js'
 import { usdcFor } from './domain/chains.js'
 import { createServer } from './server.js'
@@ -46,6 +47,7 @@ if (config.MCP_TRANSPORT === 'stdio') {
     port: config.MCP_HTTP_PORT,
     token,
     log,
+    limit: rateLimiter({ limit: config.MCP_HTTP_RATE_LIMIT, windowMs: 60_000 }),
     newServer: () => createServer(deps),
   })
   log.info(

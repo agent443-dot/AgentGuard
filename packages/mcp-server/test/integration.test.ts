@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startMockGuard, type MockGuard } from '../examples/mock-guard/server.js'
 import { startTestApi } from '../examples/test-api/server.js'
 import { httpGuard } from '../src/adapters/guard.js'
+import { rateLimiter } from '../src/domain/rate-limit.js'
 import { startHttp } from '../src/http.js'
 import { createServer } from '../src/server.js'
 import { call, connect, deps, silent } from './support.js'
@@ -143,6 +144,7 @@ describe('streamable HTTP transport', () => {
       port: 0,
       token: MCP_TOKEN,
       log: silent,
+      limit: rateLimiter({ limit: 1000, windowMs: 60_000 }),
       newServer: () => createServer(deps(remote)),
     })
     base = `http://127.0.0.1:${(http.address() as AddressInfo).port}`
@@ -194,5 +196,27 @@ describe('streamable HTTP transport', () => {
     const headers = { authorization: `Bearer ${MCP_TOKEN}` }
     expect((await fetch(`${base}/mcp`, { headers })).status).toBe(405)
     expect((await fetch(`${base}/other`, { headers })).status).toBe(404)
+  })
+})
+
+describe('HTTP rate limit', () => {
+  it('answers 429 with Retry-After once a client is over the limit, before checking the token', async () => {
+    const http = await startHttp({
+      host: '127.0.0.1',
+      port: 0,
+      token: MCP_TOKEN,
+      log: silent,
+      limit: rateLimiter({ limit: 2, windowMs: 60_000 }),
+      newServer: () =>
+        createServer(deps(httpGuard({ baseUrl: guard.url, agentId: 'a', token: 't' }))),
+    })
+    const url = `http://127.0.0.1:${(http.address() as AddressInfo).port}/mcp`
+    const guess = () => fetch(url, { method: 'POST', headers: { authorization: 'Bearer guess' } })
+    expect((await guess()).status).toBe(401)
+    expect((await guess()).status).toBe(401)
+    const limited = await guess()
+    expect(limited.status).toBe(429)
+    expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
+    http.close()
   })
 })

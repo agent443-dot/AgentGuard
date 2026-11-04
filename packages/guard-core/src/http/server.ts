@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { httpBotNotifier, type BotNotifier } from '../adapters/bot.js'
 import type { Config } from '../config.js'
 import type { Db } from '../db/client.js'
+import { usdcFor } from '../chains.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
 import { sweep } from '../service/payments.js'
 import { serial } from '../service/serial.js'
@@ -46,9 +47,18 @@ export async function buildServer(options: ServerDeps) {
     },
   })
 
+  const chains = options.chains ?? new Map<ChainId, ChainAdapter>()
+  const usdc = new Map<ChainId, string>()
+  for (const chain of chains.keys()) {
+    const address = usdcFor(config, chain)
+    if (address !== undefined) {
+      usdc.set(chain, address)
+    }
+  }
   const deps: X402Deps = {
     db,
-    chains: options.chains ?? new Map(),
+    chains,
+    usdc,
     bot: options.bot ?? httpBotNotifier(config),
     fetch: options.fetch ?? fetch,
     now: options.now ?? (() => new Date()),

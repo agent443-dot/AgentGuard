@@ -15,6 +15,8 @@ import type { Serial } from './serial.js'
 export interface PaymentDeps {
   db: Db
   chains: ReadonlyMap<ChainId, ChainAdapter>
+  /** USDC per served chain, from chains.ts' usdcFor. */
+  usdc: ReadonlyMap<ChainId, string>
   bot: BotNotifier
   now: () => Date
   serial: Serial
