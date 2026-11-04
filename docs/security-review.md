@@ -49,8 +49,11 @@ cross-agent checks.
   before the token is looked up (#35).
 - Bot hooks: `HOOK_RATE_LIMIT_PER_MINUTE` (default 300) per address. A request without a
   well-formed `X-Guard-Signature` is refused in `onRequest`, before its body is read (#38).
-- mcp-server HTTP: no rate limit yet. It binds to `127.0.0.1` by default and authenticates before
-  doing any work. **Before deploying (HUMAN-7)**, decide what sits in front of it.
+- mcp-server HTTP: `MCP_HTTP_RATE_LIMIT` (default 60) per socket address, checked before the Host
+  and token checks. It refuses a non-loopback `MCP_HTTP_HOST` unless `MCP_HTTP_ALLOW_REMOTE=true`
+  (#45).
+- All three count per socket address, never `X-Forwarded-For`. Behind a proxy every client shares
+  the proxy's address, so **the proxy chosen in HUMAN-7 needs its own per-client limit**.
 
 ## x402 SDK versions in the lockfile
 
@@ -116,6 +119,6 @@ as on Solana and as D5 assumes. guard-core holds it until the owner decides D5, 
 ## Left for INT-7
 
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).
-- Close the Base hot key finding above, and the MCP HTTP rate limit.
+- Close the Base hot key finding above once D5 is decided.
 - A deployment review once HUMAN-7 picks a host: TLS, what fronts each service, and secrets in a
   manager rather than files.

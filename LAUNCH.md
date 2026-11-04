@@ -111,10 +111,15 @@ Each line can be checked by someone other than its author.
       volume itself, and a backup schedule, once HUMAN-7 picks a host.
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
       fronts each service, secrets in the manager).
-- [ ] **Rate limits in front of the bot hooks and the MCP HTTP endpoint**, or both kept private.
-      Bot hooks done (#38): `HOOK_RATE_LIMIT_PER_MINUTE`, default 300, and a request without a
-      well-formed signature is refused before its body is read. guard-core now limits the agent
-      routes per IP and per agent token (#35). **Left:** the MCP HTTP endpoint, which has none yet.
+- [x] **Rate limits on the bot hooks and the MCP HTTP endpoint.**
+  - Bot hooks (#38): `HOOK_RATE_LIMIT_PER_MINUTE`, default 300. A request without a well-formed
+    signature is refused before its body is read.
+  - MCP HTTP (#45): `MCP_HTTP_RATE_LIMIT`, default 60. It stays on loopback unless
+    `MCP_HTTP_ALLOW_REMOTE=true`.
+  - guard-core (#35): limits per IP, and per agent token on the agent routes.
+
+  All three count per socket address. A proxy in front (HUMAN-7) needs its own per-client limit.
+
 - [ ] **Bug bounty, landing page, MCP setup docs for agent builders** (INT-8 scope). Not started.
 - [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
 

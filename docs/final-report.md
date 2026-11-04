@@ -75,8 +75,9 @@ What only a person ran, recorded in `coordination/HUMAN_TODO.md`:
 3. **The Ledger message hash is unproven on real hardware.** If the formula does not match the
    Solana app, the owner would see a mismatch on every signature, including the kill. This is a
    launch blocker (`LAUNCH.md`).
-4. **The MCP HTTP endpoint has no rate limit.** It binds to loopback and authenticates first, but
-   anything exposed needs a limit or a proxy in front of it.
+4. **Rate limits count per socket address.** guard-core, the bot hooks and the MCP HTTP endpoint
+   each have one, but behind a proxy every client shares the proxy's address. The host chosen in
+   HUMAN-7 needs its own per-client limit in front.
 5. **Single process, in-memory rate limits, SQLite.** This is fine for one guard. The database must
    be on a persistent volume, or the day's spend resets on redeploy. guard-core refuses to start on
    mainnet with an unsafe database location.
