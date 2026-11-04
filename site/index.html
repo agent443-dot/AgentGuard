@@ -1679,7 +1679,7 @@
         </nav>
         <div class="nav-cta">
           <span class="status-pill"><span class="dot"></span>v0.3 · test network</span>
-          <a class="btn btn-primary" href="#developers">Start building</a>
+          <a class="btn btn-primary" href="#how">See it in action</a>
         </div>
       </div>
     </header>
@@ -1698,8 +1698,8 @@
               allowance you set.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-primary" href="#developers"
-                >Start building
+              <a class="btn btn-primary" href="#how"
+                >See how it works
                 <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path
                     d="M3 8h10M9 4l4 4-4 4"
@@ -1710,7 +1710,7 @@
                   />
                 </svg>
               </a>
-              <a class="btn btn-ghost" href="#how">See how it works</a>
+              <a class="btn btn-ghost" href="#security">Why it is safe</a>
             </div>
             <div class="hero-note">
               <span><b>Solana</b> + <b>Base</b></span>
@@ -2319,69 +2319,16 @@
           border-bottom: 1px solid var(--line);
         "
       >
-        <div class="wrap dev">
-          <div class="dev-copy">
+        <div class="wrap">
+          <div class="dev-copy" style="max-width: 760px">
             <span class="eyebrow">For developers</span>
-            <h2 class="h2">Four tools. <span class="grad-text">Your agent is ready.</span></h2>
+            <h2 class="h2">Connect your agent. <span class="grad-text">Coming soon.</span></h2>
             <p class="lede">
-              Plug it into Claude over MCP, the standard way to give AI assistants tools, or call
-              the plain HTTP API from any framework. The connector holds no keys and makes no
-              decisions. You think in dollars; it handles the exact onchain amounts and explains
-              every answer in plain English.
+              An agent connector and a plain HTTP API are on the way: a few simple tools that let
+              any AI agent pay through AgentGuard while you keep full control. The code and the docs
+              go public when they are ready.
             </p>
-            <div class="tools">
-              <div class="tool">
-                <code>paid_fetch</code
-                ><span>Call a pay-per-use API. Pays only if your rules allow.</span>
-              </div>
-              <div class="tool">
-                <code>transfer</code><span>Send USDC to a recipient you pre-approved.</span>
-              </div>
-              <div class="tool">
-                <code>get_budget</code
-                ><span>Spent today, your limits, spending wallet balance.</span>
-              </div>
-              <div class="tool">
-                <code>check_intent</code
-                ><span>Check whether a payment is still waiting for your approval.</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="code-card">
-            <div class="code-bar">
-              <div class="code-tabs" role="tablist" aria-label="Code examples">
-                <button
-                  class="code-tab"
-                  role="tab"
-                  aria-selected="true"
-                  data-code="mcp"
-                  id="ct-mcp"
-                >
-                  claude_desktop_config.json
-                </button>
-                <button
-                  class="code-tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-code="policy"
-                  id="ct-policy"
-                >
-                  policy.json
-                </button>
-                <button
-                  class="code-tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-code="http"
-                  id="ct-http"
-                >
-                  curl
-                </button>
-              </div>
-              <button class="copy" type="button" id="copy">Copy</button>
-            </div>
-            <div class="code-scroll"><pre class="code" id="code"></pre></div>
+            <div><span class="btn btn-soon">Developer tools · coming soon</span></div>
           </div>
         </div>
       </section>
@@ -2619,12 +2566,12 @@
             <span class="eyebrow">Get started</span>
             <h2>Give your agents a budget, <span class="grad-text">not your keys.</span></h2>
             <p class="lede" style="text-align: center">
-              The code goes public soon. Run the whole stack on a test network and connect your
-              first agent over MCP.
+              Launching soon. We build in the open and go live only when every item on the security
+              checklist is done.
             </p>
             <div class="hero-actions">
-              <a class="btn btn-primary" href="#developers"
-                >See the developer tools
+              <a class="btn btn-primary" href="#how"
+                >See how it works
                 <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path
                     d="M3 8h10M9 4l4 4-4 4"
@@ -2703,7 +2650,9 @@
           <div>
             <h5>Developers</h5>
             <ul>
-              <li><a href="#developers">MCP tools</a></li>
+              <li>
+                <span class="soon-item">MCP tools<small>soon</small></span>
+              </li>
               <li>
                 <span class="soon-item">Spec<small>soon</small></span>
               </li>
@@ -2988,99 +2937,6 @@
           }),
         )
         showCodes('shared')
-
-        // Code samples.
-        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        const samplesCode = {
-          mcp: `{
-  "mcpServers": {
-    "agentguard": {
-      "command": "/path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx",
-      "args": ["/path/to/AgentGuard/packages/mcp-server/src/main.ts"],
-      "env": {
-        "GUARD_URL": "http://localhost:8787",
-        "AGENT_ID": "my-agent",
-        "AGENT_TOKEN": "<agent token from guard-core>"
-      }
-    }
-  }
-}`,
-          policy: `{
-  "agentId": "my-agent",
-  "chains": ["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],
-  "tokens": ["<USDC mint>"],
-  "perTxMax": "25000000",
-  "dailyMax": "100000000",
-  "approvalThreshold": "10000000",
-  "allowedRecipients": [],
-  "allowedDomains": ["api.datafeed.example"],
-  "paused": false
-}`,
-          http: `# Ask the guard to call a paid API for the agent
-curl -X POST http://localhost:8787/v1/agent/x402/fetch \\
-  -H "Authorization: Bearer $AGENT_TOKEN" \\
-  -H "content-type: application/json" \\
-  -d '{ "agentId": "my-agent",
-        "url": "https://api.datafeed.example/quotes",
-        "method": "GET",
-        "maxAmount": "500000" }'
-
-# Pause everything, from anywhere
-curl -X POST http://localhost:8787/v1/admin/kill \\
-  -H "Authorization: Bearer $ADMIN_TOKEN" -d '{}'`,
-        }
-        function highlight(src, kind) {
-          let s = esc(src)
-          if (kind === 'http') {
-            return s
-              .split('\n')
-              .map((l) =>
-                l.startsWith('#')
-                  ? `<span class="t-c">${l}</span>`
-                  : l
-                      .replace(/^(curl)/, '<span class="t-k">$1</span>')
-                      .replace(/(-X|-H|-d)\b/g, '<span class="t-p">$1</span>')
-                      .replace(/("[^"]*")/g, '<span class="t-s">$1</span>'),
-              )
-              .join('\n')
-          }
-          return s
-            .replace(/("[^"]+")(\s*:)/g, '<span class="t-p">$1</span>$2')
-            .replace(/(:\s*|\[|,\s*)("[^"]*")/g, '$1<span class="t-s">$2</span>')
-            .replace(/\b(true|false)\b/g, '<span class="t-n">$1</span>')
-        }
-        const codeEl = document.getElementById('code')
-        let current = 'mcp'
-        function showCode(k) {
-          current = k
-          codeEl.innerHTML = highlight(samplesCode[k], k)
-        }
-        document.querySelectorAll('.code-tab').forEach((b) =>
-          b.addEventListener('click', () => {
-            document
-              .querySelectorAll('.code-tab')
-              .forEach((x) => x.setAttribute('aria-selected', x === b))
-            showCode(b.dataset.code)
-          }),
-        )
-        showCode('mcp')
-        const copyBtn = document.getElementById('copy')
-        copyBtn.addEventListener('click', () => {
-          navigator.clipboard.writeText(samplesCode[current]).then(
-            () => {
-              copyBtn.textContent = 'Copied'
-              setTimeout(() => (copyBtn.textContent = 'Copy'), 1600)
-            },
-            () => {
-              const r = document.createRange()
-              r.selectNodeContents(codeEl)
-              const sel = getSelection()
-              sel.removeAllRanges()
-              sel.addRange(r)
-              copyBtn.textContent = 'Selected'
-            },
-          )
-        })
       })()
     </script>
   </body>
