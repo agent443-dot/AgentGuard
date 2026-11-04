@@ -763,7 +763,16 @@ Só se o passo 1 deu código.
    cd ~/AgentGuard && git checkout main && git pull && pnpm install && cd packages/onchain && for kv in BASE_CHAIN_ID=84532 BASE_RPC_URL=https://sepolia.base.org BASE_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e BASE_ALLOWANCE_MODULE=0xAA46724893dedD72658219405185Fb0Fc91e091C; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done
    ```
 
-6. Confirma que a chave da owner no `.env` é a da owner EVM. Imprime só o endereço derivado:
+6. Confirma que o RPC da Base aceita as simulações que o guard-core faz antes de cada pagamento. Não
+   usa chave nenhuma:
+
+   ```bash
+   cd ~/AgentGuard && pnpm --filter @agentguard/onchain check:simulate
+   ```
+
+   Tem de imprimir `eth_simulateV1 supported`. Se der erro, para e cola-me a linha.
+
+7. Confirma que a chave da owner no `.env` é a da owner EVM. Imprime só o endereço derivado:
 
    ```bash
    cast wallet address --private-key "$(grep '^OWNER_PRIVATE_KEY=' ~/AgentGuard/packages/onchain/.env | cut -d= -f2)"
@@ -771,7 +780,7 @@ Só se o passo 1 deu código.
 
    Tem de dar `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`.
 
-7. Cria a Safe:
+8. Cria a Safe:
 
    ```bash
    cd ~/AgentGuard/packages/onchain && pnpm create-safe
@@ -780,7 +789,7 @@ Só se o passo 1 deu código.
    A última linha é `SAFE_ADDRESS=0x...`. Põe esse valor no `SAFE_ADDRESS=` dos **dois** `.env`,
    `packages/onchain/.env` e `packages/guard-core/.env`.
 
-8. Liga o Allowance Module com o teto diário:
+9. Liga o Allowance Module com o teto diário:
 
    ```bash
    cd ~/AgentGuard/packages/onchain && pnpm enable-allowance
@@ -788,7 +797,7 @@ Só se o passo 1 deu código.
 
    Tem de acabar com `module enabled: true` e `allowance: 100000000, spent 0, resets every 1440 min`.
 
-9. Cola-me as saídas dos passos 7 e 8. É tudo público.
+10. Cola-me as saídas dos passos 8 e 9. É tudo público.
 
 ---
 
