@@ -40,6 +40,29 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # A probe of a public endpoint, not of our code: kept apart so an RPC outage does not fail the
+  # code job. simulate() on Base needs eth_simulateV1, which not every provider serves.
+  base-rpc:
+    name: eth_simulateV1 on Base Sepolia
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: check:simulate
+        working-directory: packages/onchain
+        env:
+          BASE_RPC_URL: https://sepolia.base.org
+        run: pnpm check:simulate
+
   foundry:
     name: forge test (onchain)
     runs-on: ubuntu-latest
