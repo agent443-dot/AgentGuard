@@ -183,6 +183,30 @@
       .btn-ghost:hover {
         border-color: var(--muted);
       }
+      .btn-soon {
+        background: transparent;
+        color: var(--dim);
+        border: 1px dashed var(--line-2);
+        cursor: default;
+      }
+      .btn-soon:hover {
+        transform: none;
+      }
+      .soon-item {
+        color: var(--dim);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .soon-item small {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 2px 6px;
+      }
       .btn svg {
         width: 16px;
         height: 16px;
@@ -1667,7 +1691,7 @@
               AgentGuard sits between your AI agents and your money. Every payment must pass the
               rules you set, then a test run of the real transaction. Small payments go through,
               bigger ones wait for your approval on Telegram, and anything suspicious is refused.
-              Your funds stay locked in your own vault — the agent only ever touches a small
+              Your funds stay locked in your own vault. The agent only ever touches a small
               allowance you set.
             </p>
             <div class="hero-actions">
@@ -1760,8 +1784,8 @@
             </h2>
             <p class="lede">
               The agent never holds a key. It asks AgentGuard to pay, and AgentGuard decides. The
-              agent also sends text — its reason, the URL. You see that text, but AgentGuard never
-              uses it to decide.
+              agent also sends text, like its reason and the URL. You see that text, but AgentGuard
+              never uses it to decide.
             </p>
           </div>
 
@@ -1771,7 +1795,7 @@
               <div class="step-bar" style="background: var(--violet)"></div>
               <h3>Request</h3>
               <p>
-                Your agent asks AgentGuard to pay. It holds no keys and no money — asking is all it
+                Your agent asks AgentGuard to pay. It holds no keys and no money. Asking is all it
                 can do.
               </p>
               <ul>
@@ -1799,7 +1823,7 @@
               <h3>Test run</h3>
               <p>
                 Before any money moves, AgentGuard rehearses the exact payment to see what it would
-                really do — not what the agent says it does.
+                really do, not what the agent says it does.
               </p>
               <ul>
                 <li>exact balance changes</li>
@@ -1852,7 +1876,7 @@
                   <div>
                     <h4>Your vault (multisig)</h4>
                     <p>
-                      Holds your funds. A wallet only you control — Squads v4 on Solana, Safe on
+                      Holds your funds. A wallet only you control: Squads v4 on Solana, Safe on
                       Base.
                     </p>
                   </div>
@@ -1894,8 +1918,8 @@
                   <div>
                     <h4>Guard spending wallet</h4>
                     <p>
-                      Pocket money only (the "hot wallet"). Its key never leaves AgentGuard — never
-                      shown to the agent, never written to logs.
+                      Pocket money only (the "hot wallet"). Its key never leaves AgentGuard. It is
+                      never shown to the agent and never written to logs.
                     </p>
                   </div>
                 </div>
@@ -2019,7 +2043,7 @@
               <h3>Test run before signing</h3>
               <p>
                 Every payment gets a rehearsal before it is signed. If it would do anything beyond
-                what you approved — even one hidden side effect — it never runs.
+                what you approved, even one hidden side effect, it never runs.
               </p>
             </article>
             <article class="feature">
@@ -2056,7 +2080,7 @@
               <h3>One-tap kill switch</h3>
               <p>
                 Send <code>/kill</code> and every agent is paused at once. AgentGuard also drafts
-                the transaction that cuts each chain's spending limit to zero — you sign it, the
+                the transaction that cuts each chain's spending limit to zero. You sign it and the
                 money is shut off.
               </p>
             </article>
@@ -2075,8 +2099,8 @@
               </div>
               <h3>Onchain daily cap</h3>
               <p>
-                The daily refill uses the built-in limits of Squads and Safe — widely used vault
-                wallets, independently audited. We add no code of our own to that layer.
+                The daily refill uses the built-in limits of Squads and Safe, widely used vault
+                wallets that are independently audited. We add no code of our own to that layer.
               </p>
             </article>
             <article class="feature">
@@ -2095,7 +2119,7 @@
               <h3>Full audit log</h3>
               <p>
                 Every decision is recorded with its exact reason, so you can always see what your
-                agent tried and why it was stopped. Amounts are exact to a millionth of a dollar —
+                agent tried and why it was stopped. Amounts are exact to a millionth of a dollar and
                 never rounded.
               </p>
             </article>
@@ -2154,9 +2178,8 @@
                     stroke-linejoin="round"
                   /></svg
                 ><span
-                  ><b>Attack alerts.</b> If an agent tries something shady — like a hidden
-                  permission grab — your phone pings right away, with a suggestion to pause
-                  it.</span
+                  ><b>Attack alerts.</b> If an agent tries something shady, like a hidden permission
+                  grab, your phone pings right away with a suggestion to pause it.</span
                 >
               </li>
               <li>
@@ -2298,7 +2321,7 @@
             <span class="eyebrow">For developers</span>
             <h2 class="h2">Four tools. <span class="grad-text">Your agent is ready.</span></h2>
             <p class="lede">
-              Plug it into Claude over MCP — the standard way to give AI assistants tools — or call
+              Plug it into Claude over MCP, the standard way to give AI assistants tools, or call
               the plain HTTP API from any framework. The connector holds no keys and makes no
               decisions. You think in dollars; it handles the exact onchain amounts and explains
               every answer in plain English.
@@ -2367,7 +2390,7 @@
             <h2 class="h2">Solana first. <span class="grad-text">Base right behind.</span></h2>
             <p class="lede">
               The same protection everywhere: the same limits, the same test run before signing, and
-              the same kill switch — whether your agent pays on Solana or Base.
+              the same kill switch, whether your agent pays on Solana or Base.
             </p>
           </div>
           <div class="chains">
@@ -2506,7 +2529,7 @@
             <details>
               <summary>What if AgentGuard itself is compromised?</summary>
               <p>
-                The cap still holds, because the blockchain enforces it — not our software. The most
+                The cap still holds, because the blockchain enforces it, not our software. The most
                 anyone can take in a day is your daily cap plus whatever sits in the spending
                 wallet. Press <code>/kill</code> and sign the prepared transaction to shut it off
                 entirely.
@@ -2515,7 +2538,7 @@
             <details>
               <summary>Do you deploy your own smart contracts?</summary>
               <p>
-                No. AgentGuard uses Squads v4 on Solana and Safe on Base — widely used vault wallets
+                No. AgentGuard uses Squads v4 on Solana and Safe on Base, widely used vault wallets
                 that are independently audited and already live. There is no new contract for you to
                 trust.
               </p>
@@ -2532,8 +2555,8 @@
             <details>
               <summary>Which tokens are supported?</summary>
               <p>
-                USDC only in v0.1 — a digital dollar. Every amount is handled as an exact whole
-                count of the token's smallest unit, like counting in cents. A value that would need
+                USDC only in v0.1, a digital dollar. Every amount is handled as an exact whole count
+                of the token's smallest unit, like counting in cents. A value that would need
                 rounding is refused, never rounded.
               </p>
             </details>
@@ -2593,19 +2616,15 @@
             <span class="eyebrow">Get started</span>
             <h2>Give your agents a budget, <span class="grad-text">not your keys.</span></h2>
             <p class="lede" style="text-align: center">
-              Clone the repo, run the stack on devnet in minutes, and connect your first agent over
-              MCP.
+              The code goes public soon. Run the whole stack on a test network and connect your
+              first agent over MCP.
             </p>
             <div class="hero-actions">
-              <a
-                class="btn btn-primary"
-                href="https://github.com/kikume/AgentGuard"
-                target="_blank"
-                rel="noopener"
-                >View on GitHub
+              <a class="btn btn-primary" href="#developers"
+                >See the developer tools
                 <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path
-                    d="M5 11 11 5M6 5h5v5"
+                    d="M3 8h10M9 4l4 4-4 4"
                     stroke="currentColor"
                     stroke-width="1.6"
                     stroke-linecap="round"
@@ -2613,7 +2632,7 @@
                   />
                 </svg>
               </a>
-              <a class="btn btn-ghost" href="#developers">Read the quickstart</a>
+              <span class="btn btn-soon">GitHub · coming soon</span>
             </div>
           </div>
         </div>
@@ -2683,25 +2702,13 @@
             <ul>
               <li><a href="#developers">MCP tools</a></li>
               <li>
-                <a
-                  href="https://github.com/kikume/AgentGuard/blob/main/SPEC.md"
-                  target="_blank"
-                  rel="noopener"
-                  >Spec</a
-                >
+                <span class="soon-item">Spec<small>soon</small></span>
               </li>
               <li>
-                <a
-                  href="https://github.com/kikume/AgentGuard/blob/main/LAUNCH.md"
-                  target="_blank"
-                  rel="noopener"
-                  >Launch checklist</a
-                >
+                <span class="soon-item">Launch checklist<small>soon</small></span>
               </li>
               <li>
-                <a href="https://github.com/kikume/AgentGuard" target="_blank" rel="noopener"
-                  >GitHub</a
-                >
+                <span class="soon-item">GitHub<small>soon</small></span>
               </li>
             </ul>
           </div>
