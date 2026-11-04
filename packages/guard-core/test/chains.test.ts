@@ -91,22 +91,38 @@ describe('buildChains', () => {
   })
 })
 
+// Base mainnet has no verified address in shared yet, so every Base value there comes from the env.
+const mainnet = { ...baseChain, BASE_CHAIN: CHAINS.base, BASE_RPC_URL: 'https://mainnet.base.org' }
+
+function askedOf(fetchImpl: ReturnType<typeof node>) {
+  return fetchImpl.mock.calls.map(([, init]) => {
+    const { method, params } = JSON.parse(String(init?.body)) as {
+      method: string
+      params: unknown[]
+    }
+    return [method, method === 'eth_call' ? (params[0] as { to: string }).to : params[0]]
+  })
+}
+
 describe('checking env addresses against the chain before trusting them', () => {
   it('asks for code at the Safe, USDC and module, and USDC decimals', async () => {
     const fetchImpl = node()
-    await build(baseChain, fetchImpl)
-    const asked = fetchImpl.mock.calls.map(([, init]) => {
-      const { method, params } = JSON.parse(String(init?.body)) as {
-        method: string
-        params: unknown[]
-      }
-      return [method, method === 'eth_call' ? (params[0] as { to: string }).to : params[0]]
-    })
-    expect(asked).toEqual([
+    await build(mainnet, fetchImpl)
+    expect(askedOf(fetchImpl)).toEqual([
       ['eth_getCode', baseChain.SAFE_ADDRESS],
       ['eth_getCode', baseChain.BASE_USDC],
       ['eth_call', baseChain.BASE_USDC],
       ['eth_getCode', baseChain.BASE_ALLOWANCE_MODULE],
+    ])
+  })
+
+  it('skips the module on Base Sepolia, where shared has the verified address', async () => {
+    const fetchImpl = node()
+    await build(baseChain, fetchImpl)
+    expect(askedOf(fetchImpl)).toEqual([
+      ['eth_getCode', baseChain.SAFE_ADDRESS],
+      ['eth_getCode', baseChain.BASE_USDC],
+      ['eth_call', baseChain.BASE_USDC],
     ])
   })
 
@@ -115,7 +131,7 @@ describe('checking env addresses against the chain before trusting them', () => 
     ['BASE_USDC', baseChain.BASE_USDC],
     ['BASE_ALLOWANCE_MODULE', baseChain.BASE_ALLOWANCE_MODULE],
   ])('refuses %s when no contract lives there', async (name, address) => {
-    await expect(build(baseChain, node({ noCodeAt: address }))).rejects.toThrow(
+    await expect(build(mainnet, node({ noCodeAt: address }))).rejects.toThrow(
       `${name} has no contract on this chain`,
     )
   })

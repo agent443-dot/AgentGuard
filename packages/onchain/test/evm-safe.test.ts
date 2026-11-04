@@ -83,7 +83,15 @@ describe('loadEvmConfig', () => {
 describe('contractAddress', () => {
   it('refuses to run without a verified or configured address', () => {
     const config = loadEvmConfig(env())
-    expect(() => contractAddress(config, 'allowanceModule')).toThrow(/BASE_ALLOWANCE_MODULE/)
+    expect(() => contractAddress(config, 'usdc')).toThrow(/BASE_USDC/)
+  })
+
+  it('takes the verified value from shared over the .env one', () => {
+    const config = loadEvmConfig(env({ BASE_ALLOWANCE_MODULE: `0x${'c'.repeat(40)}` }))
+    expect(contractAddress(config, 'allowanceModule')).toEqual({
+      address: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
+      source: 'shared/addresses.ts',
+    })
   })
 
   it('takes the .env value only where shared has none, and says so', () => {
