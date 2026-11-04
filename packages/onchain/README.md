@@ -66,9 +66,9 @@ config authority. Read [The owner on a Ledger](#the-owner-on-a-ledger) before th
 You need Base Sepolia ETH for gas on the owner account (or the executor's, with a Ledger) and USDC
 to fund the Safe.
 
-1. **Check the chain has what the scripts need.** The Allowance Module is in Safe's official list
-   for Base mainnet but not for Base Sepolia (CR-005), and guard-core's simulation needs an RPC that
-   serves `eth_simulateV1`. One command checks both, with no key:
+1. **Check the chain has what the scripts need.** The Allowance Module must hold code at its
+   address, and guard-core's simulation needs an RPC that serves `eth_simulateV1`. One command
+   checks both, with no key:
    ```bash
    BASE_RPC_URL=https://sepolia.base.org pnpm check:simulate
    ```
@@ -76,9 +76,9 @@ to fund the Safe.
    against Base Sepolia in the `eth_simulateV1 on Base Sepolia` job.
 2. **Settings.** `BASE_CHAIN_ID=84532`, `BASE_RPC_URL`, the owner (`OWNER_SIGNER=key` with
    `OWNER_PRIVATE_KEY` on testnets), `HOT_WALLET_ADDRESS` (the guard's hot wallet; its key goes to
-   guard-core only). Until `shared/addresses.ts` has verified Base values, `BASE_USDC` from
-   Circle's list and `BASE_ALLOWANCE_MODULE` from Safe's; the scripts refuse an address with no
-   code, and a token that does not report 6 decimals.
+   guard-core only). On Base Sepolia `shared/addresses.ts` has the Allowance Module, so only
+   `BASE_USDC` comes from `.env`, read from Circle's list until shared has it. The scripts refuse an
+   address with no code, and a token that does not report 6 decimals.
 3. **The Safe.** `pnpm create-safe` deploys a Safe 1.4.1 with the owner as its only owner,
    threshold 1. Copy the printed `SAFE_ADDRESS` into `.env` (and guard-core's). It refuses to run
    when `SAFE_ADDRESS` is already set.
@@ -258,8 +258,10 @@ real `hw-app-eth` client against a fake device (`test/evm-ledger.ts`) and check 
 recovers to the device address, that the printed hashes are character for character what it would
 display, and that it refuses while Blind signing is off.
 
-Safe's official list has no Allowance Module entry for Base Sepolia (CR-005), but the module is
-deployed there at the same address; `pnpm check:simulate` reports it with its code hash.
+Safe's official list has no Allowance Module entry for Base Sepolia, so `shared/addresses.ts` lists
+it there on a different proof (CR-005): the fork test `test_moduleOnSepoliaIsTheMainnetCode` checks
+that its runtime code hash equals the official Base mainnet deployment's. `pnpm check:simulate`
+prints the hash on any chain.
 
 #### Fork tests (EVM-6)
 
