@@ -1,3 +1,4 @@
+import type { BudgetView } from '@agentguard/shared'
 import { z } from 'zod'
 
 const intentStatus = z.enum([
@@ -41,9 +42,9 @@ export const budget = z.object({
   perTxMax: z.string(),
   hotWalletBalances: z.record(z.string(), z.string()).default({}),
   paused: z.boolean(),
-  /** CR-006: chains guard-core runs and this agent's policy allows. Absent on an older guard-core. */
+  // CR-006. Absent means "not reported", per the shared type.
   chains: z.array(z.string()).optional(),
-})
+}) satisfies z.ZodType<BudgetView>
 
 export const payIntent = z.object({
   id: z.string(),
@@ -61,7 +62,7 @@ export const payIntent = z.object({
 
 export type FetchResult = z.infer<typeof fetchResult>
 export type TransferResult = z.infer<typeof transferResult>
-export type Budget = z.infer<typeof budget>
+export type Budget = BudgetView
 export type Intent = z.infer<typeof payIntent>
 
 export interface FetchInput {
