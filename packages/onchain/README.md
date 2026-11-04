@@ -131,6 +131,18 @@ addresses and transaction hashes.
   nothing to sign with. What gets signed is rebuilt from the checked values, not passed through.
 - `buildKillTx` is one Safe call, `removeDelegate(hot, true)`, unsigned, for an owner.
 
+**Two differences from Solana that the owner should know:**
+
+- The Allowance Module does not pin where a draw goes. `executeAllowanceTransfer` takes any `to`,
+  so a stolen hot key could send the day's allowance straight to an attacker instead of through the
+  hot wallet. On Solana the spending limit's destination list holds the hot wallet alone. The loss
+  bound is the same on both chains (the daily cap plus the hot wallet balance), since the hot key
+  can pay anyone with what it holds anyway; what Base loses is the extra step. The module has no
+  recipient restriction to turn on, and the transaction guard of Safe 1.4.1, the version we deploy, does not see module transactions.
+- The scripts refuse Base mainnet (`BASE_CHAIN_ID=8453`): the Safe owner signs with a raw
+  `OWNER_PRIVATE_KEY`, and mainnet needs a hardware owner signer. The refusal stays until there is
+  one.
+
 Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
 `cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
 

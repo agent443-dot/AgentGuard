@@ -62,6 +62,13 @@ describe('loadEvmConfig', () => {
     expect(loadEvmConfig(env()).BASE_CHAIN_ID).toBe('84532')
   })
 
+  // The EVM counterpart of the Ledger rule on Solana: no raw owner key ever controls a mainnet Safe.
+  it('refuses Base mainnet while the owner signs with a raw key', () => {
+    expect(() => loadEvmConfig(env({ BASE_CHAIN_ID: '8453' }))).toThrow(
+      /mainnet needs a hardware owner signer/,
+    )
+  })
+
   it('names the bad field and never echoes the key', () => {
     const bad = env({ OWNER_PRIVATE_KEY: `${key}00`, HOT_WALLET_ADDRESS: 'nope' })
     expect(() => loadEvmConfig(bad)).toThrow(/OWNER_PRIVATE_KEY, HOT_WALLET_ADDRESS/)
