@@ -139,9 +139,34 @@ addresses and transaction hashes.
   bound is the same on both chains (the daily cap plus the hot wallet balance), since the hot key
   can pay anyone with what it holds anyway; what Base loses is the extra step. The module has no
   recipient restriction to turn on, and the transaction guard of Safe 1.4.1, the version we deploy, does not see module transactions.
-- The scripts refuse Base mainnet (`BASE_CHAIN_ID=8453`): the Safe owner signs with a raw
-  `OWNER_PRIVATE_KEY`, and mainnet needs a hardware owner signer. The refusal stays until there is
-  one.
+- On mainnet (`BASE_CHAIN_ID=8453`) the scripts refuse a raw `OWNER_PRIVATE_KEY`: the Safe owner
+  must be a Ledger (`OWNER_SIGNER=ledger`), below.
+
+### The Safe owner on a Ledger
+
+`OWNER_SIGNER=ledger` makes `create-safe`, `enable-allowance` and `kill:base` sign as the account at
+`OWNER_LEDGER_PATH` (default `44'/60'/0'/0/0`, Ledger Live's first Ethereum account) through the
+official `@ledgerhq/hw-app-eth` client. The device signs only the Safe transaction's EIP-712 hash.
+A separate `EXECUTOR_PRIVATE_KEY` pays the gas and submits it; it owns nothing, so the most it can
+lose is its own ETH, and the owner confirms once per action.
+
+The Ethereum app cannot show a Safe transaction's fields, only two hashes. Before asking the device,
+the scripts print both, computed as the app computes them (app-ethereum,
+`sign_message_eip712_common/common_712.c`), and refuse to sign if their hash differs from the one
+protocol-kit will submit:
+
+```
+The Ledger will show Domain hash:  0x…
+                   and Message hash: 0x…
+(safeTxHash 0x…)
+Approve only if both match the device exactly. On any difference, reject on the device.
+```
+
+Compare both on the device character for character; on any difference, reject and treat the
+computer as compromised. As on Solana, the Safe must be created with the Ledger as owner from the
+start. The tests drive the real `hw-app-eth` client against a fake device (`test/evm-ledger.ts`) and
+check that its signature recovers to the device address and that the printed hashes are the ones it
+received.
 
 Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
 `cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.

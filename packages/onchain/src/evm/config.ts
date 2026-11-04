@@ -5,12 +5,22 @@ import { z } from 'zod'
 
 const address = z.string().refine((value) => isAddress(value), 'not an EVM address')
 const optionalAddress = address.optional().or(z.literal(''))
+const privateKey = z.string().regex(/^0x[0-9a-fA-F]{64}$/)
+const optionalKey = privateKey.optional().or(z.literal(''))
 
 export const evmConfigSchema = z.object({
   BASE_CHAIN_ID: z.enum(['84532', '8453']).default('84532'),
   BASE_RPC_URL: z.url(),
-  // Testnet only. Read from .env, never from the command line, where it would land in shell history.
-  OWNER_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  // `key` signs as the owner with OWNER_PRIVATE_KEY, testnets only. `ledger` signs on the device at
+  // OWNER_LEDGER_PATH, while EXECUTOR_PRIVATE_KEY, which owns nothing, pays the gas.
+  OWNER_SIGNER: z.enum(['key', 'ledger']).default('key'),
+  // Keys are read from .env, never from the command line, where they would land in shell history.
+  OWNER_PRIVATE_KEY: optionalKey,
+  OWNER_LEDGER_PATH: z
+    .string()
+    .regex(/^44'\/60'(\/\d+'?)*$/)
+    .default("44'/60'/0'/0/0"),
+  EXECUTOR_PRIVATE_KEY: optionalKey,
   HOT_WALLET_ADDRESS: address,
   SAFE_ADDRESS: optionalAddress,
   // Until shared/addresses.ts has a verified value for the chain, these must be set; see CR-005.
@@ -28,14 +38,21 @@ export function loadEvmConfig(env: NodeJS.ProcessEnv = process.env): EvmConfig {
     const fields = parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')
     throw new Error(`invalid base configuration: ${fields}`)
   }
+  const config = parsed.data
+  if (config.OWNER_SIGNER === 'key' && !config.OWNER_PRIVATE_KEY) {
+    throw new Error('invalid base configuration: OWNER_PRIVATE_KEY')
+  }
+  if (config.OWNER_SIGNER === 'ledger' && !config.EXECUTOR_PRIVATE_KEY) {
+    throw new Error('invalid base configuration: EXECUTOR_PRIVATE_KEY')
+  }
   // The owner key controls the Safe. A raw key in a file is acceptable on a testnet; on mainnet it
-  // must be on hardware, and until the scripts can sign with one, they refuse mainnet outright.
-  if (parsed.data.BASE_CHAIN_ID === '8453') {
+  // has to be on hardware.
+  if (config.BASE_CHAIN_ID === '8453' && config.OWNER_SIGNER !== 'ledger') {
     throw new Error(
-      'refusing Base mainnet: the Safe owner signs with a raw OWNER_PRIVATE_KEY, and mainnet needs a hardware owner signer',
+      'refusing Base mainnet: the Safe owner signs with a raw OWNER_PRIVATE_KEY, and mainnet needs a hardware owner signer (OWNER_SIGNER=ledger)',
     )
   }
-  return parsed.data
+  return config
 }
 
 export function chainOf(id: EvmConfig['BASE_CHAIN_ID']): Chain {

@@ -1,6 +1,6 @@
-import { encodeFunctionData, getAddress, type Hash } from 'viem'
+import { encodeFunctionData, getAddress } from 'viem'
 import { contractAddress, loadEvmConfig } from '../evm/config.js'
-import { Safe } from '../evm/kit.js'
+import { Safe, safeSigners, signAndExecute } from '../evm/kit.js'
 import { allowanceModuleAbi, publicClient, readAllowance } from '../evm/safe.js'
 
 const config = loadEvmConfig()
@@ -27,11 +27,8 @@ if (!process.argv.includes('--yes')) {
   process.exit(0)
 }
 
-const kit = await Safe.init({
-  provider: config.BASE_RPC_URL,
-  signer: config.OWNER_PRIVATE_KEY,
-  safeAddress,
-})
+const { owner, executorKey } = await safeSigners(config, console.log)
+const kit = await Safe.init({ provider: config.BASE_RPC_URL, signer: executorKey, safeAddress })
 // removeAllowances = true deletes the USDC allowance with the delegate, so one call does both.
 const tx = await kit.createTransaction({
   transactions: [
@@ -46,12 +43,12 @@ const tx = await kit.createTransaction({
     },
   ],
 })
-const result = await kit.executeTransaction(tx)
-const receipt = await client.waitForTransactionReceipt({ hash: result.hash as Hash })
+const hash = await signAndExecute(kit, owner, tx)
+const receipt = await client.waitForTransactionReceipt({ hash })
 if (receipt.status !== 'success') {
-  console.error(`safe transaction reverted: ${result.hash}`)
+  console.error(`safe transaction reverted: ${hash}`)
   process.exit(1)
 }
 const after = await readAllowance(client, module, safeAddress, delegate, usdc)
-console.log(`removed. tx: ${result.hash}`)
+console.log(`removed. tx: ${hash}`)
 console.log(`  cap ${after.amount}, spent ${after.spent}`)
