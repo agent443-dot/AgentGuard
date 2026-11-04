@@ -24,7 +24,10 @@ working on its next request, on every agent route. The agent's intents and audit
 The API listens on `127.0.0.1` unless `HOST` is set (for example `0.0.0.0` in a deployment).
 
 For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
-builds onchain's adapter from them. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
+builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
+`BASE_RPC_URL`, `SAFE_ADDRESS`, `HOT_WALLET_PRIVATE_KEY` and, until `shared/addresses.ts` has
+verified values, `BASE_USDC` and `BASE_ALLOWANCE_MODULE`. A chain switched on with a value missing
+stops the start, naming the missing variables and never their values. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
 is signed and no money moves. With neither, there is no adapter and every payment is refused.
 
 ## Pipeline
@@ -108,7 +111,7 @@ without its payload.
 
 - Nothing here has paid on devnet yet: the routes are tested end to end against
   `adapters/stub.ts`, and onchain's adapter has its own tests. INT-3 runs them together.
-- Base has no adapter yet (EVM-3), so the policy cannot clear a payment on it.
+- Base's hot wallet balance is left out of the budget view until `shared/addresses.ts` has its USDC.
 
 ## Layout
 
