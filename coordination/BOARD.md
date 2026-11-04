@@ -96,7 +96,7 @@ tells us what the second adapter has to satisfy.
 | MCP-7  | mcp   | done   | MCP-2      | `examples/demo-agent` pays the bundled x402 test API through the server and polls an approval, against `examples/mock-guard`. A real run needs INT-3                                                                               |
 | MCP-8  | mcp   | review | —          | Base: `transfer` accepts `eip155:84532`; USDC from shared or `BASE_USDC`; startup warns when guard-core reports no balance on `DEFAULT_CHAIN`; chain names in tool text                                                            |
 | MCP-9  | mcp   | todo   | MCP-8      | Agent-builder setup docs (LAUNCH.md item): copy-paste configs, what the agent can and cannot do, error codes, handling `pending_approval`                                                                                          |
-| MCP-10 | mcp   | todo   | MCP-8      | MCP HTTP endpoint: rate limit, and loopback-only unless explicitly opted in. LAUNCH.md open item                                                                                                                                   |
+| MCP-10 | mcp   | review | MCP-8      | MCP HTTP endpoint: rate limit, and loopback-only unless explicitly opted in. LAUNCH.md open item                                                                                                                                   |
 
 ## Session 4 — bot (`packages/telegram-bot`, branch `feat/bot`)
 

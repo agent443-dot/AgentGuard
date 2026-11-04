@@ -1,5 +1,6 @@
 import { CHAINS } from '@agentguard/shared'
 import { z } from 'zod'
+import { isLoopback } from './domain/loopback.js'
 
 const httpUrl = z.string().refine((value) => {
   try {
@@ -25,6 +26,13 @@ export const configSchema = z
     MCP_HTTP_HOST: z.string().min(1).default('127.0.0.1'),
     MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(8789),
     MCP_HTTP_TOKEN: z.string().min(32, 'use at least 32 characters').optional(),
+    /** Binding beyond this machine is a decision, not a default. */
+    MCP_HTTP_ALLOW_REMOTE: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    /** Requests per minute per client address. */
+    MCP_HTTP_RATE_LIMIT: z.coerce.number().int().min(1).max(100_000).default(60),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -33,6 +41,10 @@ export const configSchema = z
     // Over HTTP, anyone who reaches the port could spend as this agent.
     message: 'required when MCP_TRANSPORT=http',
     path: ['MCP_HTTP_TOKEN'],
+  })
+  .refine((config) => isLoopback(config.MCP_HTTP_HOST) || config.MCP_HTTP_ALLOW_REMOTE, {
+    message: 'a non-loopback host needs MCP_HTTP_ALLOW_REMOTE=true',
+    path: ['MCP_HTTP_HOST'],
   })
 
 export type Config = z.infer<typeof configSchema>
