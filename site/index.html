@@ -13,14 +13,14 @@
 <style>
   /* Layout: one dark stage, full-bleed bands, a 1200px content column; the hero pairs a giant headline with a live intent feed. */
   :root {
-    --bg: #07070b;
-    --bg-2: #0d0d14;
-    --panel: #12121b;
-    --line: #22222f;
-    --line-2: #2e2e3e;
-    --fg: #f4f4f8;
-    --muted: #9a9aae;
-    --dim: #66667a;
+    --bg: #050505;
+    --bg-2: #0a0a0a;
+    --panel: #0d0d0d;
+    --line: #1c1c1e;
+    --line-2: #2a2a2d;
+    --fg: #f5f5f5;
+    --muted: #a0a0a5;
+    --dim: #6a6a6f;
     --violet: #9b6bff;
     --aqua: #2ee6d6;
     --mint: #3ff5a1;
@@ -189,7 +189,7 @@
     z-index: 50;
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
-    background: rgba(7, 7, 11, 0.72);
+    background: rgba(5, 5, 5, 0.78);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
   .nav .wrap {
@@ -208,8 +208,18 @@
     letter-spacing: -0.02em;
   }
   .brand svg {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
+    filter: drop-shadow(0 0 7px rgba(91, 140, 255, 0.55));
+  }
+  .logo-mark {
+    overflow: visible;
+  }
+  .cta-logo {
+    width: clamp(100px, 13vw, 150px);
+    height: clamp(100px, 13vw, 150px);
+    filter: drop-shadow(0 0 22px rgba(91, 140, 255, 0.65))
+      drop-shadow(0 0 80px rgba(155, 107, 255, 0.5));
   }
   .nav-links {
     display: flex;
@@ -329,7 +339,7 @@
 
   /* Intent feed */
   .feed {
-    background: linear-gradient(180deg, rgba(18, 18, 27, 0.92), rgba(12, 12, 18, 0.92));
+    background: linear-gradient(180deg, rgba(15, 15, 16, 0.95), rgba(8, 8, 9, 0.95));
     border: 1px solid var(--line);
     border-radius: 22px;
     padding: 20px;
@@ -596,7 +606,7 @@
   .mark {
     font-size: clamp(22px, 2.6vw, 30px);
     font-weight: 500;
-    color: #5d5d72;
+    color: #606065;
     letter-spacing: -0.03em;
     white-space: nowrap;
     display: flex;
@@ -966,7 +976,7 @@
     max-width: 400px;
     width: 100%;
     justify-self: center;
-    background: #0f1219;
+    background: #0c0c0e;
     border: 1px solid var(--line-2);
     border-radius: 34px;
     padding: 14px;
@@ -983,13 +993,14 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: var(--grad);
+    background: #0a0a0b;
+    border: 1px solid var(--line-2);
     display: grid;
     place-items: center;
   }
   .avatar svg {
-    width: 20px;
-    height: 20px;
+    width: 27px;
+    height: 27px;
   }
   .phone-top b {
     font-size: 15px;
@@ -1007,7 +1018,7 @@
     gap: 10px;
   }
   .bubble {
-    background: #1a1f2b;
+    background: #151518;
     border-radius: 16px 16px 16px 4px;
     padding: 14px 16px;
     font-size: 14px;
@@ -1044,7 +1055,7 @@
   .tg-btn {
     height: 44px;
     border-radius: 12px;
-    background: #1a1f2b;
+    background: #151518;
     border: 1px solid var(--line-2);
     color: var(--fg);
     font-family: var(--body);
@@ -1054,7 +1065,7 @@
     transition: background 0.2s ease;
   }
   .tg-btn:hover {
-    background: #232a39;
+    background: #202024;
   }
   .tg-btn.ok {
     color: var(--mint);
@@ -1170,7 +1181,7 @@
     font-size: 14px;
   }
   .code-card {
-    background: #0b0b11;
+    background: #0a0a0a;
     border: 1px solid var(--line);
     border-radius: 22px;
     overflow: hidden;
@@ -1592,18 +1603,36 @@
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="#top" aria-label="AgentGuard home">
-      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <path
-          d="M16 2.5 4.5 7v8.2c0 7 4.8 12.4 11.5 14.3 6.7-1.9 11.5-7.3 11.5-14.3V7L16 2.5Z"
-          fill="url(#g)"
-        />
-        <path
-          d="M11 16.2l3.4 3.4L21.3 12.6"
-          stroke="#07070b"
-          stroke-width="2.6"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
+      <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="lgm1" x1="0" y1="0" x2="1" y2="0.25">
+            <stop offset="0" stop-color="#3fd9ff" />
+            <stop offset=".5" stop-color="#5b8cff" />
+            <stop offset="1" stop-color="#9b6bff" />
+          </linearGradient>
+          <filter id="mglow1" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+          </filter>
+        </defs>
+        <g fill="none" stroke="url(#lgm1)">
+          <g filter="url(#mglow1)" opacity=".95">
+            <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+            <path
+              d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+              stroke-width="4"
+            />
+            <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+            <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+          </g>
+          <circle cx="50" cy="50" r="40" stroke-width="3" />
+          <path
+            d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+            stroke-width="3.4"
+            stroke-linejoin="round"
+          />
+          <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+          <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+        </g>
       </svg>
       AgentGuard
     </a>
@@ -2136,14 +2165,43 @@
       <div class="phone" aria-label="Example Telegram approval">
         <div class="phone-top">
           <div class="avatar">
-            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-              <path
-                d="M11 16.2l3.4 3.4L21.3 12.6"
-                stroke="#07070b"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
+            <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+              <defs>
+                <linearGradient id="lgm2" x1="0" y1="0" x2="1" y2="0.25">
+                  <stop offset="0" stop-color="#3fd9ff" />
+                  <stop offset=".5" stop-color="#5b8cff" />
+                  <stop offset="1" stop-color="#9b6bff" />
+                </linearGradient>
+                <filter id="mglow2" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+                </filter>
+              </defs>
+              <g fill="none" stroke="url(#lgm2)">
+                <g filter="url(#mglow2)" opacity=".95">
+                  <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                  <path
+                    d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                    stroke-width="4"
+                  />
+                  <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                  <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+                </g>
+                <circle cx="50" cy="50" r="40" stroke-width="3" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="3.4"
+                  stroke-linejoin="round"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+                <circle
+                  cx="50"
+                  cy="43"
+                  r="6.6"
+                  fill="#5fb3ff"
+                  stroke="#050505"
+                  stroke-width="2.4"
+                />
+              </g>
             </svg>
           </div>
           <div><b>AgentGuard</b><small>bot</small></div>
@@ -2459,6 +2517,37 @@
   <section class="band" style="padding-top: 0">
     <div class="wrap">
       <div class="cta">
+        <svg class="logo-mark cta-logo" viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgm3" x1="0" y1="0" x2="1" y2="0.25">
+              <stop offset="0" stop-color="#3fd9ff" />
+              <stop offset=".5" stop-color="#5b8cff" />
+              <stop offset="1" stop-color="#9b6bff" />
+            </linearGradient>
+            <filter id="mglow3" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+            </filter>
+          </defs>
+          <g fill="none" stroke="url(#lgm3)">
+            <g filter="url(#mglow3)" opacity=".95">
+              <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+              <path
+                d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                stroke-width="4"
+              />
+              <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+              <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+            </g>
+            <circle cx="50" cy="50" r="40" stroke-width="3" />
+            <path
+              d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+              stroke-width="3.4"
+              stroke-linejoin="round"
+            />
+            <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+            <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+          </g>
+        </svg>
         <span class="eyebrow">Get started</span>
         <h2>Give your agents a budget, <span class="grad-text">not your keys.</span></h2>
         <p class="lede" style="text-align: center">
@@ -2493,18 +2582,36 @@
     <div class="foot">
       <div class="foot-brand">
         <a class="brand" href="#top">
-          <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <path
-              d="M16 2.5 4.5 7v8.2c0 7 4.8 12.4 11.5 14.3 6.7-1.9 11.5-7.3 11.5-14.3V7L16 2.5Z"
-              fill="url(#g)"
-            />
-            <path
-              d="M11 16.2l3.4 3.4L21.3 12.6"
-              stroke="#07070b"
-              stroke-width="2.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+          <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+            <defs>
+              <linearGradient id="lgm4" x1="0" y1="0" x2="1" y2="0.25">
+                <stop offset="0" stop-color="#3fd9ff" />
+                <stop offset=".5" stop-color="#5b8cff" />
+                <stop offset="1" stop-color="#9b6bff" />
+              </linearGradient>
+              <filter id="mglow4" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+              </filter>
+            </defs>
+            <g fill="none" stroke="url(#lgm4)">
+              <g filter="url(#mglow4)" opacity=".95">
+                <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="4"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+              </g>
+              <circle cx="50" cy="50" r="40" stroke-width="3" />
+              <path
+                d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                stroke-width="3.4"
+                stroke-linejoin="round"
+              />
+              <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+              <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+            </g>
           </svg>
           AgentGuard
         </a>
