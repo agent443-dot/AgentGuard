@@ -73,6 +73,17 @@ moderates. The configs needed no change, and coverage still meets guard-core's 9
 `domain/`. minimatch is still reported, now through eslint: dev only. Do not force stream-json to 3.x
 through an override: jayson asks for `^1.9` and nothing reaches the vulnerable code.
 
+## Base (first look, #27)
+
+- The Allowance Module calls match the official `AllowanceModule.sol` signatures. Module enable,
+  delegate and cap go in one atomic Safe transaction. Addresses from `.env` must hold code, and USDC
+  must report 6 decimals.
+- **Unlike Solana, the delegate can send its allowance to any address.** The daily loss bound is
+  unchanged, but a stolen hot-wallet key can move the day's cap directly to an attacker, bypassing
+  the guard. Recorded in `LAUNCH.md` for D6.
+- `BASE_CHAIN_ID=8453` is accepted with a raw `OWNER_PRIVATE_KEY`. Mainnet needs a hardware signing
+  path for the Safe owner first; suggested to onchain.
+
 ## Left for INT-7
 
 - Re-run this review on the devnet stack (HUMAN-11), and again once the Base adapter lands (INT-6).
