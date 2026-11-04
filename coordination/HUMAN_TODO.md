@@ -541,7 +541,7 @@ Se o `git commit` responder `Please tell me who you are`, configura o git uma ve
 
 ---
 
-## ⏳ HUMAN-5 — Criar o bot do Telegram
+## ✅ HUMAN-5 — Criar o bot do Telegram
 
 Desbloqueia: `HUMAN-11`, a primeira corrida ao vivo. Isto é só do lado do Telegram — não mexes em
 ficheiro nenhum aqui; a `HUMAN-11` diz-te onde pôr cada coisa.
@@ -556,7 +556,18 @@ ficheiro nenhum aqui; a `HUMAN-11` diz-te onde pôr cada coisa.
 
 ---
 
-## ⬜ HUMAN-11 — Primeira corrida ao vivo do sistema completo (devnet)
+## ✅ HUMAN-11 — Primeira corrida ao vivo do sistema completo (devnet)
+
+**Feito em 2026-11-04.** Três pagamentos reais em devnet, 3,5 USDC no total, todos pela hot wallet:
+
+| Passo | O quê                                           | Transação                                                                                  |
+| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 6     | transferência de 1,5 USDC, aprovada no Telegram | `28PfTDHGYd2ML18PRKQq2YuerLeZ9EGea5oyZCWVFw9H9SQu6iNavdWxjJpwio2nsrh6ou5PddCDC2N39dYewF9b` |
+| 9     | x402 de 0,5 USDC, abaixo do limite, automático  | `5dEyeubtDt8p5r6bowo5MACYWiYeByh38yFgY8BAGYdz6GcM863hZdb5WHKgV2daCpvznwNj7HNUTWdDNrbbgvQZ` |
+| 10    | x402 de 1,5 USDC, aprovado no Telegram          | `AYfUboJLhe8oBSeuMHxAHr5dmMZXqEMFE3pgAgUPFLjZX7aptDbnEWPZd9iZTzRsxDv73nzNQEeJqq2N3RxmV4K`  |
+
+O passo 11 também está feito: `allowedDomains` do `agent-1` voltou a `[]`. O texto abaixo fica como
+registo do que correste.
 
 Desbloqueia: fecha a `INT-3` e é metade da porta `INT-5`, que liberta o trabalho da Base. Depois da
 `HUMAN-5`. As duas partes já podem correr: o `pnpm dev:all` e o servidor x402 de teste estão no `main`.
