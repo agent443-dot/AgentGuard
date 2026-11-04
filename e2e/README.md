@@ -84,3 +84,39 @@ after the transfer run in HUMAN-11 works.
 5. The approval path: restart the paywall with `PAYWALL_AMOUNT=1500000`. Run step 4 and expect
    `"status":"pending_approval"`. Approve on Telegram, then run step 4 again: it redeems the
    approval and returns `"status":"executed"`.
+
+## The x402 path on Base Sepolia (owner's machine, HUMAN-12)
+
+`pnpm --filter @agentguard/e2e paywall:base` (`src/base-paywall.ts`) is the Base counterpart of the
+devnet paywall. It is its own facilitator through the x402 SDK's `ExactEvmScheme`: it verifies the
+EIP-3009 authorization the guard signed, then settles it on Base Sepolia, paying the gas from its own
+key. It reads the token's `decimals`, `name` and `version` from the chain. It refuses a token that is
+not 6 decimals, and it quotes the EIP-712 domain the token itself reports, so the guard's signer has
+nothing to guess.
+
+1. In `e2e/.env`, set `PAYWALL_EVM_KEY` (a testnet key with Base Sepolia ETH) and
+   `PAYWALL_BASE_PAY_TO`. Until CR-005 lands, also set `PAYWALL_BASE_USDC`, taken from Circle.
+2. Make sure guard-core runs with `BASE_CHAIN=eip155:84532` and its Base settings, and that the
+   agent's policy allows `eip155:84532`, the Base Sepolia USDC, and the domain `127.0.0.1`.
+3. In another window: `pnpm --filter @agentguard/e2e paywall:base`.
+4. Have the agent fetch it:
+
+   ```bash
+   t=$(grep '^AGENT_TOKEN=' packages/mcp-server/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/agent/x402/fetch -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{"agentId":"agent-1","url":"http://127.0.0.1:8791/data","method":"GET"}'
+   ```
+
+   Expect `"status":"executed"`. The paywall window prints `settled on Base Sepolia: <hash>`, which
+   sepolia.basescan.org shows as a USDC `transferWithAuthorization` from the hot wallet.
+
+5. For the approval path, restart it with `PAYWALL_AMOUNT=1500000`: the first call is
+   `pending_approval`, you approve on Telegram, and the second call is `executed`.
+
+## Base attacks (INT-6), `test/base-attacks.test.ts`
+
+The same suite on the Base Sepolia stub chain, 15 cases. Every malicious 402 is refused: whole
+balance, wrong token, Base mainnet while only Sepolia is allowed, a Solana offer to a Base-only
+agent, an unknown scheme, payTo moved on the retry, and a host off the allowlist. The three EVM codes
+(`APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`) stop the payment and reach the owner.
+A Permit handed to the signer is refused as `PERMIT_DETECTED`. An approval is redeemed once, and the
+kill names the Base owner transaction. The cap itself and the real signing gate are proven in
+`packages/onchain` (the fork tests and `evm-gate`).

@@ -1,6 +1,7 @@
 import { createEvmAdapter, createSvmAdapter, type ChainAdapter } from '@agentguard/onchain'
 import type { ChainId } from '@agentguard/shared'
 import { CHAINS, getAddress, requireAddress } from '@agentguard/shared'
+import { checkEnvContracts } from './adapters/evm-check.js'
 import { readKeypairFile } from './adapters/keypair.js'
 import { StubChain } from './adapters/stub.js'
 import type { Config } from './config.js'
@@ -10,7 +11,10 @@ import type { Config } from './config.js'
  * start rather than running without it: a guard that quietly drops a chain looks healthy and pays
  * nothing, or worse, is fixed later by someone guessing.
  */
-export async function buildChains(config: Config): Promise<Map<ChainId, ChainAdapter>> {
+export async function buildChains(
+  config: Config,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Map<ChainId, ChainAdapter>> {
   const chains = new Map<ChainId, ChainAdapter>()
   if (config.GUARD_STUB_CHAINS === 'true') {
     chains.set(config.SOLANA_CHAIN, new StubChain(config.SOLANA_CHAIN, 100_000_000n))
@@ -45,6 +49,19 @@ export async function buildChains(config: Config): Promise<Map<ChainId, ChainAda
       BASE_USDC: getAddress(chain, 'usdc') ?? config.BASE_USDC,
       BASE_ALLOWANCE_MODULE: getAddress(chain, 'allowanceModule') ?? config.BASE_ALLOWANCE_MODULE,
     })
+    const usdcVerified = getAddress(chain, 'usdc') !== undefined
+    const moduleVerified = getAddress(chain, 'allowanceModule') !== undefined
+    await checkEnvContracts(
+      values.BASE_RPC_URL,
+      [
+        { name: 'SAFE_ADDRESS', address: values.SAFE_ADDRESS },
+        ...(usdcVerified ? [] : [{ name: 'BASE_USDC', address: values.BASE_USDC, usdc: true }]),
+        ...(moduleVerified
+          ? []
+          : [{ name: 'BASE_ALLOWANCE_MODULE', address: values.BASE_ALLOWANCE_MODULE }]),
+      ],
+      fetchImpl,
+    )
     chains.set(
       chain,
       createEvmAdapter({

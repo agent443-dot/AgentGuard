@@ -27,7 +27,10 @@ For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTIS
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
 `BASE_RPC_URL`, `SAFE_ADDRESS`, `HOT_WALLET_PRIVATE_KEY` and, until `shared/addresses.ts` has
 verified values, `BASE_USDC` and `BASE_ALLOWANCE_MODULE`. A chain switched on with a value missing
-stops the start, naming the missing variables and never their values. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
+stops the start, naming the missing variables and never their values. Before trusting `SAFE_ADDRESS`
+and any address that came from the env rather than `shared/addresses.ts`, guard-core asks the chain:
+each must hold a contract, and the USDC must report 6 decimals. If any check fails, or the RPC cannot
+be reached, it refuses to start. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
 is signed and no money moves. With neither, there is no adapter and every payment is refused.
 
 ## Pipeline
@@ -53,6 +56,11 @@ the pipeline moves it on.
   `ChainAdapter.topUpHotWallet`, under the onchain cap.
 - **Spend** is counted once a signed transaction leaves our hands, whether or not we hear that it
   landed. Overcounting only shrinks the day's budget; undercounting would let the agent past it.
+
+The agent routes carry two rate limits, checked before the token is looked up: per IP
+(`RATE_LIMIT_PER_IP`, 120 a minute) and per agent token (`RATE_LIMIT_PER_AGENT`, 60 a minute), so
+neither many tokens from one address nor one token from many addresses gets past. Admin and bot
+routes keep the per-IP limit. A limited request gets 429 with `retry-after`.
 
 Payments for one agent run one at a time, so two concurrent requests cannot both pass the daily
 max against the same total.
@@ -133,5 +141,16 @@ without its payload.
 - Amounts are `bigint` internally. No floats for money.
 - Agent-provided text (`reason`, URLs, headers, API responses) is untrusted and never affects a
   decision.
+
+## Database
+
+SQLite, at `DATABASE_URL`. It holds the day's spend per agent, pending approvals and the audit log,
+so losing it resets the daily max to zero. **In production it must live on a persistent volume**,
+outside the repository and outside any temp directory. On Solana or Base mainnet, guard-core refuses
+to start otherwise. Devnet and local runs may keep the default `./data/guard.db`.
+
+`pnpm --filter @agentguard/guard-core db:backup [destination]` copies the live database with SQLite's
+online backup API. It is safe while guard-core is running and never overwrites an existing file.
+With no destination, the copy goes to `backups/guard-<time>.db` next to the database.
 
 Env vars are documented in [`.env.example`](./.env.example).

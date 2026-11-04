@@ -35,6 +35,13 @@ Both are signed: `X-Guard-Signature` is the hex HMAC-SHA256 of the exact request
 | `POST /hooks/approval-request` | `{ intent, simulation, approveBefore }` | 200 posted, 401 bad signature, 400 bad body, 409 duplicate, 410 stale, 502 no owner reachable |
 | `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-004)           | same                                                                                          |
 
+**Before the body is read.** A request to `/hooks/*` whose `X-Guard-Signature` is missing or is not
+64 hex characters is answered 401 in Fastify's `onRequest` hook, so its body is never read. A
+well-formed signature needs the bytes to be checked, but they reach no parser until it holds.
+
+**Rate limit.** `HOOK_RATE_LIMIT_PER_MINUTE` (default 300) requests per minute per client address, then 429. Only guard-core calls the hooks, and each payment costs it at most two calls (an approval
+request and an intent event). The hooks still bind to `127.0.0.1` by default.
+
 **Replay.** A valid signature proves guard-core wrote a body, not that it is sending it now. An
 approval request is refused once `approveBefore` has passed, or if it claims a window longer than
 guard-core's 10 minutes (plus 1 minute of clock skew); while it is open, a second copy of the same
@@ -48,6 +55,16 @@ Sent to every owner: agent, amount in USD, chain, recipient (shortened; **Show f
 shows all of it), domain (or "direct transfer"), the simulation summary, the expiry in UTC, and the
 agent's reason labelled `agent says:`. Everything that came from the agent is HTML-escaped, so it
 cannot pose as the bot's own text.
+
+**Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
+transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
+devnet, basescan.org on Base, sepolia.basescan.org on Base Sepolia. The explorer is looked up by the
+exact CAIP-2 id, so a chain the bot does not know gets no link at all, never one on another network.
+
+**Amounts** read as dollars only when the intent's token is the USDC listed for that chain in
+`packages/shared/src/addresses.ts`. Any other token is shown in base units with its address, marked
+"not a known USDC for this chain": a token with 6 decimals could otherwise pass for dollars. Base and
+Base Sepolia USDC are not listed there yet (CR-005), so Base amounts show as base units until they are.
 
 **Approve** / **Reject** call `POST /v1/bot/decision` with the presser's Telegram id. Then every
 owner's copy is edited to the outcome, with the full recipient, and the buttons are gone. guard-core's

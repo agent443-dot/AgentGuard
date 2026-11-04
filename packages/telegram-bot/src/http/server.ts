@@ -1,8 +1,9 @@
+import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { Logger } from 'pino'
 import type { z } from 'zod'
 import type { PostResult } from '../bot/desk.js'
-import { signatureValid } from '../domain/signature.js'
+import { signatureValid, wellFormed } from '../domain/signature.js'
 import { approvalRequest, intentEvent } from './schemas.js'
 
 export interface HookHandlers {
@@ -14,6 +15,8 @@ export interface ServerDeps {
   secret: string
   handlers: HookHandlers
   logger: Logger
+  /** Per client address. Only guard-core should be calling, so anything near this is not it. */
+  rateLimitPerMinute?: number
 }
 
 const STATUS: Record<PostResult, number> = {
@@ -23,8 +26,23 @@ const STATUS: Record<PostResult, number> = {
   undelivered: 502,
 }
 
-export async function buildServer({ secret, handlers, logger }: ServerDeps) {
+export async function buildServer({
+  secret,
+  handlers,
+  logger,
+  rateLimitPerMinute = 300,
+}: ServerDeps) {
   const app = Fastify({ loggerInstance: logger, bodyLimit: 64 * 1024 })
+
+  await app.register(rateLimit, { max: rateLimitPerMinute, timeWindow: '1 minute' })
+
+  // onRequest runs before the body is read: a request with no usable signature never gets that far.
+  // A well-formed one still needs the bytes for the HMAC, but they reach no parser until it holds.
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/hooks/') && !wellFormed(request.headers['x-guard-signature'])) {
+      return reply.code(401).send({ error: 'bad_signature' })
+    }
+  })
 
   // The signature covers the bytes on the wire, so the body must reach the handler unparsed.
   app.removeContentTypeParser('application/json')

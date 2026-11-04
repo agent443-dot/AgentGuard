@@ -40,6 +40,10 @@ export const configSchema = z.object({
   /** Offline chains that move no money. For local development only. */
   GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
   EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),
+
+  /** Requests per minute. Per IP on every route, and per agent token on the agent routes. */
+  RATE_LIMIT_PER_IP: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_PER_AGENT: z.coerce.number().int().positive().default(60),
 })
 
 export type Config = z.infer<typeof configSchema>
