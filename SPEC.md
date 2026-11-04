@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.3 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.4 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -142,7 +142,9 @@ POST /v1/agent/x402/fetch   { agentId, url, method, headers?, body?, maxAmount? 
   expiresAt expires with APPROVAL_TIMEOUT.
 POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason } -> { intentId, status, txId?, rejectReasons }
 GET  /v1/agent/intents/:id  -> PayIntent
-GET  /v1/agent/budget/:agentId -> { spentToday, dailyMax, perTxMax, hotWalletBalances, paused }
+GET  /v1/agent/budget/:agentId -> { spentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains }
+  chains: the CAIP-2 ids guard-core runs an adapter for AND this agent's Policy.chains allows, so an
+  agent learns only where it may actually pay, never the operator's full setup.
 
 POST /v1/bot/decision       { intentId, decision: "approve" | "reject", telegramUserId } -> PayIntent
 POST /v1/admin/pause        { agentId } ; POST /v1/admin/resume { agentId }
@@ -156,6 +158,10 @@ POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chai
 GET/PUT /v1/admin/policy/:agentId  Policy
 GET  /v1/admin/budget/:agentId -> BudgetView   same body as GET /v1/agent/budget/:agentId;
                                   404 { error: "not_found" } for an unknown agent
+GET  /v1/admin/chains -> { chains: { chain: string, allowance: AllowanceState | null }[] }
+  One entry per configured ChainAdapter, in the order guard-core holds them. allowance is that
+  adapter's getAllowanceState(), or null when reading it failed. An empty list means no chain is
+  configured, so every payment is refused.
 
 ## Webhook guard-core -> telegram-bot
 POST {BOT_URL}/hooks/approval-request  (header X-Guard-Signature: HMAC-SHA256 of body with BOT_WEBHOOK_SECRET)
@@ -184,6 +190,9 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.4 (2026-11-04): CR-006, approved by the owner. GET /v1/admin/chains lists the chains guard-core
+  runs, with each one's onchain allowance, for the bot's /status and /kill. The budget routes gain
+  `chains`, the configured chains this agent's policy allows, so mcp can check its DEFAULT_CHAIN.
 - v0.3 (2026-11-03): three owner-approved changes.
   CR-002: the Solana CAIP-2 ids are confirmed against each cluster's genesis hash and written here; the
   values did not change.
