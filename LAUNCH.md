@@ -61,11 +61,16 @@ Each line can be checked by someone other than its author.
 
   The tx ids are in `coordination/HUMAN_TODO.md`. This closes INT-3 and INT-4.
 
+- [x] **SVM-8: all four cap properties as automated tests** (#22), against the real Squads v4
+      program (dumped from mainnet) under LiteSVM 1.6.1. A draw up to the cap succeeds, `cap + 1` is
+      refused with `SpendingLimitExceeded`, the limit refills after a warped day, and nothing can be
+      drawn after the kill.
+- [x] **INT-5: the Solana attack suite**, done 2026-11-04. All 24 cases pass, real devnet payments
+      go through the same inspection and simulation, and the onchain cap is proven. The gate for
+      the Base work is open.
+
 ### Open
 
-- [ ] **SVM-8**: the fourth cap property, the refill after the period, plus all four as automated
-      LiteSVM tests. Needs the Squads binary (HUMAN-10).
-- [ ] **INT-5 done**: needs SVM-8 above. It is also the gate for the Base work.
 - [ ] **Launch blocker, tied to D4: the Ledger path on real hardware, on devnet.** Follow
       "The owner on a Ledger" in `packages/onchain/README.md` with a real device. Pass criteria:
   - for `create-multisig`, `add-spending-limit` and `kill`, the **Message Hash shown on the device
