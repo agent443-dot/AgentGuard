@@ -6,7 +6,7 @@ import {
   type Intent,
   type TransferInput,
 } from '../src/adapters/guard.js'
-import { BASE_USDC, call, connect, fakeGuard } from './support.js'
+import { call, connect, fakeGuard } from './support.js'
 
 const INTENT_ID = '3f0c8f5e-8a3b-4c55-9a0e-2d6f2b1c7a10'
 
@@ -112,7 +112,7 @@ describe('transfer', () => {
     expect(result.text).toMatch(/no USDC address for Base mainnet \(eip155:8453\)/)
   })
 
-  it('sends a Base Sepolia transfer with the configured Base USDC', async () => {
+  it('sends a Base Sepolia transfer with the verified Base Sepolia USDC', async () => {
     const transfer = vi.fn(async (_input: TransferInput) => ({
       intentId: INTENT_ID,
       status: 'executed' as const,
@@ -124,7 +124,7 @@ describe('transfer', () => {
     const result = await call(client, 'transfer', { to, amountUsd: '0.5', reason: 'r' })
     expect(transfer).toHaveBeenCalledWith({
       chain: 'eip155:84532',
-      token: BASE_USDC,
+      token: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
       amount: '500000',
       recipient: to,
       reason: 'r',

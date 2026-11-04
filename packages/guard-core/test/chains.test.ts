@@ -19,6 +19,9 @@ const baseChain = {
   BASE_ALLOWANCE_MODULE: `0x${'c'.repeat(40)}`,
 }
 
+// Base mainnet has no verified address in shared yet, so every Base value there comes from the env.
+const mainnet = { ...baseChain, BASE_CHAIN: CHAINS.base, BASE_RPC_URL: 'https://mainnet.base.org' }
+
 /** A Base node where every address holds code and the token reports `decimals`. */
 function node(options: { noCodeAt?: string; decimals?: number; down?: boolean } = {}) {
   return vi.fn<typeof fetch>(async (_url, init) => {
@@ -62,7 +65,7 @@ describe('buildChains', () => {
   it.each(['BASE_RPC_URL', 'SAFE_ADDRESS', 'HOT_WALLET_PRIVATE_KEY', 'BASE_USDC'])(
     'refuses to start Base without %s, naming it and never the key',
     async (name) => {
-      const error = await build({ ...baseChain, [name]: '' }).catch((e: unknown) => e)
+      const error = await build({ ...mainnet, [name]: '' }).catch((e: unknown) => e)
       expect(error).toBeInstanceOf(Error)
       expect((error as Error).message).toBe(`invalid configuration: ${name}`)
       expect((error as Error).message).not.toContain(KEY)
@@ -91,9 +94,6 @@ describe('buildChains', () => {
   })
 })
 
-// Base mainnet has no verified address in shared yet, so every Base value there comes from the env.
-const mainnet = { ...baseChain, BASE_CHAIN: CHAINS.base, BASE_RPC_URL: 'https://mainnet.base.org' }
-
 function askedOf(fetchImpl: ReturnType<typeof node>) {
   return fetchImpl.mock.calls.map(([, init]) => {
     const { method, params } = JSON.parse(String(init?.body)) as {
@@ -116,14 +116,10 @@ describe('checking env addresses against the chain before trusting them', () => 
     ])
   })
 
-  it('skips the module on Base Sepolia, where shared has the verified address', async () => {
+  it('checks only the Safe on Base Sepolia, where shared has USDC and the module', async () => {
     const fetchImpl = node()
     await build(baseChain, fetchImpl)
-    expect(askedOf(fetchImpl)).toEqual([
-      ['eth_getCode', baseChain.SAFE_ADDRESS],
-      ['eth_getCode', baseChain.BASE_USDC],
-      ['eth_call', baseChain.BASE_USDC],
-    ])
+    expect(askedOf(fetchImpl)).toEqual([['eth_getCode', baseChain.SAFE_ADDRESS]])
   })
 
   it.each([
@@ -137,7 +133,7 @@ describe('checking env addresses against the chain before trusting them', () => 
   })
 
   it('refuses a token that is not 6 decimals', async () => {
-    await expect(build(baseChain, node({ decimals: 18 }))).rejects.toThrow(
+    await expect(build(mainnet, node({ decimals: 18 }))).rejects.toThrow(
       'BASE_USDC is not a 6-decimal token, so it is not USDC',
     )
   })

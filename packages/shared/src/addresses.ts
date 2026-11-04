@@ -37,8 +37,11 @@ export const ADDRESSES: Record<ChainId, ChainAddresses> = {
     // Allowance Module 0.1.1 at Safe's deterministic address. Safe's list has no Base Sepolia entry,
     // so CR-005 compares runtime code instead: the code hash here equals the official Base mainnet
     // deployment's, 0x7aa63affdca06fe94576f00077ad61a02ccf203a5da31e1b4ed595df7b65cf3e
-    // (forge test_moduleOnSepoliaIsTheMainnetCode). USDC waits on the owner's Circle check.
+    // (forge test_moduleOnSepoliaIsTheMainnetCode).
     allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
+    // https://developers.circle.com/stablecoins/usdc-contract-addresses, the Base Sepolia row,
+    // confirmed by the owner on 2026-11-04. It is also the address the x402 SDK ships for this chain.
+    usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
   },
 }
 

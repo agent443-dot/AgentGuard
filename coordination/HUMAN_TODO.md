@@ -721,7 +721,7 @@ tuas. Tudo corre em `~/AgentGuard`.
    confirmaram, em 2026-11-04, que está em `0xAA46724893dedD72658219405185Fb0Fc91e091C` com exatamente o
    mesmo código que a Safe publica para a Base mainnet (hash `0x7aa63aff…cf3e`, registado na `CR-005`).
 
-2. **O USDC da Base Sepolia.** O SDK x402 que usamos dá `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
+2. ✅ **O USDC da Base Sepolia** — confirmado por ti contra a Circle em 2026-11-04 e já no código (`shared/addresses.ts`). O SDK x402 que usamos dá `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
    Abre [a página da Circle](https://developers.circle.com/stablecoins/usdc-contract-addresses), procura
    a linha **Base Sepolia** e confirma que é exatamente esse endereço. Depois confirma na chain:
 

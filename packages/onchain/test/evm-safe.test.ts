@@ -80,10 +80,22 @@ describe('loadEvmConfig', () => {
   })
 })
 
+// Base mainnet has no verified address in shared yet; the scripts accept it only with a Ledger owner.
+const mainnet = (overrides: Record<string, string> = {}) =>
+  env({ BASE_CHAIN_ID: '8453', OWNER_SIGNER: 'ledger', EXECUTOR_PRIVATE_KEY: key, ...overrides })
+
 describe('contractAddress', () => {
   it('refuses to run without a verified or configured address', () => {
-    const config = loadEvmConfig(env())
+    const config = loadEvmConfig(mainnet())
     expect(() => contractAddress(config, 'usdc')).toThrow(/BASE_USDC/)
+  })
+
+  it('takes the verified Base Sepolia USDC from shared over the .env one', () => {
+    const config = loadEvmConfig(env({ BASE_USDC: usdc }))
+    expect(contractAddress(config, 'usdc')).toEqual({
+      address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+      source: 'shared/addresses.ts',
+    })
   })
 
   it('takes the verified value from shared over the .env one', () => {
@@ -95,7 +107,7 @@ describe('contractAddress', () => {
   })
 
   it('takes the .env value only where shared has none, and says so', () => {
-    const config = loadEvmConfig(env({ BASE_USDC: usdc.toLowerCase() }))
+    const config = loadEvmConfig(mainnet({ BASE_USDC: usdc.toLowerCase() }))
     expect(contractAddress(config, 'usdc')).toEqual({ address: usdc, source: '.env' })
   })
 })
