@@ -100,9 +100,25 @@ the Solana app's APDUs, signs with real ed25519 keys and refuses unknown program
 signing is off. It records the Message Hash it would display, and the tests check that it equals the
 hash the script printed. `test/cap.test.ts` signs the kill with it.
 
-## Base (held until the Solana attack suite is green)
+## Base
 
-### Foundry fork tests (EVM-6)
+A Safe holds the funds and the Safe Allowance Module caps the hot wallet per day. Neither is ours.
+
+| Script                  | What it does                                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm create-safe`      | Deploys a Safe with the owner EOA as its only owner, threshold 1. Refuses when `SAFE_ADDRESS` is already set, and reads owners and threshold back from the chain      |
+| `pnpm enable-allowance` | One Safe transaction: enables the Allowance Module if it is not, adds the hot wallet as delegate, and sets a USDC allowance of `DAILY_CAP` that resets every 1440 min |
+
+`enable-allowance` takes the module and USDC addresses from `shared/addresses.ts` when it has a
+verified value for the chain, else from `BASE_ALLOWANCE_MODULE` and `BASE_USDC` in `.env`, and in
+both cases refuses unless the chain holds code there and USDC reports 6 decimals. The owner key is
+read from `.env` only; nothing secret goes on the command line, and the scripts print only
+addresses and transaction hashes.
+
+Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
+`cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
+
+### Foundry fork tests (EVM-6, not written yet)
 
 Fork Base Sepolia and prove the onchain guarantee:
 
