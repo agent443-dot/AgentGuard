@@ -8,6 +8,7 @@ import {
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { Logger } from 'pino'
+import { clientKey } from './domain/client-key.js'
 import { hostOf, isLoopback } from './domain/loopback.js'
 import type { RateLimiter } from './domain/rate-limit.js'
 
@@ -37,9 +38,9 @@ export function startHttp(options: HttpOptions): Promise<Server> {
     if (new URL(req.url ?? '/', 'http://local').pathname !== '/mcp') {
       return reply(res, 404, 'not_found')
     }
-    // The socket address, never X-Forwarded-For: any client can write that header. Behind a proxy
+    // The socket address (an IPv6 /64), never X-Forwarded-For: any client can write that header. Behind a proxy
     // every request shares the proxy's address, so the proxy needs its own limit.
-    const decision = limit(req.socket.remoteAddress ?? 'unknown')
+    const decision = limit(clientKey(req.socket.remoteAddress))
     if (!decision.ok) {
       res.setHeader('retry-after', String(decision.retryAfterSeconds))
       return reply(res, 429, 'rate_limited')
