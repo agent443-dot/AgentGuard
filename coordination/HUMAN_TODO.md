@@ -753,7 +753,7 @@ Logo a seguir à Parte A.
    linha se já existir e acrescenta-a se não existir, por isso podes repeti-lo:
 
    ```bash
-   cd ~/AgentGuard && git checkout main && git pull && pnpm install && cd packages/onchain && for kv in BASE_CHAIN_ID=84532 BASE_RPC_URL=https://sepolia.base.org BASE_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e BASE_ALLOWANCE_MODULE=0xAA46724893dedD72658219405185Fb0Fc91e091C; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done
+   cd ~/AgentGuard && git checkout main && git pull && pnpm install && cd packages/onchain && for kv in BASE_CHAIN_ID=84532 BASE_RPC_URL=https://sepolia.base.org; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done
    ```
 
 6. ✅ O RPC da Base aceita as simulações que o guard-core faz antes de cada pagamento — os testes do
