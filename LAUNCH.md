@@ -120,7 +120,11 @@ Each line can be checked by someone other than its author.
 
   All three count per socket address. A proxy in front (HUMAN-7) needs its own per-client limit.
 
-- [ ] **Bug bounty, landing page, MCP setup docs for agent builders** (INT-8 scope). Not started.
+- [ ] **Bug bounty, landing page, MCP setup docs for agent builders** (INT-8 scope).
+  - MCP setup guide: done (#46, "For agent builders" in `packages/mcp-server/README.md`).
+  - Landing page: a draft in `site/` (#34, #36). Its repo links say "coming soon" until the repo is
+    public.
+  - Bug bounty: not started.
 - [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
 
 ## 3. Deployment shape
