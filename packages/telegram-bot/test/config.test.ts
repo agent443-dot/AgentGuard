@@ -28,4 +28,29 @@ describe('loadConfig', () => {
   it('needs at least one owner', () => {
     expect(() => loadConfig({ ...env, OWNER_TELEGRAM_IDS: '' })).toThrow('OWNER_TELEGRAM_IDS')
   })
+
+  it('trims whitespace around each owner id', () => {
+    const config = loadConfig({ ...env, OWNER_TELEGRAM_IDS: ' 1001 ,\t1002 ' })
+    expect(config.OWNER_TELEGRAM_IDS).toEqual(new Set([1001, 1002]))
+  })
+
+  it.each([
+    ['blank', '   '],
+    ['trailing comma', '1001,'],
+    ['leading comma', ',1001'],
+    ['empty entry', '1001,,1002'],
+    ['non-numeric', '1001,ana'],
+    ['inner space', '10 01'],
+    ['negative', '-1001'],
+    ['zero', '0'],
+    ['leading zero', '01001'],
+    ['decimal', '1001.5'],
+    ['exponent', '1e3'],
+    ['past 2^53', '9007199254740993'],
+  ])('refuses to start on a %s owner list, naming only the variable', (_case, ids) => {
+    // The whole message, so the value cannot be in it.
+    expect(() => loadConfig({ ...env, OWNER_TELEGRAM_IDS: ids })).toThrow(
+      /^invalid configuration: OWNER_TELEGRAM_IDS$/,
+    )
+  })
 })
