@@ -103,6 +103,12 @@ the API's own credentials.
 `payload: null` and a description telling the owner to remove its spend limit by hand; the pause
 holds regardless.
 
+`GET /v1/admin/chains` lists every chain guard-core runs, each with its onchain allowance (`null`
+if reading it failed). An empty list means every payment is refused (CR-006).
+
+Both budget routes carry `chains`: the chains guard-core runs that this agent's policy also allows,
+so an agent learns where it can pay and nothing more of the setup.
+
 `GET /v1/admin/budget/:agentId` returns the same view as the agent's own budget route, for the bot,
 which holds no agent token.
 

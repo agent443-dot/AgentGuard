@@ -27,6 +27,21 @@ export function adminRoutes(deps: PaymentDeps) {
       return budget(deps, policy)
     })
 
+    // CR-006. A chain whose allowance cannot be read stays listed with null, like a kill payload:
+    // the bot still has to show the owner that the chain exists.
+    app.get('/chains', async (request) => ({
+      chains: await Promise.all(
+        [...deps.chains.values()].map(async (adapter) => {
+          try {
+            return { chain: adapter.chain, allowance: await adapter.getAllowanceState() }
+          } catch (error) {
+            request.log.warn({ err: error, chain: adapter.chain }, 'allowance read failed')
+            return { chain: adapter.chain, allowance: null }
+          }
+        }),
+      ),
+    }))
+
     app.put('/policy/:agentId', async (request) => {
       const { agentId } = agentIdParam.parse(request.params)
       const policy = { agentId, ...policyBody.parse(request.body) }
