@@ -46,7 +46,7 @@ export async function buildChains(
       BASE_RPC_URL: config.BASE_RPC_URL,
       SAFE_ADDRESS: config.SAFE_ADDRESS,
       HOT_WALLET_PRIVATE_KEY: config.HOT_WALLET_PRIVATE_KEY,
-      BASE_USDC: getAddress(chain, 'usdc') ?? config.BASE_USDC,
+      BASE_USDC: usdcFor(config, chain),
       BASE_ALLOWANCE_MODULE: getAddress(chain, 'allowanceModule') ?? config.BASE_ALLOWANCE_MODULE,
     })
     const usdcVerified = getAddress(chain, 'usdc') !== undefined
@@ -76,6 +76,15 @@ export async function buildChains(
     )
   }
   return chains
+}
+
+/**
+ * The USDC address guard-core uses on a chain: the verified one in shared/addresses.ts, else the
+ * Base env fallback, which buildChains checks against the chain before the adapter is built. The
+ * one resolver for both the adapter and the budget view, so they cannot name different tokens.
+ */
+export function usdcFor(config: Config, chain: ChainId): string | undefined {
+  return getAddress(chain, 'usdc') ?? (chain === config.BASE_CHAIN ? config.BASE_USDC : undefined)
 }
 
 /** Every value, or an error naming the absent ones. Names only: one of them is a private key. */
