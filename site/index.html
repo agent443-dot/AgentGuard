@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
     />
     <style>
       /* Layout: one dark stage, full-bleed bands, a 1200px content column; the hero pairs a giant headline with a live intent feed. */
@@ -26,14 +26,14 @@
         --fg: #f5f5f5;
         --muted: #a0a0a5;
         --dim: #6a6a6f;
-        --violet: #4d7cff;
+        --violet: #9945ff;
         --aqua: #8fa8c8;
-        --mint: #34c98e;
+        --mint: #14f195;
         --amber: #e8b45a;
         --red: #f87171;
-        --grad: linear-gradient(135deg, #ffffff 0%, #c9ced6 55%, #8e95a2 100%);
-        --display: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif;
-        --body: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif;
+        --grad: linear-gradient(90deg, #9945ff 0%, #43b4ca 50%, #14f195 100%);
+        --display: 'Inter Tight', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        --body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
         --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
         --wrap: 1200px;
         --gut-l: max(20px, env(safe-area-inset-left, 0px));
@@ -126,7 +126,7 @@
       .h2 {
         font-size: clamp(36px, 5.4vw, 68px);
         line-height: 1.02;
-        font-weight: 600;
+        font-weight: 700;
       }
       .lede {
         font-size: clamp(17px, 1.6vw, 20px);
@@ -144,12 +144,12 @@
       .btn {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        height: 52px;
-        padding: 0 26px;
+        gap: 12px;
+        height: 56px;
+        padding: 0 28px;
         border-radius: 999px;
-        font-weight: 500;
-        font-size: 15px;
+        font-weight: 600;
+        font-size: 15.5px;
         transition:
           transform 0.2s ease,
           background 0.2s ease,
@@ -205,6 +205,16 @@
         width: 16px;
         height: 16px;
       }
+      .btn-primary svg {
+        width: 32px;
+        height: 32px;
+        padding: 8px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        background: #0a0a0a;
+        color: #fff;
+        margin-right: -14px;
+      }
 
       /* Nav */
       .nav {
@@ -234,7 +244,7 @@
       .brand svg {
         width: 32px;
         height: 32px;
-        filter: drop-shadow(0 0 7px rgba(91, 140, 255, 0.55));
+        filter: drop-shadow(0 0 7px rgba(153, 69, 255, 0.6));
       }
       .logo-mark {
         overflow: visible;
@@ -242,8 +252,8 @@
       .cta-logo {
         width: clamp(100px, 13vw, 150px);
         height: clamp(100px, 13vw, 150px);
-        filter: drop-shadow(0 0 22px rgba(91, 140, 255, 0.55))
-          drop-shadow(0 0 80px rgba(91, 140, 255, 0.35));
+        filter: drop-shadow(0 0 22px rgba(153, 69, 255, 0.55))
+          drop-shadow(0 0 80px rgba(20, 241, 149, 0.3));
       }
       .nav-links {
         display: flex;
@@ -300,7 +310,7 @@
         inset: 0;
         width: 100%;
         height: 100%;
-        opacity: 0.4;
+        opacity: 0.8;
         pointer-events: none;
       }
       .hero::after {
@@ -381,10 +391,10 @@
         padding: 1px;
         background: linear-gradient(
           140deg,
-          rgba(255, 255, 255, 0.16),
+          rgba(153, 69, 255, 0.45),
           transparent 40%,
           transparent 60%,
-          rgba(255, 255, 255, 0.07)
+          rgba(20, 241, 149, 0.3)
         );
         -webkit-mask:
           linear-gradient(#000 0 0) content-box,
@@ -490,7 +500,7 @@
       }
       .s-approved {
         color: var(--mint);
-        background: rgba(52, 201, 142, 0.12);
+        background: rgba(20, 241, 149, 0.1);
       }
       .s-pending {
         color: var(--amber);
@@ -501,8 +511,8 @@
         background: rgba(248, 113, 113, 0.12);
       }
       .k-x402 {
-        background: rgba(77, 124, 255, 0.14);
-        color: #86a9ff;
+        background: rgba(153, 69, 255, 0.16);
+        color: #c9a2ff;
       }
       .k-transfer {
         background: rgba(143, 168, 200, 0.14);
@@ -542,7 +552,7 @@
       .meter i {
         display: block;
         height: 100%;
-        background: var(--violet);
+        background: var(--grad);
         width: 38%;
         transition: width 0.6s ease;
       }
@@ -873,8 +883,8 @@
         margin-top: 8px;
         padding: 22px;
         border-radius: 18px;
-        background: rgba(77, 124, 255, 0.08);
-        border: 1px solid rgba(77, 124, 255, 0.25);
+        background: rgba(153, 69, 255, 0.1);
+        border: 1px solid rgba(153, 69, 255, 0.3);
         display: grid;
         gap: 6px;
       }
@@ -1269,10 +1279,10 @@
         tab-size: 2;
       }
       .t-k {
-        color: #86a9ff;
+        color: #c9a2ff;
       }
       .t-s {
-        color: #8fd0ae;
+        color: #41e3a0;
       }
       .t-n {
         color: #dfb570;
@@ -1321,14 +1331,14 @@
         top: -160px;
         border-radius: 50%;
         filter: blur(70px);
-        opacity: 0.15;
+        opacity: 0.25;
         pointer-events: none;
       }
       .chain.svm::before {
         background: var(--violet);
       }
       .chain.evm::before {
-        background: #3b6dff;
+        background: #14f195;
       }
       .chain-head {
         display: flex;
@@ -1521,8 +1531,8 @@
         padding: clamp(56px, 8vw, 110px) clamp(24px, 6vw, 80px);
         text-align: center;
         background:
-          radial-gradient(120% 140% at 50% 0%, rgba(77, 124, 255, 0.13), transparent 55%),
-          radial-gradient(90% 100% at 100% 100%, rgba(255, 255, 255, 0.04), transparent 60%),
+          radial-gradient(120% 140% at 50% 0%, rgba(153, 69, 255, 0.22), transparent 55%),
+          radial-gradient(90% 100% at 100% 100%, rgba(20, 241, 149, 0.1), transparent 60%),
           var(--panel);
         border: 1px solid var(--line);
         display: grid;
@@ -1618,8 +1628,8 @@
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#b9c4d6" />
-          <stop offset="1" stop-color="#64788f" />
+          <stop offset="0" stop-color="#9945ff" />
+          <stop offset="1" stop-color="#14f195" />
         </linearGradient>
       </defs>
     </svg>
@@ -1785,7 +1795,7 @@
           <div class="pipeline">
             <div class="step">
               <span class="step-n">Step 1</span>
-              <div class="step-bar" style="background: var(--violet)"></div>
+              <div class="step-bar" style="background: var(--grad)"></div>
               <h3>Request</h3>
               <p>
                 Your agent asks AgentGuard to pay. It holds no keys and no money. Asking is all it
@@ -2742,30 +2752,32 @@
           cv.height = h * r
           ctx.setTransform(r, 0, 0, r, 0, 0)
         }
+        // Silk bands: wide translucent strands blended additively, purple and green.
         function draw() {
           ctx.clearRect(0, 0, w, h)
-          const g = ctx.createLinearGradient(0, 0, w, 0)
-          g.addColorStop(0, 'rgba(130,160,255,0)')
-          g.addColorStop(0.35, 'rgba(130,160,255,0.4)')
-          g.addColorStop(0.7, 'rgba(215,224,238,0.3)')
-          g.addColorStop(1, 'rgba(255,255,255,0)')
-          ctx.strokeStyle = g
-          for (let i = 0; i < 26; i++) {
-            ctx.beginPath()
-            ctx.lineWidth = 1
-            ctx.globalAlpha = 0.15 + (i / 26) * 0.5
-            for (let x = 0; x <= w; x += 8) {
-              const k = x / w
-              const y =
-                h * 0.62 +
-                Math.sin(k * 3.2 + t + i * 0.12) * (60 + i * 3) +
-                Math.cos(k * 1.4 - t * 0.7 + i * 0.05) * 40 -
-                i * 4
-              x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+          ctx.globalCompositeOperation = 'lighter'
+          const bands = [
+            { c: '100,45,180', amp: 120, yb: 0.42, sp: 0.55, ph: 4.2 },
+            { c: '153,69,255', amp: 95, yb: 0.56, sp: 1.0, ph: 0 },
+            { c: '20,241,149', amp: 70, yb: 0.7, sp: 0.75, ph: 2.1 },
+          ]
+          for (const b of bands) {
+            for (let i = 0; i < 7; i++) {
+              ctx.beginPath()
+              ctx.lineWidth = 36 + i * 11
+              ctx.strokeStyle = 'rgba(' + b.c + ',' + (0.03 + i * 0.007) + ')'
+              for (let x = -60; x <= w + 60; x += 10) {
+                const k = x / w
+                const y =
+                  h * b.yb +
+                  Math.sin(k * 2.6 + t * b.sp + b.ph + i * 0.17) * (b.amp + i * 9) +
+                  Math.cos(k * 5.1 - t * 0.6 * b.sp + i * 0.1) * (b.amp * 0.35)
+                x <= -50 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+              }
+              ctx.stroke()
             }
-            ctx.stroke()
           }
-          ctx.globalAlpha = 1
+          ctx.globalCompositeOperation = 'source-over'
         }
         function loop() {
           t += 0.004
