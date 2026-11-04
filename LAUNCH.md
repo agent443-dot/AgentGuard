@@ -52,13 +52,20 @@ Each line can be checked by someone other than its author.
       asking the device if the key is not the config authority. **Proven against a fake device
       only**: the real-hardware run is open, below.
 
+- [x] **HUMAN-11: the full stack on Solana devnet** (2026-11-04, run by the owner). It used the real
+      Solana adapter, Telegram and the devnet paywall, with every payment from hot wallet
+      `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw`:
+  - a 1.5 USDC transfer approved on Telegram;
+  - a 0.5 USDC x402 payment paid without asking;
+  - a 1.5 USDC x402 payment approved on Telegram and redeemed once.
+
+  The tx ids are in `coordination/HUMAN_TODO.md`. This closes INT-3 and INT-4.
+
 ### Open
 
-- [ ] **HUMAN-11**: the full stack on devnet. That covers a transfer approved on Telegram (real Solana
-      signing, inspection and simulation) and an x402 payment through `pnpm --filter @agentguard/e2e paywall`, settled on devnet. Closes INT-3 and the devnet half of INT-4.
 - [ ] **SVM-8**: the fourth cap property, the refill after the period, plus all four as automated
       LiteSVM tests. Needs the Squads binary (HUMAN-10).
-- [ ] **INT-5 done**: needs the two items above. It is also the gate for the Base work.
+- [ ] **INT-5 done**: needs SVM-8 above. It is also the gate for the Base work.
 - [ ] **Launch blocker, tied to D4: the Ledger path on real hardware, on devnet.** Follow
       "The owner on a Ledger" in `packages/onchain/README.md` with a real device. Pass criteria:
   - for `create-multisig`, `add-spending-limit` and `kill`, the **Message Hash shown on the device
