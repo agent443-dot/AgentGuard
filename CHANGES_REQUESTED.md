@@ -296,7 +296,8 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** bot, covering mcp's request too (via the manager, 2026-11-04)
 - **Date:** 2026-11-04
-- **Status:** approved (owner, 2026-11-04, in the bot session). Both items: the admin chains route and
+- **Status:** applied (SPEC v0.4, #55; guard-core #56; mcp #57; bot #42). Approved by the owner on
+  2026-11-04, in the bot session. Both items: the admin chains route and
   `BudgetView.chains` on the budget routes. Applied in SPEC v0.4 by the integrator; guard-core builds the routes.
 - **What:** two additions to "guard-core HTTP API" in [`/SPEC.md`](./SPEC.md). Nothing existing is
   removed or renamed.
