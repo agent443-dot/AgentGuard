@@ -253,3 +253,25 @@ integrator before any session writes code, since every package imports those typ
 - **Blast radius:** guard-core (send the event on every final state; add the route; return the kill
   shape, which it already half does), telegram-bot (already built against all three, see
   `packages/telegram-bot`), shared (optional: an `IntentEvent` type), e2e (INT-3 can assert alerts).
+
+### CR-005 — Base addresses for `shared/addresses.ts` (EVM-7), partial
+
+- **From:** onchain
+- **Date:** 2026-11-04
+- **Status:** proposed — Allowance Module on Base mainnet verified; Base Sepolia and USDC still open
+- **What:**
+  - **Safe Allowance Module, Base mainnet (`eip155:8453`):** `0xAA46724893dedD72658219405185Fb0Fc91e091C`,
+    version 0.1.1. Source: the official `@safe-global/safe-modules-deployments` package (3.0.13),
+    `src/assets/allowance-module/v0.1.1/allowance-module.json`, `networkAddresses["8453"]`, and the
+    same file on the repository's `main` branch. All 57 networks listed there share this address
+    (a deterministic deployment). v0.1.0 at `0xCFbFaC74C26F8647cBDb8c5caf80BB5b32E43134` is the older
+    release; we should use 0.1.1.
+  - **Safe Allowance Module, Base Sepolia (`eip155:84532`):** **not in the official list**, in either
+    release. The deterministic address may still hold the same code there, but that has to be
+    checked against the chain (`cast code 0xAA46…091C --rpc-url https://sepolia.base.org`), and an
+    empty result means the module is not deployed on Base Sepolia. Until then, no value.
+  - **USDC, Base and Base Sepolia:** not read yet. Circle's list
+    (developers.circle.com/stablecoins/usdc-contract-addresses) cannot be reached from the cloud
+    sessions, so no value is proposed.
+- **Why:** INT-1 fills `addresses.ts` from verified sources only; EVM-1..EVM-6 need both values.
+- **Blast radius:** `packages/shared/src/addresses.ts` (integrator), the `EVM-*` tasks (onchain).
