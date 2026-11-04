@@ -240,7 +240,9 @@ between callers.
   DNS rebinding.
 - **Rate limited** per client address (`MCP_HTTP_RATE_LIMIT`, 60 a minute by default), before the
   token is checked, so failed logins count too. The address is the socket's, never
-  `X-Forwarded-For`, which any client can write. Behind a reverse proxy every request shares the
+  `X-Forwarded-For`, which any client can write, and an IPv6 client counts by its /64, since one
+  client usually holds the whole block. At most 10,000 clients are tracked at once; past that, new
+  clients get `429` until old windows expire, which bounds memory under a flood of fresh addresses. Behind a reverse proxy every request shares the
   proxy's address, so put the per-client limit in the proxy.
 - **Every request needs** `Authorization: Bearer <MCP_HTTP_TOKEN>`; whoever holds it spends as this
   agent. Put TLS in front before exposing it beyond the machine.
