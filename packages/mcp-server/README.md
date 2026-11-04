@@ -35,18 +35,20 @@ Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
 
 ## Configuration
 
-| Variable         | Required    | Default                | Notes                                                                                        |
-| ---------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `GUARD_URL`      | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
-| `AGENT_ID`       | yes         |                        | The agent this server pays as                                                                |
-| `AGENT_TOKEN`    | yes         |                        | That agent's guard-core bearer token                                                         |
-| `DEFAULT_CHAIN`  | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted                                                   |
-| `BASE_USDC`      | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
-| `MCP_TRANSPORT`  | no          | `stdio`                | `stdio` or `http`                                                                            |
-| `MCP_HTTP_HOST`  | no          | `127.0.0.1`            | HTTP only                                                                                    |
-| `MCP_HTTP_PORT`  | no          | `8789`                 | HTTP only                                                                                    |
-| `MCP_HTTP_TOKEN` | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
-| `LOG_LEVEL`      | no          | `info`                 | Logs go to stderr as JSON                                                                    |
+| Variable                | Required    | Default                | Notes                                                                                        |
+| ----------------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| `GUARD_URL`             | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
+| `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                |
+| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                         |
+| `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted                                                   |
+| `BASE_USDC`             | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
+| `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                            |
+| `MCP_HTTP_HOST`         | no          | `127.0.0.1`            | HTTP only                                                                                    |
+| `MCP_HTTP_PORT`         | no          | `8789`                 | HTTP only                                                                                    |
+| `MCP_HTTP_TOKEN`        | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
+| `MCP_HTTP_ALLOW_REMOTE` | no          | `false`                | Must be `true` to bind `MCP_HTTP_HOST` to anything but loopback                              |
+| `MCP_HTTP_RATE_LIMIT`   | no          | `60`                   | HTTP requests per minute per client address                                                  |
+| `LOG_LEVEL`             | no          | `info`                 | Logs go to stderr as JSON                                                                    |
 
 The config is validated at startup; a bad value stops the server with the field name, never the value.
 Logs never contain the tokens.
@@ -122,8 +124,14 @@ environment. Clients that speak streamable HTTP connect to `http://<host>:<port>
 Stateless streamable HTTP on `POST /mcp`: each request gets its own MCP server, so nothing is shared
 between callers. `GET` and `DELETE` answer 405 because there is no session to stream to or close.
 
-- Bound to `127.0.0.1` by default. On a loopback address the `Host` header must also be loopback,
-  which stops a web page from reaching the server through DNS rebinding.
+- Bound to `127.0.0.1` by default. Any other `MCP_HTTP_HOST` is refused at startup unless
+  `MCP_HTTP_ALLOW_REMOTE=true`, so exposing the server is a deliberate choice. On a loopback address the
+  `Host` header must also be loopback, which stops a web page from reaching the server through DNS
+  rebinding.
+- Rate limited per client address (`MCP_HTTP_RATE_LIMIT`, 60 a minute by default), before the token
+  is checked, so failed logins count too. Over the limit, the answer is `429` with `Retry-After`. The
+  address is the socket's, never `X-Forwarded-For`, which any client can write: behind a reverse proxy
+  every request shares the proxy's address, so put the per-client limit in the proxy.
 - Every request needs `Authorization: Bearer <MCP_HTTP_TOKEN>`; anyone who can call the tools spends as
   this agent. Put TLS in front of it before exposing it beyond the machine.
 

@@ -47,6 +47,23 @@ describe('loadConfig', () => {
     ).toBe(token)
   })
 
+  it('keeps HTTP on loopback unless remote binding is opted into', () => {
+    const http = { ...base, MCP_TRANSPORT: 'http', MCP_HTTP_TOKEN: 'x'.repeat(32) }
+    expect(loadConfig(http).MCP_HTTP_ALLOW_REMOTE).toBe(false)
+    expect(() => loadConfig({ ...http, MCP_HTTP_HOST: '0.0.0.0' })).toThrow('MCP_HTTP_ALLOW_REMOTE')
+    const remote = loadConfig({ ...http, MCP_HTTP_HOST: '0.0.0.0', MCP_HTTP_ALLOW_REMOTE: 'true' })
+    expect(remote.MCP_HTTP_ALLOW_REMOTE).toBe(true)
+    expect(() => loadConfig({ ...http, MCP_HTTP_ALLOW_REMOTE: 'yes' })).toThrow(
+      'MCP_HTTP_ALLOW_REMOTE',
+    )
+  })
+
+  it('rate limits at 60 a minute unless told otherwise', () => {
+    expect(loadConfig(base).MCP_HTTP_RATE_LIMIT).toBe(60)
+    expect(loadConfig({ ...base, MCP_HTTP_RATE_LIMIT: '600' }).MCP_HTTP_RATE_LIMIT).toBe(600)
+    expect(() => loadConfig({ ...base, MCP_HTTP_RATE_LIMIT: '0' })).toThrow('MCP_HTTP_RATE_LIMIT')
+  })
+
   it('never puts the token in the error', () => {
     expect(() => loadConfig({ ...base, GUARD_URL: 'bad' })).not.toThrow(base.AGENT_TOKEN)
   })
