@@ -48,6 +48,10 @@ interface IAllowanceModule {
     function removeDelegate(address delegate, bool removeAllowances) external;
     function setAllowance(address delegate, address token, uint96 amount, uint16 resetTimeMin, uint32 resetBaseMin)
         external;
+    function getTokenAllowance(address safe, address delegate, address token)
+        external
+        view
+        returns (uint256[5] memory);
     function executeAllowanceTransfer(
         address safe,
         address token,
@@ -84,8 +88,10 @@ contract AllowanceCapTest {
     address private constant PROXY_FACTORY = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
     IAllowanceModule private constant MODULE = IAllowanceModule(0xAA46724893dedD72658219405185Fb0Fc91e091C);
 
-    // Pinned so the result cannot drift with the chain.
-    uint256 private constant FORK_BLOCK = 30_000_000;
+    // Pinned so the result cannot drift with the chain (2026-10-25, about). The module is absent at
+    // 30,000,000, so a pin older than its deployment fails setUp; re-pin forward if the RPC stops
+    // serving this block's state.
+    uint256 private constant FORK_BLOCK = 53_000_000;
 
     uint96 private constant CAP = 100e6;
     uint16 private constant DAY_MIN = 1440;
@@ -141,11 +147,15 @@ contract AllowanceCapTest {
         require(token.balanceOf(HOT) == 2 * CAP, "the allowance did not refill");
     }
 
+    /// The kill exactly as buildKillTx builds it: one Safe call, removeDelegate(hot, true).
     function test_drawsNothingAfterTheKill() public {
+        draw(10e6);
         asOwner(address(MODULE), abi.encodeCall(IAllowanceModule.removeDelegate, (HOT, true)));
+        uint256[5] memory allowance = MODULE.getTokenAllowance(address(safe), HOT, address(token));
+        require(allowance[0] == 0, "the allowance survived the kill");
         vm.expectRevert();
         this.drawExternal(1);
-        require(token.balanceOf(HOT) == 0, "a draw went through after the kill");
+        require(token.balanceOf(HOT) == 10e6, "a draw went through after the kill");
     }
 
     /// External so expectRevert can catch the revert of exactly this call.
