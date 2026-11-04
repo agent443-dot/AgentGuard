@@ -507,7 +507,10 @@ Feito em 2026-11-03: os dois identificadores no código estão corretos. Regista
 
 ---
 
-## ⏳ HUMAN-10 — Descarregar o programa Squads para os testes automáticos
+## ✅ HUMAN-10 — Descarregar o programa Squads para os testes automáticos
+
+**Feito em 2026-11-04** (commit `8470861` no branch `fixture/squads-v4`). Com ele, os quatro testes
+do teto passam contra o programa Squads verdadeiro.
 
 Desbloqueia: `SVM-8`, os testes automáticos do teto onchain. Correm o programa Squads verdadeiro dentro
 de um validador local, e para isso precisam do binário dele — que se descarrega da mainnet, coisa que as
