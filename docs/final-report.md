@@ -19,7 +19,7 @@ sign with a hot wallet that can draw no more than a daily cap set onchain.
 | Attack suite            | 24 cases, stub and devnet (INT-5)                                         | 15 cases on the stub chain (INT-6)                                         |
 | Signing gate            | Transaction inspection, then a simulation of the exact transfer           | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`    |
 | Kill                    | The spending limit is removed, signed by the owner                        | `removeDelegate(hot, true)`, proven on the fork                            |
-| Owner signs with Ledger | Built, proven against a fake device (SVM-9)                               | In progress (EVM-9). The scripts refuse mainnet until it lands             |
+| Owner signs with Ledger | Built, proven against a fake device (SVM-9)                               | Built (EVM-9, #41), proven against a fake device. Real hardware is open    |
 
 Across both chains, guard-core has:
 

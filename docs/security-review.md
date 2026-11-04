@@ -99,7 +99,8 @@ chain wiring and startup checks (#35), the bot's chain-aware text (#37), mcp-ser
   to draw.
 - **Addresses from `.env`** are checked against the chain by guard-core (#35) and by the scripts:
   each must hold code, and the USDC must report 6 decimals. The values in `shared/addresses.ts` win.
-  The Base entries there stay empty until the owner confirms them (CR-005).
+  Base Sepolia's Allowance Module is now listed there, because its code hash equals the official
+  mainnet deployment's (CR-005). USDC and every Base mainnet entry stay empty until the owner confirms them.
 - **Display.** The bot shows dollars only for the USDC listed for that chain. Any other token is
   shown in base units, marked as not a known USDC. Until CR-005 lands, Base amounts show in base
   units. Explorer links are chosen by exact chain id, and the id is URL-encoded.
@@ -107,7 +108,7 @@ chain wiring and startup checks (#35), the bot's chain-aware text (#37), mcp-ser
   bound is the same, but a stolen hot key can move the day's cap directly. Recorded for D6 in
   `LAUNCH.md`.
 - **Owner key.** The onchain scripts refuse Base mainnet while the Safe owner signs with a raw
-  key (#31). EVM-9, a Ledger signer for the Safe owner, is in progress.
+  key (#31). EVM-9 (#41) adds a Ledger signer for the Safe owner. The scripts print both hashes the way the device shows them, and refuse if they differ from the one protocol-kit submits. It is proven against a fake device only.
 - **Logs.** No script prints a key. Config errors in the scripts, guard-core and the e2e paywall name
   fields, not values.
 

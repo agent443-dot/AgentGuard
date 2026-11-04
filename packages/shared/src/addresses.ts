@@ -33,7 +33,13 @@ export const ADDRESSES: Record<ChainId, ChainAddresses> = {
     squadsProgram: SQUADS_V4,
   },
   [CHAINS.base]: {},
-  [CHAINS.baseSepolia]: {},
+  [CHAINS.baseSepolia]: {
+    // Allowance Module 0.1.1 at Safe's deterministic address. Safe's list has no Base Sepolia entry,
+    // so CR-005 compares runtime code instead: the code hash here equals the official Base mainnet
+    // deployment's, 0x7aa63affdca06fe94576f00077ad61a02ccf203a5da31e1b4ed595df7b65cf3e
+    // (forge test_moduleOnSepoliaIsTheMainnetCode). USDC waits on the owner's Circle check.
+    allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
+  },
 }
 
 export function getAddress(chain: ChainId, key: keyof ChainAddresses): Address | undefined {

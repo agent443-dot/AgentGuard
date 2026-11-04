@@ -22,8 +22,9 @@ only destination is the hot wallet: a stolen hot-wallet key can only draw the da
 wallet and spend from there. On Base, the Safe Allowance Module lets the delegate send its allowance
 to **any** address, so a stolen hot-wallet key can pull the day's cap straight to an attacker. The
 daily loss bound is the same on both chains (cap + hot wallet balance), but on Base the guard's
-checks never see that draw. The mainnet Safe owner key also needs a hardware signing path, the Base
-side of SVM-9. Today `create-safe` and `enable-allowance` take a raw key, testnet only.
+checks never see that draw. The Safe owner signs on a Ledger since EVM-9 (#41): `OWNER_SIGNER=ledger` for `create-safe`,
+`enable-allowance` and `kill:base`, and the scripts refuse Base mainnet with a raw key. It is proven
+against a fake device only; the real-hardware run is below.
 
 **Key rule, not a decision:** mainnet uses **new keys only**, owner and hot wallet both, generated for
 mainnet and never used on devnet. A devnet seed phrase has been exposed, so no devnet key, and nothing
@@ -89,6 +90,15 @@ Each line can be checked by someone other than its author.
   - each of the three lands on devnet, signed by the Ledger;
   - after the kill, `pnpm status` prints `spending limit:   none at <address>`;
   - blind signing is off again at the end.
+- [ ] **Launch blocker for Base, tied to D4: the Safe owner on a real Ledger, on Base Sepolia.**
+      Follow "The Safe owner on a Ledger" in `packages/onchain/README.md`. Pass criteria:
+  - for `create-safe`, `enable-allowance` and `kill:base`, the **Domain hash and Message hash on
+    the device equal the printed ones**, character for character (`0x` and uppercase, as the app
+    shows them);
+  - with Blind signing off, the script stops and says to turn it on;
+  - each of the three lands on Base Sepolia, signed by the Ledger, gas paid by the executor;
+  - after the kill, `pnpm status:base` shows no allowance for the hot wallet;
+  - Blind signing is off again at the end.
 - [ ] **Mainnet keys** generated fresh (key rule above). The owner key goes on the hardware wallet
       (D4), and the hot wallet key into the secrets manager (D5).
 - [ ] **Mainnet setup**, with the new keys:
