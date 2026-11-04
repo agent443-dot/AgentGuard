@@ -1,3 +1,4 @@
+import { CHAINS } from '@agentguard/shared'
 import { describe, expect, it, vi } from 'vitest'
 import { approval, command, fakeGuard, OWNER, press, sent, setup, STRANGER } from './support.js'
 
@@ -12,6 +13,44 @@ describe('owner commands', () => {
     await bot.handleUpdate(command(OWNER, '/status'))
     expect(lastReply(calls)).toContain('guard-core: reachable')
     expect(lastReply(calls)).toContain('Pending approvals: 1')
+  })
+
+  it('/status lists every chain guard-core runs, with its onchain allowance', async () => {
+    const chains = vi.fn().mockResolvedValue([
+      {
+        chain: CHAINS.solanaDevnet,
+        allowance: {
+          cap: '100000000',
+          spent: '3000000',
+          resetsAt: '2026-11-05T00:00:00Z',
+          delegate: 'D',
+        },
+      },
+      { chain: CHAINS.baseSepolia, allowance: null },
+    ])
+    const { bot, calls } = setup({ guard: fakeGuard({ chains }) })
+    await bot.handleUpdate(command(OWNER, '/status'))
+    const text = lastReply(calls)
+    expect(text).toContain(
+      '• Solana devnet: $3.00 of $100.00 onchain today, resets 2026-11-05 00:00:00 UTC',
+    )
+    expect(text).toContain('• Base Sepolia: <b>onchain allowance could not be read</b>')
+  })
+
+  it('/status still answers when guard-core cannot list its chains', async () => {
+    const chains = vi.fn().mockRejectedValue(new Error('500'))
+    const { bot, calls } = setup({ guard: fakeGuard({ chains }) })
+    await bot.handleUpdate(command(OWNER, '/status'))
+    expect(lastReply(calls)).toContain('guard-core: reachable')
+    expect(lastReply(calls)).toContain('Chains: not reported')
+  })
+
+  it('/status does not ask for chains when guard-core is down', async () => {
+    const guard = fakeGuard({ healthy: vi.fn().mockResolvedValue(false) })
+    const { bot, calls } = setup({ guard })
+    await bot.handleUpdate(command(OWNER, '/status'))
+    expect(guard.chains).not.toHaveBeenCalled()
+    expect(lastReply(calls)).not.toContain('Chains')
   })
 
   it('/budget shows the agent budget', async () => {
@@ -65,6 +104,37 @@ describe('owner commands', () => {
 })
 
 describe('/kill', () => {
+  it('names both chains in the confirmation when guard-core reports them', async () => {
+    const chains = vi.fn().mockResolvedValue([
+      { chain: CHAINS.solanaDevnet, allowance: null },
+      { chain: CHAINS.baseSepolia, allowance: null },
+    ])
+    const { bot, guard, calls } = setup({ guard: fakeGuard({ chains }) })
+    await bot.handleUpdate(command(OWNER, '/kill'))
+    expect(lastReply(calls)).toContain('prepares, for Solana devnet and Base Sepolia, the owner')
+    expect(guard.kill).not.toHaveBeenCalled()
+  })
+
+  it('shows the owner transaction of each chain, Solana and Base, after confirming', async () => {
+    const kill = vi.fn().mockResolvedValue({
+      pausedAgents: 1,
+      ownerTransactions: [
+        {
+          chain: CHAINS.solanaDevnet,
+          description: 'Remove the spending limit',
+          payload: { ix: 1 },
+        },
+        { chain: CHAINS.baseSepolia, description: 'Reset the allowance', payload: { to: '0xabc' } },
+      ],
+    })
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }) })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain('Sign the 2 transactions')
+    const [solana, base] = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
+    expect(solana).toContain('<b>Solana devnet</b>: Remove the spending limit')
+    expect(base).toContain('<b>Base Sepolia</b>: Reset the allowance')
+  })
+
   it('asks first and does nothing until confirmed', async () => {
     const { bot, guard, calls } = setup()
     await bot.handleUpdate(command(OWNER, '/kill'))

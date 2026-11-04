@@ -105,11 +105,21 @@ Each line can be checked by someone other than its author.
       explicitly, because the default is devnet. Also `GUARD_STUB_CHAINS=false`, a mainnet
       `SOLANA_RPC_URL`, and the new `SQUADS_MULTISIG`. The mcp-server `DEFAULT_CHAIN` must match.
 - [ ] **Persistent database.** `DATABASE_URL` defaults to `file:./data/guard.db`. The host needs a
-      persistent volume, or intents, the audit log and daily spend are lost on redeploy.
+      persistent volume, or intents, the audit log and daily spend are lost on redeploy. Since #35,
+      guard-core refuses to start on mainnet with the database in memory, inside the repository or
+      in a temp directory, and `pnpm db:backup` takes a consistent copy while it runs. **Left:** the
+      volume itself, and a backup schedule, once HUMAN-7 picks a host.
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
       fronts each service, secrets in the manager).
-- [ ] **Rate limits in front of the bot hooks and the MCP HTTP endpoint**, or both kept private. Today
-      they have none and rely on loopback (`docs/security-review.md`).
+- [x] **Rate limits on the bot hooks and the MCP HTTP endpoint.**
+  - Bot hooks (#38): `HOOK_RATE_LIMIT_PER_MINUTE`, default 300. A request without a well-formed
+    signature is refused before its body is read.
+  - MCP HTTP (#45): `MCP_HTTP_RATE_LIMIT`, default 60. It stays on loopback unless
+    `MCP_HTTP_ALLOW_REMOTE=true`.
+  - guard-core (#35): limits per IP, and per agent token on the agent routes.
+
+  All three count per socket address. A proxy in front (HUMAN-7) needs its own per-client limit.
+
 - [ ] **Bug bounty, landing page, MCP setup docs for agent builders** (INT-8 scope). Not started.
 - [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
 

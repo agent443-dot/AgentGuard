@@ -1,4 +1,5 @@
 import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
+import type { ChainStatus } from '../domain/chains.js'
 import { z } from 'zod'
 import { payIntent } from '../http/schemas.js'
 
@@ -13,6 +14,8 @@ export interface GuardClient {
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
   budget(agentId: string): Promise<BudgetView | undefined>
+  /** Undefined while guard-core has no chains route (CR-006). */
+  chains(): Promise<ChainStatus[] | undefined>
   healthy(): Promise<boolean>
 }
 
@@ -40,6 +43,24 @@ const killResult = z.object({
   ownerTransactions: z.array(
     z.object({ chain: z.string().min(1), description: z.string(), payload: z.unknown() }),
   ),
+})
+
+const chainList = z.object({
+  chains: z
+    .array(
+      z.object({
+        chain: z.string().min(1).max(64),
+        allowance: z
+          .object({
+            cap: atomic,
+            spent: atomic,
+            resetsAt: z.iso.datetime({ offset: true }),
+            delegate: z.string().min(1).max(128),
+          })
+          .nullable(),
+      }),
+    )
+    .max(16),
 })
 
 const budgetView = z.object({
@@ -115,6 +136,14 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return undefined
       }
       return budgetView.parse(await ok(response))
+    },
+
+    async chains() {
+      const response = await admin('GET', '/v1/admin/chains')
+      if (response.status === 404) {
+        return undefined
+      }
+      return chainList.parse(await ok(response)).chains
     },
 
     async healthy() {

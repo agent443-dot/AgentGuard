@@ -9,6 +9,7 @@ import {
   ownerTransactionText,
   statusText,
 } from '../domain/text.js'
+import { chainsText, killWarning } from '../domain/chains.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
@@ -21,10 +22,6 @@ const HTML = { parse_mode: 'HTML' } as const
 
 const AGENT_ID = /^\S{1,64}$/
 
-const KILL_WARNING =
-  '<b>Kill switch.</b> This pauses every agent and prepares, for each chain, the owner transaction ' +
-  'that sets the allowance to 0 and removes the delegate. Continue?'
-
 export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): void {
   /** A command that cannot reach guard-core says so instead of going quiet. */
   async function guarded(ctx: Context, work: () => Promise<void>) {
@@ -36,10 +33,22 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
     }
   }
 
+  /** Best effort: a chain list that fails to load must not hide the rest of /status or /kill. */
+  async function chains() {
+    try {
+      return await guard.chains()
+    } catch (err) {
+      log.warn({ err }, 'chain list failed')
+      return undefined
+    }
+  }
+
   bot.command('status', (ctx) =>
     guarded(ctx, async () => {
       const pending = desk.book.open().map((entry) => entry.request)
-      await ctx.reply(statusText(await guard.healthy(), pending), HTML)
+      const up = await guard.healthy()
+      const text = statusText(up, pending)
+      await ctx.reply(up ? `${text}\n${chainsText(await chains())}` : text, HTML)
     }),
   )
 
@@ -73,8 +82,8 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
     )
   }
 
-  bot.command('kill', (ctx) =>
-    ctx.reply(KILL_WARNING, {
+  bot.command('kill', async (ctx) =>
+    ctx.reply(killWarning(await chains()), {
       ...HTML,
       reply_markup: new InlineKeyboard()
         .text('Kill everything', 'kill:confirm')
