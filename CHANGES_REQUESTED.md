@@ -258,7 +258,7 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** onchain
 - **Date:** 2026-11-04
-- **Status:** proposed — Allowance Module on Base mainnet verified; Base Sepolia and USDC still open
+- **Status:** proposed — Allowance Module verified on Base mainnet and Base Sepolia; USDC still open
 - **What:**
   - **Safe Allowance Module, Base mainnet (`eip155:8453`):** `0xAA46724893dedD72658219405185Fb0Fc91e091C`,
     version 0.1.1. Source: the official `@safe-global/safe-modules-deployments` package (3.0.13),
@@ -272,10 +272,19 @@ integrator before any session writes code, since every package imports those typ
     Safe deploys it deterministically, so the same address on another chain means the same init code.
     It is still absent from Safe's official list for 84532; whether that is enough to add it to
     `addresses.ts` is the owner's call.
-  - **Safe Allowance Module, Base Sepolia (`eip155:84532`):** **not in the official list**, in either
-    release. The deterministic address may still hold the same code there, but that has to be
-    checked against the chain (`cast code 0xAA46…091C --rpc-url https://sepolia.base.org`), and an
-    empty result means the module is not deployed on Base Sepolia. Until then, no value.
+  - **Update 2026-11-04 (onchain), code hashes:** the forge test
+    `test_moduleOnSepoliaIsTheMainnetCode` (`packages/onchain/forge/AllowanceCap.t.sol`, PR #41) reads
+    the runtime code hash at `0xAA46…091C` on a Base mainnet fork and a Base Sepolia fork and fails
+    unless they are equal. CI on PR #41 (commit 5c192ec), job 126355459090, printed:
+    - Base mainnet: `0x7aa63affdca06fe94576f00077ad61a02ccf203a5da31e1b4ed595df7b65cf3e`
+    - Base Sepolia: `0x7aa63affdca06fe94576f00077ad61a02ccf203a5da31e1b4ed595df7b65cf3e`
+
+    `pnpm check:simulate` against `https://sepolia.base.org` printed the same Sepolia hash (job
+    126354320884). Equal code at the same address: **proposed value for Base Sepolia
+    (`eip155:84532`) is `0xAA46724893dedD72658219405185Fb0Fc91e091C`**, verified on-chain against the
+    mainnet copy rather than taken from Safe's list.
+  - **Safe Allowance Module, Base Sepolia (`eip155:84532`):** not in the official list, in either
+    release; deployed with the mainnet code, see the code-hash update above.
   - **USDC, Base and Base Sepolia:** not read yet. Circle's list
     (developers.circle.com/stablecoins/usdc-contract-addresses) cannot be reached from the cloud
     sessions, so no value is proposed.
