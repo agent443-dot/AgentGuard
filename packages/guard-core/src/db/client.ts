@@ -12,8 +12,12 @@ export type Db = ReturnType<typeof openDb>
  * `url` follows the DATABASE_URL form "file:./data/guard.db"; ":memory:" is accepted for tests.
  * WAL keeps the expiry sweep from blocking writes on the request path.
  */
+export function dbFile(url: string): string {
+  return url.startsWith('file:') ? url.slice('file:'.length) : url
+}
+
 export function openDb(url: string) {
-  const file = url.startsWith('file:') ? url.slice('file:'.length) : url
+  const file = dbFile(url)
   if (file !== ':memory:') {
     mkdirSync(dirname(file), { recursive: true })
   }

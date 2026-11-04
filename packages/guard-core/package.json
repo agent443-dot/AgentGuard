@@ -13,6 +13,7 @@
     "start": "tsx --env-file=.env src/main.ts",
     "create-agent": "tsx --env-file=.env src/scripts/create-agent.ts",
     "revoke-agent": "tsx --env-file=.env src/scripts/revoke-agent.ts",
+    "db:backup": "tsx --env-file=.env src/scripts/db-backup.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",

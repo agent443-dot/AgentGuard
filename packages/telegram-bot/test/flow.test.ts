@@ -18,9 +18,10 @@ import {
   STRANGER,
 } from './support.js'
 
-async function harness(options: Parameters<typeof setup>[0] = {}) {
+async function harness(options: Parameters<typeof setup>[0] & { perMinute?: number } = {}) {
   const parts = setup(options)
   const app = await buildServer({
+    rateLimitPerMinute: options.perMinute,
     secret: SECRET,
     handlers: {
       approvalRequest: (request) => parts.desk.post(request),
@@ -161,6 +162,31 @@ describe('POST /hooks/approval-request', () => {
     const response = await deliver('/hooks/approval-request', approval(), sign('other', SECRET))
     expect(response.statusCode).toBe(401)
     expect(calls).toHaveLength(0)
+  })
+
+  it('drops a request without a usable signature before reading its body', async () => {
+    const { app, calls } = await harness()
+    for (const signature of [undefined, 'nothex', 'ab'.repeat(31)]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/hooks/approval-request',
+        headers: {
+          'content-type': 'application/json',
+          ...(signature === undefined ? {} : { 'x-guard-signature': signature }),
+        },
+        // Past the 64 KiB body limit: a 401 rather than a 413 shows the body was never read.
+        payload: 'x'.repeat(100 * 1024),
+      })
+      expect(response.statusCode).toBe(401)
+    }
+    expect(calls).toHaveLength(0)
+  })
+
+  it('rate-limits the hooks per client', async () => {
+    const { deliver } = await harness({ perMinute: 2 })
+    expect((await deliver('/hooks/approval-request', approval())).statusCode).toBe(200)
+    expect((await deliver('/hooks/approval-request', approval())).statusCode).toBe(409)
+    expect((await deliver('/hooks/approval-request', approval())).statusCode).toBe(429)
   })
 
   it('refuses a missing signature', async () => {

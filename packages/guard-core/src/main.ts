@@ -1,9 +1,12 @@
 import { buildChains } from './chains.js'
 import { loadConfig } from './config.js'
 import { migrateDb, openDb } from './db/client.js'
+import { requirePersistentDb } from './db/placement.js'
 import { buildServer } from './http/server.js'
 
 const config = loadConfig()
+
+requirePersistentDb(config)
 
 const db = openDb(config.DATABASE_URL)
 migrateDb(db)

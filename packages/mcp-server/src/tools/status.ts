@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { Budget, Intent } from '../adapters/guard.js'
+import { chainName } from '../domain/chains.js'
 import { explainStatus } from '../domain/explain.js'
 import { formatAmount } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
@@ -51,7 +52,9 @@ function describeBudget(budget: Budget): string {
   if (balances.length > 0) {
     lines.push(
       'Hot wallet balances:',
-      ...balances.map(([chain, amount]) => `- ${chain}: ${formatAmount(amount)}`),
+      ...balances.map(
+        ([chain, amount]) => `- ${chainName(chain)} (${chain}): ${formatAmount(amount)}`,
+      ),
     )
   }
   return lines.join('\n')
@@ -64,7 +67,7 @@ function describeIntent(intent: Intent): string {
       : `transfer to ${intent.recipient}`
   const lines = [
     `Intent ${intent.id}: ${intent.status}.`,
-    `${formatAmount(intent.amount)} USDC, ${target}, on ${intent.chain}.`,
+    `${formatAmount(intent.amount)} USDC, ${target}, on ${chainName(intent.chain)} (${intent.chain}).`,
     `Created ${intent.createdAt}, expires ${intent.expiresAt}.`,
   ]
   if (intent.txId !== undefined) {

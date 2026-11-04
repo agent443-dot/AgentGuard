@@ -24,8 +24,16 @@ describe('loadConfig', () => {
     ['AGENT_TOKEN', { GUARD_URL: base.GUARD_URL, AGENT_ID: base.AGENT_ID }],
     ['DEFAULT_CHAIN', { ...base, DEFAULT_CHAIN: 'eip155:1' }],
     ['MCP_HTTP_PORT', { ...base, MCP_HTTP_PORT: '70000' }],
+    ['BASE_USDC', { ...base, BASE_USDC: '0x123' }],
   ])('rejects a bad %s', (field, env) => {
     expect(() => loadConfig(env)).toThrow(field)
+  })
+
+  it('accepts Base Sepolia as the default chain with a Base USDC address', () => {
+    const usdc = '0x' + 'ab'.repeat(20)
+    const config = loadConfig({ ...base, DEFAULT_CHAIN: CHAINS.baseSepolia, BASE_USDC: usdc })
+    expect(config.DEFAULT_CHAIN).toBe('eip155:84532')
+    expect(config.BASE_USDC).toBe(usdc)
   })
 
   it('requires a long MCP_HTTP_TOKEN for the http transport', () => {

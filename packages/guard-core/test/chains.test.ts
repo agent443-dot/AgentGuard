@@ -1,5 +1,5 @@
 import { CHAINS } from '@agentguard/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildChains } from '../src/chains.js'
 import { loadConfig } from '../src/config.js'
 
@@ -19,7 +19,28 @@ const baseChain = {
   BASE_ALLOWANCE_MODULE: `0x${'c'.repeat(40)}`,
 }
 
-const build = (env: Record<string, string>) => buildChains(loadConfig({ ...base, ...env }))
+/** A Base node where every address holds code and the token reports `decimals`. */
+function node(options: { noCodeAt?: string; decimals?: number; down?: boolean } = {}) {
+  return vi.fn<typeof fetch>(async (_url, init) => {
+    if (options.down) {
+      throw new TypeError('fetch failed')
+    }
+    const { method, params } = JSON.parse(String(init?.body)) as {
+      method: string
+      params: [unknown]
+    }
+    const result =
+      method === 'eth_getCode'
+        ? params[0] === options.noCodeAt
+          ? '0x'
+          : '0x6080'
+        : `0x${(options.decimals ?? 6).toString(16).padStart(64, '0')}`
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }))
+  })
+}
+
+const build = (env: Record<string, string>, fetchImpl: typeof fetch = node()) =>
+  buildChains(loadConfig({ ...base, ...env }), fetchImpl)
 
 describe('buildChains', () => {
   it('builds no chain when none is configured', async () => {
@@ -67,5 +88,47 @@ describe('buildChains', () => {
   it('runs the stub chain alone when asked to', async () => {
     const chains = await build({ ...baseChain, GUARD_STUB_CHAINS: 'true' })
     expect([...chains.keys()]).toEqual([CHAINS.solanaDevnet])
+  })
+})
+
+describe('checking env addresses against the chain before trusting them', () => {
+  it('asks for code at the Safe, USDC and module, and USDC decimals', async () => {
+    const fetchImpl = node()
+    await build(baseChain, fetchImpl)
+    const asked = fetchImpl.mock.calls.map(([, init]) => {
+      const { method, params } = JSON.parse(String(init?.body)) as {
+        method: string
+        params: unknown[]
+      }
+      return [method, method === 'eth_call' ? (params[0] as { to: string }).to : params[0]]
+    })
+    expect(asked).toEqual([
+      ['eth_getCode', baseChain.SAFE_ADDRESS],
+      ['eth_getCode', baseChain.BASE_USDC],
+      ['eth_call', baseChain.BASE_USDC],
+      ['eth_getCode', baseChain.BASE_ALLOWANCE_MODULE],
+    ])
+  })
+
+  it.each([
+    ['SAFE_ADDRESS', baseChain.SAFE_ADDRESS],
+    ['BASE_USDC', baseChain.BASE_USDC],
+    ['BASE_ALLOWANCE_MODULE', baseChain.BASE_ALLOWANCE_MODULE],
+  ])('refuses %s when no contract lives there', async (name, address) => {
+    await expect(build(baseChain, node({ noCodeAt: address }))).rejects.toThrow(
+      `${name} has no contract on this chain`,
+    )
+  })
+
+  it('refuses a token that is not 6 decimals', async () => {
+    await expect(build(baseChain, node({ decimals: 18 }))).rejects.toThrow(
+      'BASE_USDC is not a 6-decimal token, so it is not USDC',
+    )
+  })
+
+  it('refuses to start when the node cannot be asked', async () => {
+    await expect(build(baseChain, node({ down: true }))).rejects.toThrow(
+      'could not check SAFE_ADDRESS against BASE_RPC_URL',
+    )
   })
 })
