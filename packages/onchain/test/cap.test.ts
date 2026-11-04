@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
@@ -18,7 +17,7 @@ import { fakeLedger } from './ledger.js'
 /**
  * The onchain cap, with the real Squads v4 program giving every verdict. Its binary is dumped from
  * mainnet by the owner (`solana program dump SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf ...`) and
- * committed; until it is, these are skipped rather than faked.
+ * committed. A missing binary fails these tests rather than skipping them: they are the gate.
  */
 const binary = fileURLToPath(new URL('./fixtures/squads_v4.so', import.meta.url))
 const CAP = 100n * USDC
@@ -62,7 +61,7 @@ function plantProgramConfig(target: Chain) {
   })
 }
 
-describe.skipIf(!existsSync(binary))('the Squads spending limit', () => {
+describe('the Squads spending limit', () => {
   beforeEach(async () => {
     c = chain()
     c.svm.addProgramFromFile(multisig.PROGRAM_ID, binary)
