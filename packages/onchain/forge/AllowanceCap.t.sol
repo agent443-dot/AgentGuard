@@ -10,6 +10,7 @@ interface Vm {
     function prank(address sender) external;
     function warp(uint256 timestamp) external;
     function expectRevert() external;
+    function toString(bytes32 value) external pure returns (string memory);
 }
 
 interface ISafe {
@@ -173,11 +174,11 @@ contract AllowanceCapTest {
         require(sepolia == mainnet, "the module on Base Sepolia is not the mainnet code");
     }
 
-    /// console.sol has no log(string,bytes32), and forge drops a call it cannot decode, so the label
-    /// and the hash go out as two calls it knows.
+    /// The hash goes out as text in a single log(string), the one console call every forge decodes.
     function log(string memory label, bytes32 value) private view {
-        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string)", label));
-        (ok,) = CONSOLE.staticcall(abi.encodeWithSignature("logBytes32(bytes32)", value));
+        string memory line = string.concat(label, " ", vm.toString(value));
+        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string)", line));
+        ok;
     }
 
     /// External so expectRevert can catch the revert of exactly this call.
