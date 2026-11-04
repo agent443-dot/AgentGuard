@@ -76,13 +76,13 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 ## Commands
 
-| Command             | Does                                                                                                                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/status`           | Whether guard-core is reachable, and the approvals waiting                                                                                                                                              |
-| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                    |
-| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                  |
-| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                 |
-| `/kill`             | Asks to confirm, then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
+| Command             | Does                                                                                                                                                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/status`           | Whether guard-core is reachable, the approvals waiting, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")                                                                  |
+| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                             |
+| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                           |
+| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |
+| `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
 
 ## Notifications
 

@@ -3,6 +3,7 @@ import type { PayIntent, RejectCode } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import { ATTACK_WINDOW_MS, Alerts } from '../src/domain/alerts.js'
 import { ATTACK_CODES, attackCodesIn } from '../src/domain/codes.js'
+import { chainsText, killWarning } from '../src/domain/chains.js'
 import { formatUsd } from '../src/domain/money.js'
 import { explorerUrl } from '../src/domain/explorer.js'
 import { ApprovalBook, EventLog } from '../src/domain/replay.js'
@@ -181,6 +182,14 @@ describe('Alerts', () => {
     for (let i = 0; i < 5; i++) {
       expect(alerts.for(intent({ status: 'executed' }), later(i))).toHaveLength(1)
     }
+  })
+})
+
+describe('chainsText', () => {
+  it('warns when guard-core runs no chain at all', () => {
+    expect(chainsText([])).toContain('none configured')
+    expect(killWarning([])).toContain('for each chain')
+    expect(killWarning(undefined)).toContain('for each chain')
   })
 })
 

@@ -275,3 +275,46 @@ integrator before any session writes code, since every package imports those typ
     sessions, so no value is proposed.
 - **Why:** INT-1 fills `addresses.ts` from verified sources only; EVM-1..EVM-6 need both values.
 - **Blast radius:** `packages/shared/src/addresses.ts` (integrator), the `EVM-*` tasks (onchain).
+
+### CR-006 — Let callers see which chains guard-core runs
+
+- **From:** bot, covering mcp's request too (via the manager, 2026-11-04)
+- **Date:** 2026-11-04
+- **Status:** proposed
+- **What:** two additions to "guard-core HTTP API" in [`/SPEC.md`](./SPEC.md). Nothing existing is
+  removed or renamed.
+
+  1. **Admin route, for the bot:**
+
+     ```
+     GET /v1/admin/chains -> { chains: { chain: string, allowance: AllowanceState | null }[] }   (admin token)
+     ```
+
+     One entry per configured `ChainAdapter`, in the order guard-core holds them. `allowance` is that
+     adapter's `getAllowanceState()`, or `null` when reading it failed (the same convention as the null
+     kill `payload`). An empty list means no chain is configured, so every payment is refused.
+
+  2. **The same list on the agent's budget, for mcp.** `GET /v1/agent/budget/:agentId` gains one field:
+
+     ```
+     BudgetView.chains: string[]   // CAIP-2 ids guard-core runs AND this agent's policy allows
+     ```
+
+     It is the intersection of the configured adapters and `Policy.chains`, so an agent learns only
+     where it may actually pay, never the operator's full setup or the allowance figures. The admin
+     budget route returns it too, since it shares `BudgetView`.
+
+- **Why:**
+  - The bot (BOT-10) must show both chains on `/status` once Base is configured, and name them in the
+    `/kill` confirmation. Nothing guard-core exposes says which chains it runs: `/health` is
+    `{ status: "ok" }`, and budget needs an agent id.
+  - mcp wants to check its `DEFAULT_CHAIN` against what the guard will accept. Today a wrong
+    `DEFAULT_CHAIN` only shows up as `CHAIN_NOT_ALLOWED` on the first payment. mcp holds an agent token,
+    not the admin token, so it needs the list on the agent-scoped route.
+- **Blast radius:**
+  - guard-core: one read-only admin route over the adapters it already holds, plus one field computed
+    on the existing budget route.
+  - shared: `BudgetView.chains` and a `ChainStatus` type (integrator).
+  - telegram-bot: already built against item 1. Until the route exists, `/status` says "Chains: not
+    reported by this guard-core" and `/kill` keeps its generic text (#42).
+  - mcp-server: can read item 2 at startup and warn, or refuse, when `DEFAULT_CHAIN` is not in it.
