@@ -1,15 +1,18 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import * as repo from '../db/repo.js'
-import { parseBearer } from '../domain/auth.js'
+import { hashToken, parseBearer } from '../domain/auth.js'
 import { UpstreamError } from '../adapters/upstream.js'
 import { budget } from '../service/budget.js'
 import { transfer } from '../service/transfer.js'
 import { paidFetch, type X402Deps } from '../service/x402.js'
 import { HttpError } from './errors.js'
+import { windowLimiter } from './limiter.js'
 import { agentIdParam, intentIdParam, transferRequest, x402FetchRequest } from './schemas.js'
 
-export function agentRoutes(deps: X402Deps) {
+export function agentRoutes(deps: X402Deps, limits: { perIp: number; perAgent: number }) {
   const { db } = deps
+  const perIp = windowLimiter(limits.perIp, 60_000)
+  const perAgent = windowLimiter(limits.perAgent, 60_000)
 
   async function requireAgent(request: FastifyRequest, reply: FastifyReply) {
     const presented = parseBearer(request.headers.authorization)
@@ -33,6 +36,20 @@ export function agentRoutes(deps: X402Deps) {
   }
 
   return async (app: FastifyInstance) => {
+    // Two budgets, both checked before the token is looked up. Per address, so one machine cannot
+    // flood the routes with many tokens; per token, so one agent spread over many addresses still
+    // gets one budget. The token is keyed by its digest, so the limiter never holds a usable token.
+    app.addHook('onRequest', async (request, reply) => {
+      const token = hashToken(parseBearer(request.headers.authorization) ?? '')
+      for (const result of [perIp(`ip:${request.ip}`), perAgent(`agent:${token}`)]) {
+        if (!result.allowed) {
+          return reply
+            .code(429)
+            .header('retry-after', String(result.retryAfterS))
+            .send({ error: 'rate_limited' })
+        }
+      }
+    })
     app.addHook('preHandler', requireAgent)
 
     app.post('/transfer', async (request) => {

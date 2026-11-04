@@ -57,6 +57,11 @@ the pipeline moves it on.
 - **Spend** is counted once a signed transaction leaves our hands, whether or not we hear that it
   landed. Overcounting only shrinks the day's budget; undercounting would let the agent past it.
 
+The agent routes carry two rate limits, checked before the token is looked up: per IP
+(`RATE_LIMIT_PER_IP`, 120 a minute) and per agent token (`RATE_LIMIT_PER_AGENT`, 60 a minute), so
+neither many tokens from one address nor one token from many addresses gets past. Admin and bot
+routes keep the per-IP limit. A limited request gets 429 with `retry-after`.
+
 Payments for one agent run one at a time, so two concurrent requests cannot both pass the daily
 max against the same total.
 

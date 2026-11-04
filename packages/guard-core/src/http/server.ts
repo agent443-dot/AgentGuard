@@ -56,7 +56,7 @@ export async function buildServer(options: ServerDeps) {
     log: app.log,
   }
 
-  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
+  await app.register(rateLimit, { max: config.RATE_LIMIT_PER_IP, timeWindow: '1 minute' })
 
   app.setErrorHandler((error: FastifyError | z.ZodError, request, reply) => {
     if (error instanceof z.ZodError) {
@@ -78,7 +78,10 @@ export async function buildServer(options: ServerDeps) {
     }
   }
 
-  app.register(agentRoutes(deps), { prefix: '/v1/agent' })
+  app.register(
+    agentRoutes(deps, { perIp: config.RATE_LIMIT_PER_IP, perAgent: config.RATE_LIMIT_PER_AGENT }),
+    { prefix: '/v1/agent' },
+  )
   app.register(
     async (admin) => {
       admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
