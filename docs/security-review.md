@@ -100,7 +100,7 @@ chain wiring and startup checks (#35), the bot's chain-aware text (#37), mcp-ser
 - **Addresses from `.env`** are checked against the chain by guard-core (#35) and by the scripts:
   each must hold code, and the USDC must report 6 decimals. The values in `shared/addresses.ts` win.
   Base Sepolia's Allowance Module is now listed there, because its code hash equals the official
-  mainnet deployment's (CR-005). USDC and every Base mainnet entry stay empty until the owner confirms them.
+  mainnet deployment's (CR-005). Base Sepolia USDC followed, confirmed by the owner against Circle's list. Every Base mainnet entry stays empty until the owner decides the launch.
 - **Display.** The bot shows dollars only for the USDC listed for that chain. Any other token is
   shown in base units, marked as not a known USDC. Until CR-005 lands, Base amounts show in base
   units. Explorer links are chosen by exact chain id, and the id is URL-encoded.
