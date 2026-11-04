@@ -1,3 +1,4 @@
+import type { ChainStatus } from '@agentguard/shared'
 import type { FastifyInstance } from 'fastify'
 import * as repo from '../db/repo.js'
 import { budget } from '../service/budget.js'
@@ -31,7 +32,7 @@ export function adminRoutes(deps: PaymentDeps) {
     // the bot still has to show the owner that the chain exists.
     app.get('/chains', async (request) => ({
       chains: await Promise.all(
-        [...deps.chains.values()].map(async (adapter) => {
+        [...deps.chains.values()].map(async (adapter): Promise<ChainStatus> => {
           try {
             return { chain: adapter.chain, allowance: await adapter.getAllowanceState() }
           } catch (error) {
