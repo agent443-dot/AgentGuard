@@ -173,9 +173,11 @@ contract AllowanceCapTest {
         require(sepolia == mainnet, "the module on Base Sepolia is not the mainnet code");
     }
 
+    /// console.sol has no log(string,bytes32), and forge drops a call it cannot decode, so the label
+    /// and the hash go out as two calls it knows.
     function log(string memory label, bytes32 value) private view {
-        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string,bytes32)", label, value));
-        ok;
+        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string)", label));
+        (ok,) = CONSOLE.staticcall(abi.encodeWithSignature("logBytes32(bytes32)", value));
     }
 
     /// External so expectRevert can catch the revert of exactly this call.
