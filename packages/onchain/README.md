@@ -30,21 +30,21 @@ built from plain values, so guard-core never handles a Solana SDK type.
 pnpm --filter @agentguard/onchain test
 ```
 
-The adapter tests run against [LiteSVM](https://github.com/LiteSVM/litesvm): the token program
-executes for real and only the RPC transport is faked (`test/litesvm.ts`).
+The adapter tests run against [LiteSVM](https://github.com/LiteSVM/litesvm) 1.x: the token,
+associated token and memo programs execute for real, and only the RPC transport is faked
+(`test/litesvm.ts`). LiteSVM 1.x speaks `@solana/kit`, so `test/svm.ts` converts at the boundary;
+the 0.x releases, which spoke web3.js, abort with `std::bad_alloc` after a few program runs.
 
-`test/cap.test.ts` proves the onchain cap with the real Squads program: a draw inside the cap, `cap +
-1` refused, the refill after a warped day, and nothing after the kill. It needs the program binary,
-which is skipped until it is committed:
+`test/cap.test.ts` proves the onchain cap with the real Squads v4 program, which gives every verdict:
+a draw up to the cap succeeds, `cap + 1` is refused with `SpendingLimitExceeded`, the limit refills
+after a warped day, and after the kill, signed by the owner through the fake Ledger, a draw is
+refused because the limit account no longer exists. The program binary in `test/fixtures` was
+dumped from mainnet:
 
 ```bash
 solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf \
   packages/onchain/test/fixtures/squads_v4.so
 ```
-
-LiteSVM 0.6 to 0.8 abort with `std::bad_alloc` in the cloud containers after a few runs of the
-associated token or memo programs. No test executes those two; their instructions are covered by the
-static tests.
 
 ### The owner on a Ledger
 

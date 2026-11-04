@@ -101,8 +101,7 @@ const inspectOnly = (): SigningGate => {
 }
 
 describe('the x402 exact client behind the gate', () => {
-  // The memo the SDK appends cannot run under LiteSVM here (see fixture.ts), so this gate inspects
-  // and does not simulate. It proves the SDK's real transaction passes the inspection and is signed.
+  // An inspecting gate on its own: the SDK's real transaction, memo included, passes and is signed.
   it('signs the transaction the SDK builds for the agreed payment', async () => {
     const scheme = gatedScheme(c.hotWallet, inspectOnly(), rpcUrl)
     const { payload } = await scheme.createPaymentPayload(2, requirements())
@@ -200,7 +199,24 @@ describe('svmAdapter.x402Scheme', () => {
     )
   })
 
-  // The merchant has no token account, so the transfer fails in simulation before the memo runs.
+  it('signs once the simulation shows exactly the agreed payment', async () => {
+    c.fund(merchant, 0n)
+    const scheme = adapter().x402Scheme(intent(), requirements())
+    const { payload } = await scheme.createPaymentPayload(2, requirements())
+    expect(typeof payload['transaction']).toBe('string')
+  })
+
+  it('refuses when the hot wallet account carries a delegate the simulation would leave behind', async () => {
+    c.fund(merchant, 0n)
+    const source = getAssociatedTokenAddressSync(c.mint, c.hotWallet.publicKey)
+    c.run([createApproveInstruction(source, facilitator, c.hotWallet.publicKey, 1n)], c.hotWallet)
+    const scheme = adapter().x402Scheme(intent(), requirements())
+    await expect(scheme.createPaymentPayload(2, requirements())).rejects.toEqual(
+      new SigningRefused(['SIM_UNEXPECTED_EFFECT']),
+    )
+  })
+
+  // The merchant has no token account, so the transfer fails in simulation.
   it('simulates before signing, and refuses a payment the chain would reject', async () => {
     const scheme = adapter().x402Scheme(intent(), requirements())
     await expect(scheme.createPaymentPayload(2, requirements())).rejects.toEqual(

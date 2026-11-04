@@ -17,7 +17,7 @@ import {
   type TransactionInstruction,
 } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
-import { LiteSVM } from 'litesvm'
+import { Svm } from './svm.js'
 import { svmAdapter } from '../src/svm/adapter.js'
 import { spendingLimitPda, VAULT_INDEX } from '../src/svm/squads.js'
 import { liteConnection } from './litesvm.js'
@@ -26,7 +26,7 @@ export const USDC = 1_000_000n
 
 /** A fresh chain with a USDC-like mint, a funded hot wallet and an adapter pointed at both. */
 export function chain() {
-  const svm = new LiteSVM()
+  const svm = new Svm()
   const connection = liteConnection(svm)
   const payer = Keypair.generate()
   const hotWallet = Keypair.generate()
@@ -46,10 +46,8 @@ export function chain() {
     return result
   }
 
-  // Planted rather than created. LiteSVM 0.6 to 0.8 abort with std::bad_alloc in the cloud
-  // container after a few runs of the associated token or memo programs; the token and system
-  // programs run fine. So no test here executes those two, and their instructions are covered by
-  // the static tests instead.
+  // Planted rather than minted: a balance is all most tests need, and it keeps the mint authority
+  // out of every transaction they inspect.
   function fund(owner: PublicKey, amount: bigint): PublicKey {
     const address = getAssociatedTokenAddressSync(mint, owner, true)
     const data = Buffer.alloc(ACCOUNT_SIZE)
