@@ -120,6 +120,18 @@ export interface BudgetView {
   perTxMax: Amount
   hotWalletBalances: Record<ChainId, Amount>
   paused: boolean
+  /**
+   * CR-006: chains guard-core runs an adapter for that this agent's policy allows. Optional only
+   * until guard-core returns it; consumers must treat its absence as "not reported".
+   */
+  chains?: ChainId[]
+}
+
+/** One entry of GET /v1/admin/chains (CR-006). */
+export interface ChainStatus {
+  chain: ChainId
+  /** Null when the adapter's allowance could not be read. */
+  allowance: AllowanceState | null
 }
 
 /** Body of POST {BOT_URL}/hooks/intent-event, sent when an intent reaches a final status. */
