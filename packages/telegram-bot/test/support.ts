@@ -103,6 +103,7 @@ export function fakeGuard(overrides: Partial<GuardClient> = {}): GuardClient {
     setPaused: vi.fn(async () => 'ok' as const),
     kill: vi.fn(async () => ({ pausedAgents: 2, ownerTransactions: [] })),
     budget: vi.fn(async () => undefined),
+    chains: vi.fn(async () => undefined),
     healthy: vi.fn(async () => true),
     ...overrides,
   }

@@ -275,3 +275,26 @@ integrator before any session writes code, since every package imports those typ
     sessions, so no value is proposed.
 - **Why:** INT-1 fills `addresses.ts` from verified sources only; EVM-1..EVM-6 need both values.
 - **Blast radius:** `packages/shared/src/addresses.ts` (integrator), the `EVM-*` tasks (onchain).
+
+### CR-006 — An admin route listing the chains guard-core runs
+
+- **From:** bot
+- **Date:** 2026-11-04
+- **Status:** proposed
+- **What:** one addition to "guard-core HTTP API" in [`/SPEC.md`](./SPEC.md). Nothing existing changes.
+
+  ```
+  GET /v1/admin/chains -> { chains: { chain: string, allowance: AllowanceState | null }[] }   (admin token)
+  ```
+
+  One entry per configured `ChainAdapter`, in the order guard-core holds them. `allowance` is that
+  adapter's `getAllowanceState()`, or `null` when reading it failed (the same convention as the null
+  kill `payload`). An empty list means no chain is configured, so every payment is refused.
+
+- **Why:** BOT-10 asks `/status` to show both chains once Base is configured, but nothing guard-core
+  exposes says which chains it runs. `/health` is `{ status: "ok" }`, and `/v1/admin/budget/:agentId`
+  needs an agent id. With this route, `/status` shows each chain's onchain spend against its cap, and
+  the `/kill` confirmation names the chains it will cover.
+- **Blast radius:** guard-core (one read-only admin route over the adapters it already holds),
+  shared (optional: a `ChainStatus` type), telegram-bot (already built against it: until the route
+  exists, `/status` says "Chains: not reported by this guard-core" and `/kill` keeps its generic text).

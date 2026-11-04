@@ -99,6 +99,18 @@ describe('httpGuardClient', () => {
     await expect(guard.budget('a1')).rejects.toBeInstanceOf(GuardError)
   })
 
+  it('lists the chains, and treats a missing route as not reported', async () => {
+    const chains = [{ chain: 'eip155:84532', allowance: null }]
+    const { fetch, guard } = client(
+      json(200, { chains }),
+      json(404, { message: 'Route not found' }),
+    )
+    expect(await guard.chains()).toEqual(chains)
+    expect(sentTo(fetch).url).toBe('http://guard/v1/admin/chains')
+    expect(sentTo(fetch).headers.get('authorization')).toBe(`Bearer ${ADMIN}`)
+    expect(await guard.chains()).toBeUndefined()
+  })
+
   it('reports health without throwing', async () => {
     const { fetch, guard } = client(json(200, { status: 'ok' }))
     expect(await guard.healthy()).toBe(true)
