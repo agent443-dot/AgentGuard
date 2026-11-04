@@ -28,6 +28,13 @@ export function loadEvmConfig(env: NodeJS.ProcessEnv = process.env): EvmConfig {
     const fields = parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')
     throw new Error(`invalid base configuration: ${fields}`)
   }
+  // The owner key controls the Safe. A raw key in a file is acceptable on a testnet; on mainnet it
+  // must be on hardware, and until the scripts can sign with one, they refuse mainnet outright.
+  if (parsed.data.BASE_CHAIN_ID === '8453') {
+    throw new Error(
+      'refusing Base mainnet: the Safe owner signs with a raw OWNER_PRIVATE_KEY, and mainnet needs a hardware owner signer',
+    )
+  }
   return parsed.data
 }
 

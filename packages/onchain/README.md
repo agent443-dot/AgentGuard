@@ -131,20 +131,51 @@ addresses and transaction hashes.
   nothing to sign with. What gets signed is rebuilt from the checked values, not passed through.
 - `buildKillTx` is one Safe call, `removeDelegate(hot, true)`, unsigned, for an owner.
 
+**Two differences from Solana that the owner should know:**
+
+- The Allowance Module does not pin where a draw goes. `executeAllowanceTransfer` takes any `to`,
+  so a stolen hot key could send the day's allowance straight to an attacker instead of through the
+  hot wallet. On Solana the spending limit's destination list holds the hot wallet alone. The loss
+  bound is the same on both chains (the daily cap plus the hot wallet balance), since the hot key
+  can pay anyone with what it holds anyway; what Base loses is the extra step. The module has no
+  recipient restriction to turn on, and the transaction guard of Safe 1.4.1, the version we deploy, does not see module transactions.
+- The scripts refuse Base mainnet (`BASE_CHAIN_ID=8453`): the Safe owner signs with a raw
+  `OWNER_PRIVATE_KEY`, and mainnet needs a hardware owner signer. The refusal stays until there is
+  one.
+
 Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
 `cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
 
-### Foundry fork tests (EVM-6, not written yet)
+### Fork tests (EVM-6)
 
-Fork Base Sepolia and prove the onchain guarantee:
+`forge/AllowanceCap.t.sol` proves the same four properties as the Solana cap tests, against the
+official Allowance Module on a Base mainnet fork pinned to a fixed block. A Safe is created through
+the official proxy factory, the owner enables the module, adds the hot wallet as delegate and sets a
+100-unit daily allowance on a test token, and then:
 
-1. the delegate can pull up to the cap within one period
-2. pulling `cap + 1` reverts
-3. after the reset period the allowance refills
-4. after `kill`, the delegate cannot pull anything
+1. the delegate draws up to the cap;
+2. `cap + 1` reverts;
+3. after a day the allowance refills;
+4. after the kill, exactly the call `buildKillTx` builds (`removeDelegate(hot, true)`),
+   `getTokenAllowance` returns 0 and a draw reverts.
+
+The token is a test token on purpose: the cap is the module's, and this way no token address is
+assumed. CI runs them in the `forge test (onchain)` job. On a machine with Foundry:
 
 ```bash
-forge test -vvv          # needs BASE_SEPOLIA_RPC_URL
+pnpm --filter @agentguard/onchain test:fork
+```
+
+`BASE_FORK_RPC_URL` overrides the public endpoint (`https://mainnet.base.org`); the fork block needs
+an RPC that serves historical state, so a public endpoint that prunes will fail in `setUp`.
+`BASE_FORK_BLOCK` overrides the pinned block. The module is not there yet at block 30,000,000, so the
+pin is recent and has to move forward when the RPC stops serving its state.
+
+`simulate()` needs `eth_simulateV1`, which not every provider serves. One command checks an endpoint,
+with no key, printing only its answer:
+
+```bash
+BASE_RPC_URL=https://sepolia.base.org pnpm --filter @agentguard/onchain check:simulate
 ```
 
 ## Addresses

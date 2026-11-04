@@ -1,0 +1,8 @@
+# Fork tests of the Base onchain cap (EVM-6). The TypeScript tests live in test/, these in forge/.
+[profile.default]
+src = "forge"
+test = "forge"
+out = "out"
+cache_path = "cache"
+libs = []
+solc_version = "0.8.26"

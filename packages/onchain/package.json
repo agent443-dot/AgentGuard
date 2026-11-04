@@ -24,7 +24,9 @@
     "create-safe": "tsx --env-file=.env src/scripts/create-safe.ts",
     "enable-allowance": "tsx --env-file=.env src/scripts/enable-allowance.ts",
     "status:base": "tsx --env-file=.env src/scripts/base-status.ts",
-    "kill:base": "tsx --env-file=.env src/scripts/base-kill.ts"
+    "kill:base": "tsx --env-file=.env src/scripts/base-kill.ts",
+    "test:fork": "forge test -vvv",
+    "check:simulate": "tsx src/scripts/check-simulate.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
