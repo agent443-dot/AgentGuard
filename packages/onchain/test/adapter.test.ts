@@ -4,7 +4,7 @@ import {
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token'
-import type { TransactionInstruction } from '@solana/web3.js'
+import { TransactionInstruction } from '@solana/web3.js'
 import {
   ComputeBudgetProgram,
   Keypair,
@@ -15,6 +15,7 @@ import {
 } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { MEMO_PROGRAM_ID } from '../src/svm/inspect.js'
 import { chain, plantMultisig, plantSpendingLimit, USDC, type Chain } from './fixture.js'
 
 let c: Chain
@@ -112,6 +113,12 @@ describe('send', () => {
     expect(c.balance(recipient)).toBe(1_500_000n)
   })
 
+  it('creates the token account of a recipient who never held USDC', async () => {
+    const newcomer = Keypair.generate().publicKey
+    await c.adapter.send(intent({ recipient: newcomer.toBase58() }))
+    expect(c.balance(newcomer)).toBe(1_500_000n)
+  })
+
   it('refuses an intent for another chain without touching the chain', async () => {
     await expect(c.adapter.send(intent({ chain: CHAINS.base }))).rejects.toThrow(
       'send_refused: CHAIN_NOT_ALLOWED',
@@ -145,6 +152,11 @@ describe('checkPayment, for an x402 transaction guard-core did not build', () =>
           amount,
           6,
         ),
+        new TransactionInstruction({
+          programId: MEMO_PROGRAM_ID,
+          keys: [],
+          data: Buffer.from('00112233445566778899aabbccddeeff'),
+        }),
         ...extra,
       ],
     }).compileToV0Message()
@@ -162,8 +174,6 @@ describe('checkPayment, for an x402 transaction guard-core did not build', () =>
       feePayer: facilitator.publicKey.toBase58(),
     })
 
-  // The real client appends a nonce memo too. inspect.test.ts covers it; it is left out here because
-  // LiteSVM aborts in this container when the memo program runs (see fixture.ts).
   it('passes the shape the x402 exact client builds', async () => {
     expect((await check(x402())).rejectReasons).toEqual([])
   })

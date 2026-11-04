@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "bs58": "^6.0.0",
-    "litesvm": "0.8.0",
+    "litesvm": "1.6.1",
     "tsx": "^4.23.15"
   },
   "optionalDependencies": {

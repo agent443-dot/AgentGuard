@@ -1,6 +1,4 @@
 import bs58 from 'bs58'
-import type { LiteSVM } from 'litesvm'
-import { FailedTransactionMetadata } from 'litesvm'
 import {
   PublicKey,
   VersionedTransaction,
@@ -9,18 +7,16 @@ import {
   type SimulateTransactionConfig,
   type Transaction,
 } from '@solana/web3.js'
+import { FailedTransactionMetadata, web3Account, type Svm } from './svm.js'
 
 /**
  * The handful of Connection methods the adapter and the Squads SDK call, answered by an in-process
  * LiteSVM instead of a cluster. The programs run for real; only the RPC transport is faked.
  */
-export function liteConnection(svm: LiteSVM, rpcEndpoint = 'http://127.0.0.1:0'): Connection {
+export function liteConnection(svm: Svm, rpcEndpoint = 'http://127.0.0.1:0'): Connection {
   const statuses = new Map<string, { err: unknown }>()
 
-  function account(address: PublicKey): AccountInfo<Buffer> | null {
-    const found = svm.getAccount(address)
-    return found ? { ...found, data: Buffer.from(found.data) } : null
-  }
+  const account = (address: PublicKey): AccountInfo<Buffer> | null => svm.getAccount(address)
 
   function submit(tx: Transaction | VersionedTransaction): string {
     const result = svm.sendTransaction(tx)
@@ -64,17 +60,10 @@ export function liteConnection(svm: LiteSVM, rpcEndpoint = 'http://127.0.0.1:0')
       if (result instanceof FailedTransactionMetadata) {
         return { value: { err: result.err(), logs: result.meta().logs(), accounts: null } }
       }
-      const post = new Map(result.postAccounts().map(([key, acc]) => [key.toBase58(), acc]))
+      const post = new Map(result.postAccounts().map((acc) => [acc.address.toString(), acc]))
       const accounts = (config?.accounts?.addresses ?? []).map((address) => {
         const touched = post.get(address)
-        const state = touched
-          ? {
-              lamports: Number(touched.lamports()),
-              data: touched.data(),
-              owner: new PublicKey(touched.owner()),
-              executable: touched.executable(),
-            }
-          : account(new PublicKey(address))
+        const state = touched ? web3Account(touched) : account(new PublicKey(address))
         if (!state || state.lamports === 0) {
           return null
         }
