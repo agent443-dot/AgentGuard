@@ -17,7 +17,7 @@ it('reports the Base balance in the budget, from the same USDC the adapter was b
     BOT_URL: 'http://bot.local',
     BOT_WEBHOOK_SECRET: 'c'.repeat(64),
     LOG_LEVEL: 'fatal',
-    BASE_CHAIN: CHAINS.baseSepolia,
+    BASE_CHAIN: CHAINS.base,
     BASE_USDC,
   })
   const db = openDb(':memory:')
@@ -27,7 +27,7 @@ it('reports the Base balance in the budget, from the same USDC the adapter was b
     db,
     {
       agentId: 'agent-1',
-      chains: [CHAINS.baseSepolia, CHAINS.solanaDevnet],
+      chains: [CHAINS.base, CHAINS.solanaDevnet],
       tokens: [],
       perTxMax: '0',
       dailyMax: '0',
@@ -38,14 +38,14 @@ it('reports the Base balance in the budget, from the same USDC the adapter was b
     },
     new Date().toISOString(),
   )
-  const base = new StubChain(CHAINS.baseSepolia, 7_000_000n)
+  const base = new StubChain(CHAINS.base, 7_000_000n)
   const solana = new StubChain(CHAINS.solanaDevnet, 3_000_000n)
   const asked = vi.spyOn(base, 'getHotWalletBalance')
   const app = await buildServer({
     db,
     config,
     chains: new Map([
-      [CHAINS.baseSepolia, base],
+      [CHAINS.base, base],
       [CHAINS.solanaDevnet, solana],
     ]),
   })
@@ -56,9 +56,9 @@ it('reports the Base balance in the budget, from the same USDC the adapter was b
     headers: { authorization: `Bearer ${token}` },
   })
   expect(res.json().hotWalletBalances).toEqual({
-    [CHAINS.baseSepolia]: '7000000',
+    [CHAINS.base]: '7000000',
     [CHAINS.solanaDevnet]: '3000000',
   })
-  expect(asked).toHaveBeenCalledWith(usdcFor(config, CHAINS.baseSepolia))
-  expect(usdcFor(config, CHAINS.baseSepolia)).toBe(BASE_USDC)
+  expect(asked).toHaveBeenCalledWith(usdcFor(config, CHAINS.base))
+  expect(usdcFor(config, CHAINS.base)).toBe(BASE_USDC)
 })
