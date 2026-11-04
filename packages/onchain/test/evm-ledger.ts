@@ -17,8 +17,9 @@ const INS_SIGN_EIP712_HASHED = 0x0c
  * signs EIP-712 the way the app does, over keccak256(0x1901 || domain hash || message hash).
  */
 export class FakeEthLedger extends TransportBase {
-  /** The two hashes the app would put on screen, per signature. */
-  readonly shown: { domainHash: Hex; messageHash: Hex }[] = []
+  blindSigning = true
+  /** The two hashes as the app would print them on screen, per signature. */
+  readonly shown: { domainHash: string; messageHash: string }[] = []
 
   keyFor(path: Buffer) {
     return privateKeyToAccount(keccak256(concat(['0x6c6564676572', toHex(path)])))
@@ -43,9 +44,16 @@ export class FakeEthLedger extends TransportBase {
     if (ins !== INS_SIGN_EIP712_HASHED) {
       return Buffer.from([0x6d, 0x00])
     }
+    // handle_sign_eip712_message_v0: SWO_INCORRECT_DATA unless Blind signing is on.
+    if (!this.blindSigning) {
+      return Buffer.from([0x6a, 0x80])
+    }
     const domainHash = toHex(data.subarray(pathEnd, pathEnd + 32))
     const messageHash = toHex(data.subarray(pathEnd + 32, pathEnd + 64))
-    this.shown.push({ domainHash, messageHash })
+    // array_bytes_string: 0x, then format_hex with "0123456789ABCDEF".
+    const screen = (hash: Hex) =>
+      `0x${Buffer.from(hash.slice(2), 'hex').toString('hex').toUpperCase()}`
+    this.shown.push({ domainHash: screen(domainHash), messageHash: screen(messageHash) })
     const { r, s, v } = parseSignature(
       await key.sign({ hash: keccak256(concat(['0x1901', domainHash, messageHash])) }),
     )

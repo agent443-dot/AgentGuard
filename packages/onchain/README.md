@@ -229,26 +229,37 @@ official `@ledgerhq/hw-app-eth` client. The device signs only the Safe transacti
 A separate `EXECUTOR_PRIVATE_KEY` pays the gas and submits it; it owns nothing, so the most it can
 lose is its own ETH, and the owner confirms once per action.
 
-The Ethereum app cannot show a Safe transaction's fields, only two hashes. Before asking the device,
-the scripts print both, computed as the app computes them (app-ethereum,
-`sign_message_eip712_common/common_712.c`), and refuse to sign if their hash differs from the one
-protocol-kit will submit:
+The Ethereum app cannot show a Safe transaction's fields, only two hashes, and it signs hashes only
+with **Blind signing** on; otherwise it refuses, and the scripts say to turn it on. Before asking the
+device, the scripts print both hashes exactly as the app displays them, `0x` and uppercase hex
+(app-ethereum `sign_message_eip712_common/common_712.c`, formatted by the plugin SDK's
+`array_bytes_string`), and refuse to sign if their hash differs from the one protocol-kit will
+submit:
 
 ```
-The Ledger will show Domain hash:  0x…
-                   and Message hash: 0x…
+With Blind signing on in the Ethereum app:
+The Ledger will show Domain hash:  0x88FB…
+                   and Message hash: 0x3C1A…
 (safeTxHash 0x…)
 Approve only if both match the device exactly. On any difference, reject on the device.
 ```
 
-Compare both on the device character for character; on any difference, reject and treat the
-computer as compromised. As on Solana, the Safe must be created with the Ledger as owner from the
-start. The tests drive the real `hw-app-eth` client against a fake device (`test/evm-ledger.ts`) and
-check that its signature recovers to the device address and that the printed hashes are the ones it
-received.
+For each action:
 
-Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
-`cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
+1. Plug the Ledger in, unlock it and open the Ethereum app.
+2. Turn **Blind signing** on (Settings in the Ethereum app).
+3. Run the script, for the kill switch `OWNER_SIGNER=ledger pnpm kill:base --yes`.
+4. Compare both hashes on the device with the printed ones, character by character. Approve only
+   if both match exactly; otherwise reject and treat the computer as compromised.
+5. Turn **Blind signing** off again. The script reminds you once the device has signed.
+
+As on Solana, the Safe must be created with the Ledger as owner from the start. The tests drive the
+real `hw-app-eth` client against a fake device (`test/evm-ledger.ts`) and check that its signature
+recovers to the device address, that the printed hashes are character for character what it would
+display, and that it refuses while Blind signing is off.
+
+Safe's official list has no Allowance Module entry for Base Sepolia (CR-005), but the module is
+deployed there at the same address; `pnpm check:simulate` reports it with its code hash.
 
 #### Fork tests (EVM-6)
 

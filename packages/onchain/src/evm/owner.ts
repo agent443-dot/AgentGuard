@@ -116,21 +116,53 @@ export async function ledgerOwner(
     address,
     async sign(chainId, safe, tx) {
       const { domainHash, messageHash, safeTxHash } = safeTxHashes(chainId, safe, tx)
-      tell(`The Ledger will show Domain hash:  ${domainHash}`)
-      tell(`                   and Message hash: ${messageHash}`)
+      tell('With Blind signing on in the Ethereum app:')
+      tell(`The Ledger will show Domain hash:  ${onScreen(domainHash)}`)
+      tell(`                   and Message hash: ${onScreen(messageHash)}`)
       tell(`(safeTxHash ${safeTxHash})`)
       tell(
         'Approve only if both match the device exactly. On any difference, reject on the device.',
       )
-      const { v, r, s } = await app.signEIP712HashedMessage(
-        path,
-        domainHash.slice(2),
-        messageHash.slice(2),
-      )
-      tell('Signed.')
+      let signature: { v: number; r: string; s: string }
+      try {
+        signature = await app.signEIP712HashedMessage(
+          path,
+          domainHash.slice(2),
+          messageHash.slice(2),
+        )
+      } catch (error) {
+        throw new Error(`ledger_refused: ${refusal(error)}`)
+      }
+      tell('Signed. Turn Blind signing off again in the Ethereum app settings.')
+      const { v, r, s } = signature
       return serializeSignature({ r: `0x${r}`, s: `0x${s}`, v: BigInt(v) })
     },
   }
+}
+
+/**
+ * How the Ethereum app prints a hash: 0x and uppercase hex (array_bytes_string in the
+ * ethereum-plugin-sdk, whose format_hex uses "0123456789ABCDEF"). The owner compares character for
+ * character, so lowercase would read as a mismatch on every letter.
+ */
+export function onScreen(hash: Hex): string {
+  return `0x${hash.slice(2).toUpperCase()}`
+}
+
+// The two refusals an owner can hit, by the status word the Ethereum app returns.
+const INCORRECT_DATA = 0x6a80
+const DENIED_BY_USER = 0x6985
+
+function refusal(error: unknown): string {
+  const status = (error as { statusCode?: unknown } | null)?.statusCode
+  if (status === INCORRECT_DATA) {
+    // handle_sign_eip712_message_v0 answers this when Blind signing is off.
+    return 'the Ethereum app refused the Safe transaction. Turn Blind signing on in its settings and run again'
+  }
+  if (status === DENIED_BY_USER) {
+    return 'rejected on the device'
+  }
+  return error instanceof Error ? error.message : String(error)
 }
 
 /** Ethereum's standard account path, the one Ledger Live uses for its first account. */

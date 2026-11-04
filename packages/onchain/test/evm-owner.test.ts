@@ -84,9 +84,23 @@ describe('the owner on a Ledger', () => {
     const owner = await ledgerOwner(device, "44'/60'/0'/0/0", (line) => told.push(line))
     await owner.sign(8453, safe, kill)
     const [shown] = device.shown
-    expect(told[0]).toContain(shown!.domainHash)
-    expect(told[1]).toContain(shown!.messageHash)
-    expect(told[2]).toContain(safeTxHashes(8453, safe, kill).safeTxHash)
+    // Exactly as on screen, 0x and uppercase, so a character-for-character comparison passes.
+    expect(shown!.domainHash).toMatch(/^0x[0-9A-F]{64}$/)
+    expect(told[1]).toBe(`The Ledger will show Domain hash:  ${shown!.domainHash}`)
+    expect(told[2]).toBe(`                   and Message hash: ${shown!.messageHash}`)
+    expect(told[3]).toContain(safeTxHashes(8453, safe, kill).safeTxHash)
+  })
+
+  it('says to turn Blind signing on when the app refuses, and off once it has signed', async () => {
+    const device = fakeEthLedger()
+    const told: string[] = []
+    const owner = await ledgerOwner(device, "44'/60'/0'/0/0", (line) => told.push(line))
+    device.blindSigning = false
+    await expect(owner.sign(8453, safe, kill)).rejects.toThrow(/Turn Blind signing on/)
+    expect(device.shown).toEqual([])
+    device.blindSigning = true
+    await owner.sign(8453, safe, kill)
+    expect(told.at(-1)).toMatch(/Turn Blind signing off again/)
   })
 
   it('uses one account per derivation path', async () => {

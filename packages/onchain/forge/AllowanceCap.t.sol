@@ -4,11 +4,17 @@ pragma solidity 0.8.26;
 /// The Foundry cheatcodes these tests use, declared here so the suite needs no library.
 interface Vm {
     function createSelectFork(string calldata url, uint256 blockNumber) external returns (uint256);
+    function createSelectFork(string calldata url) external returns (uint256);
     function envOr(string calldata name, string calldata fallbackValue) external view returns (string memory);
     function envOr(string calldata name, uint256 fallbackValue) external view returns (uint256);
     function prank(address sender) external;
     function warp(uint256 timestamp) external;
     function expectRevert() external;
+}
+
+/// Foundry's console, which prints to the test output; declared here for the same reason as Vm.
+interface Console {
+    function log(string calldata label, bytes32 value) external view;
 }
 
 interface ISafe {
@@ -82,6 +88,7 @@ contract TestToken {
 /// The four properties SVM-8 proved on Solana, against the official Allowance Module on a Base fork.
 contract AllowanceCapTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Console private constant console = Console(0x000000000000000000636F6e736F6c652e6c6f67);
 
     // Official deployments: safe-global/safe-deployments v1.4.1 and safe-modules-deployments 0.1.1.
     address private constant SAFE_L2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -156,6 +163,17 @@ contract AllowanceCapTest {
         vm.expectRevert();
         this.drawExternal(1);
         require(token.balanceOf(HOT) == 10e6, "a draw went through after the kill");
+    }
+
+    /// Safe's official list has no Base Sepolia entry for the module, but its deterministic address
+    /// holds code there. Equal runtime code means the testnet runs exactly what mainnet does.
+    function test_moduleOnSepoliaIsTheMainnetCode() public {
+        bytes32 mainnet = address(MODULE).codehash;
+        vm.createSelectFork(vm.envOr("BASE_SEPOLIA_FORK_RPC_URL", string("https://sepolia.base.org")));
+        bytes32 sepolia = address(MODULE).codehash;
+        console.log("Allowance Module code hash, Base mainnet:", mainnet);
+        console.log("Allowance Module code hash, Base Sepolia:", sepolia);
+        require(sepolia == mainnet, "the module on Base Sepolia is not the mainnet code");
     }
 
     /// External so expectRevert can catch the revert of exactly this call.
