@@ -12,11 +12,6 @@ interface Vm {
     function expectRevert() external;
 }
 
-/// Foundry's console, which prints to the test output; declared here for the same reason as Vm.
-interface Console {
-    function log(string calldata label, bytes32 value) external view;
-}
-
 interface ISafe {
     function setup(
         address[] calldata owners,
@@ -88,7 +83,9 @@ contract TestToken {
 /// The four properties SVM-8 proved on Solana, against the official Allowance Module on a Base fork.
 contract AllowanceCapTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    Console private constant console = Console(0x000000000000000000636F6e736F6c652e6c6f67);
+    // Foundry's console prints to the test output. The address holds no code, so it is called with a
+    // low-level staticcall: an interface call would revert on Solidity's code-size check.
+    address private constant CONSOLE = 0x000000000000000000636F6e736F6c652e6c6f67;
 
     // Official deployments: safe-global/safe-deployments v1.4.1 and safe-modules-deployments 0.1.1.
     address private constant SAFE_L2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -171,9 +168,14 @@ contract AllowanceCapTest {
         bytes32 mainnet = address(MODULE).codehash;
         vm.createSelectFork(vm.envOr("BASE_SEPOLIA_FORK_RPC_URL", string("https://sepolia.base.org")));
         bytes32 sepolia = address(MODULE).codehash;
-        console.log("Allowance Module code hash, Base mainnet:", mainnet);
-        console.log("Allowance Module code hash, Base Sepolia:", sepolia);
+        log("Allowance Module code hash, Base mainnet:", mainnet);
+        log("Allowance Module code hash, Base Sepolia:", sepolia);
         require(sepolia == mainnet, "the module on Base Sepolia is not the mainnet code");
+    }
+
+    function log(string memory label, bytes32 value) private view {
+        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string,bytes32)", label, value));
+        ok;
     }
 
     /// External so expectRevert can catch the revert of exactly this call.
