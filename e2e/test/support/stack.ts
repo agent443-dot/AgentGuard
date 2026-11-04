@@ -13,7 +13,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { pino } from 'pino'
-import { CHAIN, MINT } from './paid-api.js'
+import { SOLANA, type Net } from './paid-api.js'
 import { telegram } from './telegram.js'
 
 const ADMIN_TOKEN = 'a'.repeat(64)
@@ -24,10 +24,13 @@ const AGENT = 'agent-1'
 export const START = new Date('2026-11-03T12:00:00.000Z')
 
 /** 2 USDC needs the owner; 5 USDC is the most one payment may be; 10 USDC a day. */
-export function policy(overrides: Partial<Policy> = {}): Omit<Policy, 'agentId'> {
+export function policy(
+  overrides: Partial<Policy> = {},
+  net: Net = SOLANA,
+): Omit<Policy, 'agentId'> {
   return {
-    chains: [CHAIN],
-    tokens: [MINT],
+    chains: [net.chain],
+    tokens: [net.token],
     perTxMax: '5000000',
     dailyMax: '10000000',
     approvalThreshold: '2000000',
@@ -43,7 +46,8 @@ export function policy(overrides: Partial<Policy> = {}): Omit<Policy, 'agentId'>
  * them. Only the chain (a stub that signs nothing) and Telegram (recorded, not sent) are fake, and
  * one clock drives all three so expiry can be tested without waiting.
  */
-export async function stack(options: { chain?: StubChain } = {}) {
+export async function stack(options: { chain?: StubChain; net?: Net } = {}) {
+  const net = options.net ?? SOLANA
   const log = pino({ level: 'silent' })
   const clock = { now: START }
   const now = () => clock.now
@@ -64,7 +68,7 @@ export async function stack(options: { chain?: StubChain } = {}) {
   const db = openDb(':memory:')
   migrateDb(db)
   const agentToken = createAgent(db, AGENT)
-  const chain = options.chain ?? new StubChain(CHAIN, 100_000_000n)
+  const chain = options.chain ?? new StubChain(net.chain, 100_000_000n)
   const guard = await buildGuard({
     db,
     config: loadConfig({
@@ -74,7 +78,7 @@ export async function stack(options: { chain?: StubChain } = {}) {
       BOT_WEBHOOK_SECRET: WEBHOOK_SECRET,
       LOG_LEVEL: 'fatal',
     }),
-    chains: new Map([[CHAIN, chain]]),
+    chains: new Map([[chain.chain, chain]]),
     now,
     sweepMs: 20,
   })
@@ -90,7 +94,7 @@ export async function stack(options: { chain?: StubChain } = {}) {
   const mcp = createMcp({
     guard: httpGuard({ baseUrl: guardUrl, agentId: AGENT, token: agentToken }),
     log,
-    defaultChain: CHAIN,
+    defaultChain: net.chain,
   })
   const client = new Client({ name: 'e2e-agent', version: '0.0.0' })
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
@@ -117,7 +121,7 @@ export async function stack(options: { chain?: StubChain } = {}) {
     telegram: tg,
     admin,
     setPolicy: (overrides: Partial<Policy> = {}) =>
-      admin('PUT', `/v1/admin/policy/${AGENT}`, policy(overrides)),
+      admin('PUT', `/v1/admin/policy/${AGENT}`, policy(overrides, net)),
     /** Calls an MCP tool the way an agent would, and returns the text it reads back. */
     async tool(name: string, args: Record<string, unknown> = {}) {
       const result = (await client.callTool({ name, arguments: args })) as CallToolResult
