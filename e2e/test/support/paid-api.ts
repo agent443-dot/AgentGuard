@@ -8,20 +8,50 @@ import type { PaymentPayload, PaymentRequirements } from '@x402/core/types'
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-export const CHAIN = CHAINS.solanaDevnet
-export const MINT = requireAddress(CHAIN, 'usdc')
-export const MERCHANT = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
-export const ATTACKER = 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy'
+/** The chain a suite runs on, and the addresses its payments use there. */
+export interface Net {
+  chain: string
+  token: string
+  merchant: string
+  attacker: string
+  extra: Record<string, unknown>
+}
 
-export function offer(overrides: Partial<PaymentRequirements> = {}): PaymentRequirements {
+export const SOLANA: Net = {
+  chain: CHAINS.solanaDevnet,
+  token: requireAddress(CHAINS.solanaDevnet, 'usdc'),
+  merchant: '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin',
+  attacker: 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy',
+  extra: { feePayer: 'FeePayer1111111111111111111111111111111111' },
+}
+
+// Stub chain only. shared/addresses.ts has no verified Base Sepolia USDC yet (CR-005), and the stub
+// signs nothing, so any well-formed address stands in for it.
+export const BASE: Net = {
+  chain: CHAINS.baseSepolia,
+  token: '0x5dEaC602762362FE5f135FA5904351916053cF70',
+  merchant: '0x1111111111111111111111111111111111111111',
+  attacker: '0xBAd0000000000000000000000000000000000BAD',
+  extra: { name: 'USDC', version: '2' },
+}
+
+export const CHAIN = SOLANA.chain
+export const MINT = SOLANA.token
+export const MERCHANT = SOLANA.merchant
+export const ATTACKER = SOLANA.attacker
+
+export function offer(
+  overrides: Partial<PaymentRequirements> = {},
+  net: Net = SOLANA,
+): PaymentRequirements {
   return {
     scheme: 'exact',
-    network: CHAIN,
-    asset: MINT,
+    network: net.chain as PaymentRequirements['network'],
+    asset: net.token,
     amount: '1000000',
-    payTo: MERCHANT,
+    payTo: net.merchant,
     maxTimeoutSeconds: 60,
-    extra: { feePayer: 'FeePayer1111111111111111111111111111111111' },
+    extra: net.extra,
     ...overrides,
   }
 }
@@ -40,9 +70,9 @@ export interface PaidApi {
   close(): Promise<void>
 }
 
-export async function paidApi(): Promise<PaidApi> {
+export async function paidApi(net: Net = SOLANA): Promise<PaidApi> {
   const api: Omit<PaidApi, 'url' | 'close'> = {
-    quote: [offer()],
+    quote: [offer({}, net)],
     body: '{"data":42}',
     payments: [],
     requests: 0,
@@ -60,7 +90,7 @@ export async function paidApi(): Promise<PaidApi> {
     const settled = encodePaymentResponseHeader({
       success: true,
       transaction: `settled-${api.payments.length}`,
-      network: CHAIN,
+      network: net.chain as PaymentRequirements['network'],
     })
     res.writeHead(200, { 'content-type': 'application/json', 'payment-response': settled })
     res.end(api.body)
