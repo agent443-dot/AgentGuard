@@ -2,11 +2,21 @@ import { z } from 'zod'
 
 const secret = z.string().min(32, 'use at least 32 characters; generate with openssl rand -hex 32')
 
+/**
+ * Who may approve payments and press kill, so any doubt refuses to start. Above 2^53 Number() rounds,
+ * and a rounded id can be someone else's: those are refused rather than converted.
+ */
+const telegramId = z
+  .string()
+  .regex(/^[1-9]\d*$/, 'expected a positive integer Telegram user id')
+  .transform(Number)
+  .refine(Number.isSafeInteger, 'Telegram user id out of range')
+
 const telegramIds = z
   .string()
   .transform((value) => value.split(',').map((id) => id.trim()))
-  .pipe(z.array(z.string().regex(/^[1-9]\d{0,15}$/, 'expected numeric Telegram user ids')).min(1))
-  .transform((ids) => new Set(ids.map(Number)))
+  .pipe(z.array(telegramId).min(1))
+  .transform((ids) => new Set(ids))
 
 export const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8788),

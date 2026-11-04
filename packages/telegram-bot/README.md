@@ -18,8 +18,10 @@ pnpm --filter @agentguard/telegram-bot test
 
 1. Create the bot with [@BotFather](https://t.me/BotFather) and put the token in `TELEGRAM_BOT_TOKEN`.
 2. Get your Telegram user id (e.g. from [@userinfobot](https://t.me/userinfobot)) and put it in
-   `OWNER_TELEGRAM_IDS`. Several owners: comma-separated. Each owner must send `/start` to the bot
-   once, or Telegram will not let it message them.
+   `OWNER_TELEGRAM_IDS`. Several owners: comma-separated. Spaces around an id are ignored, but an empty
+   entry, anything that is not a positive whole number, or an id too large to hold exactly stops the
+   bot at startup. Each owner must send `/start` to the bot once, or Telegram will not let it
+   message them.
 3. `BOT_WEBHOOK_SECRET` must equal guard-core's. `GUARD_BOT_TOKEN` and `GUARD_ADMIN_TOKEN` are
    guard-core's `BOT_TOKEN` and `ADMIN_TOKEN`.
 
