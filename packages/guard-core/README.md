@@ -142,4 +142,15 @@ without its payload.
 - Agent-provided text (`reason`, URLs, headers, API responses) is untrusted and never affects a
   decision.
 
+## Database
+
+SQLite, at `DATABASE_URL`. It holds the day's spend per agent, pending approvals and the audit log,
+so losing it resets the daily max to zero. **In production it must live on a persistent volume**,
+outside the repository and outside any temp directory. On Solana or Base mainnet, guard-core refuses
+to start otherwise. Devnet and local runs may keep the default `./data/guard.db`.
+
+`pnpm --filter @agentguard/guard-core db:backup [destination]` copies the live database with SQLite's
+online backup API. It is safe while guard-core is running and never overwrites an existing file.
+With no destination, the copy goes to `backups/guard-<time>.db` next to the database.
+
 Env vars are documented in [`.env.example`](./.env.example).
