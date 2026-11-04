@@ -1,6 +1,7 @@
-import { CHAINS, getAddress } from '@agentguard/shared'
+import { CHAINS } from '@agentguard/shared'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { CHAIN_NAMES, chainName } from '../domain/chains.js'
 import { explainStatus } from '../domain/explain.js'
 import { formatUsd, parseUsd } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
@@ -21,10 +22,17 @@ const inputSchema = {
   chain: z
     .enum(Object.values(CHAINS))
     .optional()
-    .describe('CAIP-2 chain id. Leave empty to use the configured default chain.'),
+    .describe(
+      `CAIP-2 chain id: ${Object.entries(CHAIN_NAMES)
+        .map(([id, name]) => `${id} (${name})`)
+        .join(', ')}. Leave empty to use the configured default chain.`,
+    ),
 }
 
-export function registerTransfer(server: McpServer, { guard, log, defaultChain }: ToolDeps): void {
+export function registerTransfer(
+  server: McpServer,
+  { guard, log, defaultChain, usdc }: ToolDeps,
+): void {
   server.registerTool(
     'transfer',
     {
@@ -41,10 +49,10 @@ export function registerTransfer(server: McpServer, { guard, log, defaultChain }
       if (amount.atomic === 0n) {
         return failure('amountUsd: a transfer must be more than zero.')
       }
-      const token = getAddress(chain, 'usdc')
+      const token = usdc(chain)
       if (token === undefined) {
         return failure(
-          `USDC is not configured for chain ${chain} yet, so transfers there are not possible.`,
+          `This server has no USDC address for ${chainName(chain)} (${chain}), so transfers there are not possible. The owner has to configure it.`,
         )
       }
       return guarded(log, async () => {
@@ -56,7 +64,7 @@ export function registerTransfer(server: McpServer, { guard, log, defaultChain }
           reason,
         })
         const lines = [
-          `Transfer of ${formatUsd(amount.atomic)} USDC to ${to} on ${chain}: ${result.status}.`,
+          `Transfer of ${formatUsd(amount.atomic)} USDC to ${to} on ${chainName(chain)} (${chain}): ${result.status}.`,
           `Intent id: ${result.intentId}`,
         ]
         if (result.txId !== undefined) {
