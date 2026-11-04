@@ -8,7 +8,98 @@ audited and already deployed.
 - **Tasks:** `SVM-*` and `EVM-*` in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Source of truth:** [`/SPEC.md`](../../SPEC.md).
 
-## Solana
+## Setting up, end to end
+
+The money flow is the same on both chains. The owner's funds sit in a multisig the owner alone
+controls. A daily cap lets the guard's hot wallet draw up to `DAILY_CAP` a day from it, and nothing
+else. The kill switch removes that cap, which cuts the hot wallet off. Most a day can cost is
+`DAILY_CAP` plus what the hot wallet holds.
+
+Every command below runs from `packages/onchain`, reads its settings from `.env` and prints only
+public data: addresses, amounts, transaction ids. No key is ever passed on the command line.
+
+```bash
+pnpm install                 # from the repository root
+cd packages/onchain
+cp .env.example .env         # never commit .env
+```
+
+Set `DAILY_CAP` in atomic units (USDC has 6 decimals, so `100000000` is 100 USDC). Do the devnet or
+testnet run first; the mainnet steps are the same with the changes listed at the end of each chain.
+
+### Solana
+
+You need the [Solana CLI](https://solana.com/docs/intro/installation), SOL for fees on the owner
+account, and USDC to fund the vault.
+
+1. **Keys.** Create the owner key and the hot wallet key, outside the repository:
+   ```bash
+   solana-keygen new -o ~/.agentguard/sol-owner.json
+   solana-keygen new -o ~/.agentguard/sol-hot.json
+   ```
+   The hot wallet key goes to guard-core only. Here, set `SOLANA_OWNER_KEYPAIR` to the owner file
+   and `SOLANA_HOT_WALLET_PUBKEY` to `solana-keygen pubkey ~/.agentguard/sol-hot.json`.
+2. **Network.** `SOLANA_CLUSTER` and `SOLANA_RPC_URL` (devnet: `https://api.devnet.solana.com`).
+   `USDC_MINT` comes from Circle's list of USDC addresses (never from memory; the values we verified
+   are in `packages/shared/src/addresses.ts`).
+3. **Fees.** On devnet, `solana airdrop 1 <owner address> -u devnet`.
+4. **The multisig.** `pnpm create-multisig` creates a Squads multisig with the owner as its only
+   member and config authority. Copy the printed `SQUADS_MULTISIG` into `.env` (and into
+   guard-core's). It refuses to run when `SQUADS_MULTISIG` is already set.
+5. **The cap.** `pnpm add-spending-limit` adds a spending limit of `DAILY_CAP` per day on USDC, with
+   the hot wallet as its only member and its only destination, and prints it as read back from the
+   chain.
+6. **Funds.** `pnpm fund-vault <atomic units>` moves USDC from the owner to the vault. The vault and
+   the multisig are different addresses; the cap draws from the vault, so fund that one.
+7. **Check.** `pnpm status` reads the whole setup back from the chain; `pnpm balances` shows each
+   account. To see the cap work, `SOLANA_HOT_WALLET_KEYPAIR=~/.agentguard/sol-hot.json pnpm top-up
+<amount>` draws on it as guard-core would, and a draw past the cap is refused by Squads.
+8. **Kill switch.** `pnpm kill` shows what it would remove; `pnpm kill --yes` removes the limit.
+   Only `add-spending-limit` undoes it.
+
+**For mainnet:** `SOLANA_CLUSTER=mainnet-beta`, a mainnet RPC, the mainnet USDC mint, and the owner
+on a Ledger (`SOLANA_OWNER_KEYPAIR=usb://ledger?key=0`) from step 4 on, so that the Ledger is the
+config authority. Read [The owner on a Ledger](#the-owner-on-a-ledger) before the first action.
+
+### Base
+
+You need Base Sepolia ETH for gas on the owner account (or the executor's, with a Ledger) and USDC
+to fund the Safe.
+
+1. **Check the chain has what the scripts need.** The Allowance Module is in Safe's official list
+   for Base mainnet but not for Base Sepolia (CR-005), and guard-core's simulation needs an RPC that
+   serves `eth_simulateV1`. One command checks both, with no key:
+   ```bash
+   BASE_RPC_URL=https://sepolia.base.org pnpm check:simulate
+   ```
+   It must print `eth_simulateV1 supported` and `Allowance Module 0xAA46…091C: deployed`. CI runs it
+   against Base Sepolia in the `eth_simulateV1 on Base Sepolia` job.
+2. **Settings.** `BASE_CHAIN_ID=84532`, `BASE_RPC_URL`, the owner (`OWNER_SIGNER=key` with
+   `OWNER_PRIVATE_KEY` on testnets), `HOT_WALLET_ADDRESS` (the guard's hot wallet; its key goes to
+   guard-core only). Until `shared/addresses.ts` has verified Base values, `BASE_USDC` from
+   Circle's list and `BASE_ALLOWANCE_MODULE` from Safe's; the scripts refuse an address with no
+   code, and a token that does not report 6 decimals.
+3. **The Safe.** `pnpm create-safe` deploys a Safe 1.4.1 with the owner as its only owner,
+   threshold 1. Copy the printed `SAFE_ADDRESS` into `.env` (and guard-core's). It refuses to run
+   when `SAFE_ADDRESS` is already set.
+4. **The cap.** `pnpm enable-allowance` sends one Safe transaction that enables the Allowance
+   Module, adds the hot wallet as delegate and sets a USDC allowance of `DAILY_CAP` resetting every
+   1440 minutes, then prints it as read back.
+5. **Funds.** Send USDC to `SAFE_ADDRESS` from any wallet. There is no script for it.
+6. **Check.** `pnpm status:base` reads owners, threshold, the module, the Safe's USDC and the
+   allowance from the chain.
+7. **Kill switch.** `pnpm kill:base` shows the allowance; `pnpm kill:base --yes` removes the hot
+   wallet as delegate together with its allowances. Only `enable-allowance` undoes it.
+
+**For mainnet:** `BASE_CHAIN_ID=8453`, a mainnet RPC and mainnet USDC. The scripts refuse mainnet
+unless the owner is a Ledger: `OWNER_SIGNER=ledger`, `OWNER_LEDGER_PATH`, and an
+`EXECUTOR_PRIVATE_KEY` that pays the gas. Read
+[The Safe owner on a Ledger](#the-safe-owner-on-a-ledger) first, and create the Safe with the
+Ledger as owner from the start.
+
+## Reference
+
+### Solana adapter
 
 `createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
 built from plain values, so guard-core never handles a Solana SDK type.
@@ -24,7 +115,7 @@ built from plain values, so guard-core never handles a Solana SDK type.
 | `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                                                                  |
 | `x402Scheme`          | A scheme client for `@x402/core` bound to one intent. The hot wallet signs only after the SDK's transaction passes the inspection and the simulation; otherwise it throws `SigningRefused` with the reasons (CR-003) |
 
-### Tests
+#### Tests
 
 ```bash
 pnpm --filter @agentguard/onchain test
@@ -46,7 +137,7 @@ solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf \
   packages/onchain/test/fixtures/squads_v4.so
 ```
 
-### The owner on a Ledger
+#### The owner on a Ledger
 
 Every script the owner signs (`create-multisig`, `add-spending-limit`, `fund-vault`, `kill`) takes
 `SOLANA_OWNER_KEYPAIR` as either a keypair file or a Ledger URI in the Solana CLI's form:
@@ -100,22 +191,9 @@ the Solana app's APDUs, signs with real ed25519 keys and refuses unknown program
 signing is off. It records the Message Hash it would display, and the tests check that it equals the
 hash the script printed. `test/cap.test.ts` signs the kill with it.
 
-## Base
+### Base adapter
 
 A Safe holds the funds and the Safe Allowance Module caps the hot wallet per day. Neither is ours.
-
-| Script                  | What it does                                                                                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm create-safe`      | Deploys a Safe with the owner EOA as its only owner, threshold 1. Refuses when `SAFE_ADDRESS` is already set, and reads owners and threshold back from the chain      |
-| `pnpm enable-allowance` | One Safe transaction: enables the Allowance Module if it is not, adds the hot wallet as delegate, and sets a USDC allowance of `DAILY_CAP` that resets every 1440 min |
-| `pnpm status:base`      | Owners, threshold, the module, the Safe's USDC and the delegate's allowance, all read from the chain                                                                  |
-| `pnpm kill:base`        | The owner removes the hot wallet as delegate, with its allowances, in one Safe transaction. Asks for `--yes`                                                          |
-
-`enable-allowance` takes the module and USDC addresses from `shared/addresses.ts` when it has a
-verified value for the chain, else from `BASE_ALLOWANCE_MODULE` and `BASE_USDC` in `.env`, and in
-both cases refuses unless the chain holds code there and USDC reports 6 decimals. The owner key is
-read from `.env` only; nothing secret goes on the command line, and the scripts print only
-addresses and transaction hashes.
 
 `createEvmAdapter({ chain, rpcUrl, hotWalletKey, safe, usdc, module })` is the `ChainAdapter`:
 
@@ -138,15 +216,52 @@ addresses and transaction hashes.
   hot wallet. On Solana the spending limit's destination list holds the hot wallet alone. The loss
   bound is the same on both chains (the daily cap plus the hot wallet balance), since the hot key
   can pay anyone with what it holds anyway; what Base loses is the extra step. The module has no
-  recipient restriction to turn on, and the transaction guard of Safe 1.4.1, the version we deploy, does not see module transactions.
-- The scripts refuse Base mainnet (`BASE_CHAIN_ID=8453`): the Safe owner signs with a raw
-  `OWNER_PRIVATE_KEY`, and mainnet needs a hardware owner signer. The refusal stays until there is
-  one.
+  recipient restriction to turn on, and the transaction guard of Safe 1.4.1, the version we deploy,
+  does not see module transactions.
+- On mainnet (`BASE_CHAIN_ID=8453`) the scripts refuse a raw `OWNER_PRIVATE_KEY`: the Safe owner
+  must be a Ledger (`OWNER_SIGNER=ledger`), below.
 
-Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
-`cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
+#### The Safe owner on a Ledger
 
-### Fork tests (EVM-6)
+`OWNER_SIGNER=ledger` makes `create-safe`, `enable-allowance` and `kill:base` sign as the account at
+`OWNER_LEDGER_PATH` (default `44'/60'/0'/0/0`, Ledger Live's first Ethereum account) through the
+official `@ledgerhq/hw-app-eth` client. The device signs only the Safe transaction's EIP-712 hash.
+A separate `EXECUTOR_PRIVATE_KEY` pays the gas and submits it; it owns nothing, so the most it can
+lose is its own ETH, and the owner confirms once per action.
+
+The Ethereum app cannot show a Safe transaction's fields, only two hashes, and it signs hashes only
+with **Blind signing** on; otherwise it refuses, and the scripts say to turn it on. Before asking the
+device, the scripts print both hashes exactly as the app displays them, `0x` and uppercase hex
+(app-ethereum `sign_message_eip712_common/common_712.c`, formatted by the plugin SDK's
+`array_bytes_string`), and refuse to sign if their hash differs from the one protocol-kit will
+submit:
+
+```
+With Blind signing on in the Ethereum app:
+The Ledger will show Domain hash:  0x88FB…
+                   and Message hash: 0x3C1A…
+(safeTxHash 0x…)
+Approve only if both match the device exactly. On any difference, reject on the device.
+```
+
+For each action:
+
+1. Plug the Ledger in, unlock it and open the Ethereum app.
+2. Turn **Blind signing** on (Settings in the Ethereum app).
+3. Run the script, for the kill switch `OWNER_SIGNER=ledger pnpm kill:base --yes`.
+4. Compare both hashes on the device with the printed ones, character by character. Approve only
+   if both match exactly; otherwise reject and treat the computer as compromised.
+5. Turn **Blind signing** off again. The script reminds you once the device has signed.
+
+As on Solana, the Safe must be created with the Ledger as owner from the start. The tests drive the
+real `hw-app-eth` client against a fake device (`test/evm-ledger.ts`) and check that its signature
+recovers to the device address, that the printed hashes are character for character what it would
+display, and that it refuses while Blind signing is off.
+
+Safe's official list has no Allowance Module entry for Base Sepolia (CR-005), but the module is
+deployed there at the same address; `pnpm check:simulate` reports it with its code hash.
+
+#### Fork tests (EVM-6)
 
 `forge/AllowanceCap.t.sol` proves the same four properties as the Solana cap tests, against the
 official Allowance Module on a Base mainnet fork pinned to a fixed block. A Safe is created through
@@ -184,12 +299,3 @@ Do **not** hardcode a guessed address. Read the Allowance Module address from th
 deployment list and USDC from Circle's official list, then report both in
 [`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md) so the integrator can add them to
 `packages/shared/src/addresses.ts`.
-
-## Setup
-
-```bash
-cp .env.example .env     # then fill it in; never commit .env
-pnpm --filter @agentguard/onchain test
-```
-
-Env vars are documented in [`.env.example`](./.env.example).
