@@ -27,7 +27,10 @@ const safeAbi = parseAbi(['function enableModule(address module)'])
 const erc20Abi = parseAbi(['function decimals() view returns (uint8)'])
 
 export function publicClient(config: EvmConfig): PublicClient {
-  return createPublicClient({ chain: chainOf(config), transport: http(config.BASE_RPC_URL) })
+  return createPublicClient({
+    chain: chainOf(config.BASE_CHAIN_ID),
+    transport: http(config.BASE_RPC_URL),
+  })
 }
 
 /** An address from .env could be anything; an empty account is the cheapest thing to rule out. */

@@ -22,7 +22,9 @@
     "top-up": "tsx --env-file=.env src/scripts/top-up.ts",
     "kill": "tsx --env-file=.env src/scripts/kill.ts",
     "create-safe": "tsx --env-file=.env src/scripts/create-safe.ts",
-    "enable-allowance": "tsx --env-file=.env src/scripts/enable-allowance.ts"
+    "enable-allowance": "tsx --env-file=.env src/scripts/enable-allowance.ts",
+    "status:base": "tsx --env-file=.env src/scripts/base-status.ts",
+    "kill:base": "tsx --env-file=.env src/scripts/base-kill.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
@@ -34,6 +36,7 @@
     "@solana/web3.js": "^1.99.0",
     "@sqds/multisig": "^2.1.4",
     "@x402/core": "^2.29.0",
+    "@x402/evm": "^2.29.0",
     "@x402/svm": "^2.29.0",
     "viem": "^2.57.16",
     "zod": "^4.6.7"

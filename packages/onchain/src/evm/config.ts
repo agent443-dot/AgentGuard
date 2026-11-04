@@ -31,8 +31,8 @@ export function loadEvmConfig(env: NodeJS.ProcessEnv = process.env): EvmConfig {
   return parsed.data
 }
 
-export function chainOf(config: EvmConfig): Chain {
-  return config.BASE_CHAIN_ID === '8453' ? base : baseSepolia
+export function chainOf(id: EvmConfig['BASE_CHAIN_ID']): Chain {
+  return id === '8453' ? base : baseSepolia
 }
 
 export function caip2(config: EvmConfig): string {
