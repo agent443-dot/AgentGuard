@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { PayIntent, RejectCode } from '@agentguard/shared'
+import { CHAINS } from '@agentguard/shared'
 import { ATTACK_WINDOW_MS, Alerts } from '../src/domain/alerts.js'
 import { ATTACK_CODES, attackCodesIn } from '../src/domain/codes.js'
 import { formatUsd } from '../src/domain/money.js'
+import { explorerUrl } from '../src/domain/explorer.js'
 import { ApprovalBook, EventLog } from '../src/domain/replay.js'
 import { sign, signatureValid } from '../src/domain/signature.js'
 import {
+  amountText,
   approvalText,
+  executedText,
   budgetText,
   escapeHtml,
   killedText,
@@ -180,6 +184,68 @@ describe('Alerts', () => {
   })
 })
 
+describe('explorerUrl', () => {
+  it.each([
+    [CHAINS.solanaMainnet, 'tx', 'sig', 'https://solscan.io/tx/sig'],
+    [CHAINS.solanaDevnet, 'tx', 'sig', 'https://solscan.io/tx/sig?cluster=devnet'],
+    [CHAINS.solanaDevnet, 'address', 'Abc', 'https://solscan.io/account/Abc?cluster=devnet'],
+    [CHAINS.base, 'tx', '0xab', 'https://basescan.org/tx/0xab'],
+    [CHAINS.base, 'address', '0xab', 'https://basescan.org/address/0xab'],
+    [CHAINS.baseSepolia, 'tx', '0xab', 'https://sepolia.basescan.org/tx/0xab'],
+  ] as const)('%s %s', (chain, target, id, url) => {
+    expect(explorerUrl(chain, target, id)).toBe(url)
+  })
+
+  it('gives no link for a chain it does not know, or for no id', () => {
+    expect(explorerUrl('eip155:1', 'tx', '0xab')).toBeUndefined()
+    expect(explorerUrl('solana:unknown', 'tx', 'sig')).toBeUndefined()
+    expect(explorerUrl('', 'tx', 'sig')).toBeUndefined()
+    expect(explorerUrl(CHAINS.base, 'tx', '')).toBeUndefined()
+  })
+
+  it('keeps a hostile id inside one path segment', () => {
+    expect(explorerUrl(CHAINS.base, 'address', '../x?cluster=mainnet#"><b>')).toBe(
+      'https://basescan.org/address/..%2Fx%3Fcluster%3Dmainnet%23%22%3E%3Cb%3E',
+    )
+  })
+})
+
+describe('amounts', () => {
+  it('shows dollars only for the verified USDC of that chain', () => {
+    expect(amountText(intent())).toBe('<b>$12.50</b> USDC')
+    const other = amountText(intent({ token: 'FakeUsdc111111111111111111111111111111111111' }))
+    expect(other).toContain('<b>12500000</b> base units of <code>FakeUsdc')
+    expect(other).toContain('not a known USDC')
+    // Devnet USDC presented as a mainnet payment is not USDC on that chain.
+    expect(amountText(intent({ chain: CHAINS.solanaMainnet }))).toContain('base units')
+  })
+})
+
+describe('executed payment text', () => {
+  it('links the transaction and the recipient on the network it ran on', () => {
+    const solana = executedText(intent({ status: 'executed', txId: '5h3k' }))
+    expect(solana).toContain('href="https://solscan.io/tx/5h3k?cluster=devnet"')
+    const base = executedText(
+      intent({
+        status: 'executed',
+        chain: CHAINS.baseSepolia,
+        token: '0xT',
+        recipient: '0xR',
+        txId: '0xH',
+      }),
+    )
+    expect(base).toContain('Chain: Base Sepolia')
+    expect(base).toContain('href="https://sepolia.basescan.org/tx/0xH"')
+    expect(base).toContain('href="https://sepolia.basescan.org/address/0xR"')
+    expect(base).not.toContain('solscan')
+  })
+
+  it('has no link when the chain is unknown or the transaction id missing', () => {
+    expect(executedText(intent({ status: 'executed', chain: 'eip155:1' }))).not.toContain('<a ')
+    expect(executedText(intent({ status: 'executed' }))).not.toContain('/tx/')
+  })
+})
+
 describe('message text', () => {
   it('shows every field the owner decides on, with the reason labelled as the agent', () => {
     const text = approvalText(approval())
@@ -187,7 +253,9 @@ describe('message text', () => {
     expect(text).toContain('<b>$12.50</b> USDC')
     expect(text).toContain('Chain: Solana devnet')
     expect(text).toContain(`<code>${shortAddress(RECIPIENT)}</code>`)
-    expect(text).not.toContain(RECIPIENT)
+    // Shown short; the full address is only inside the explorer link.
+    expect(text.replace(/<a [^>]*>/g, '')).not.toContain(RECIPIENT)
+    expect(text).toContain(`<a href="https://solscan.io/account/${RECIPIENT}?cluster=devnet">`)
     expect(text).toContain('Domain: api.example.com')
     expect(text).toContain('Simulation: Hot wallet -12.5 USDC')
     expect(text).toContain('Expires: 2026-11-03 12:10:00 UTC')

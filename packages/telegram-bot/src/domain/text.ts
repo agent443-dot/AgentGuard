@@ -1,6 +1,7 @@
 import type { ApprovalRequest, BudgetView, OwnerTransaction, PayIntent } from '@agentguard/shared'
-import { CHAINS } from '@agentguard/shared'
+import { CHAINS, getAddress } from '@agentguard/shared'
 import { ATTACK_DESCRIPTIONS, type AttackCode } from './codes.js'
+import { type ExplorerTarget, explorerUrl } from './explorer.js'
 import { formatUsd } from './money.js'
 
 /**
@@ -42,6 +43,26 @@ export function shortAddress(address: string): string {
   return address.length <= 14 ? address : `${address.slice(0, 6)}…${address.slice(-4)}`
 }
 
+/**
+ * Dollars only for the USDC verified for that chain in shared/addresses.ts. Any other token is shown
+ * in base units with its address: a token with 6 decimals could otherwise pass for dollars.
+ */
+export function amountText(intent: PayIntent): string {
+  if (getAddress(intent.chain, 'usdc') === intent.token) {
+    return `<b>${formatUsd(intent.amount)}</b> USDC`
+  }
+  return (
+    `<b>${escapeHtml(intent.amount)}</b> base units of <code>${escapeHtml(intent.token)}</code> ` +
+    '(not a known USDC for this chain)'
+  )
+}
+
+/** A link only when the chain has an explorer we know: never one pointing at another network. */
+export function explorerLink(chain: string, target: ExplorerTarget, id: string): string {
+  const url = explorerUrl(chain, target, id)
+  return url === undefined ? '' : ` · <a href="${escapeHtml(url)}">explorer</a>`
+}
+
 export function utcTime(at: Date | string): string {
   return `${new Date(at).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 }
@@ -63,9 +84,10 @@ function details({ intent, simulation, approveBefore }: ApprovalRequest, full: b
   const recipient = full ? intent.recipient : shortAddress(intent.recipient)
   return [
     `Agent: <code>${escapeHtml(intent.agentId)}</code>`,
-    `Amount: <b>${formatUsd(intent.amount)}</b> USDC`,
+    `Amount: ${amountText(intent)}`,
     `Chain: ${chainName(intent.chain)}`,
-    `Recipient: <code>${escapeHtml(recipient)}</code>`,
+    `Recipient: <code>${escapeHtml(recipient)}</code>` +
+      explorerLink(intent.chain, 'address', intent.recipient),
     destination(intent),
     `Simulation: ${escapeHtml(simulation.summary)}`,
     `Expires: ${utcTime(approveBefore)}`,
@@ -99,11 +121,13 @@ export function executedText(intent: PayIntent): string {
   return [
     '<b>Payment executed</b>',
     `Agent: <code>${escapeHtml(intent.agentId)}</code>`,
-    `Amount: <b>${formatUsd(intent.amount)}</b> USDC`,
+    `Amount: ${amountText(intent)}`,
     `Chain: ${chainName(intent.chain)}`,
-    `Recipient: <code>${escapeHtml(intent.recipient)}</code>`,
+    `Recipient: <code>${escapeHtml(intent.recipient)}</code>` +
+      explorerLink(intent.chain, 'address', intent.recipient),
     destination(intent),
-    `Transaction: <code>${escapeHtml(intent.txId ?? '(not reported)')}</code>`,
+    `Transaction: <code>${escapeHtml(intent.txId ?? '(not reported)')}</code>` +
+      explorerLink(intent.chain, 'tx', intent.txId ?? ''),
   ].join('\n')
 }
 
@@ -156,7 +180,7 @@ export function budgetText(agentId: string, budget: BudgetView): string {
 export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string {
   const lines = pending.map(
     ({ intent, approveBefore }) =>
-      `• <code>${escapeHtml(intent.agentId)}</code> ${formatUsd(intent.amount)} on ` +
+      `• <code>${escapeHtml(intent.agentId)}</code> ${amountText(intent)} on ` +
       `${chainName(intent.chain)}, expires ${utcTime(approveBefore)}`,
   )
   return [
