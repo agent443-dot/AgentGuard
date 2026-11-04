@@ -266,6 +266,12 @@ integrator before any session writes code, since every package imports those typ
     same file on the repository's `main` branch. All 57 networks listed there share this address
     (a deterministic deployment). v0.1.0 at `0xCFbFaC74C26F8647cBDb8c5caf80BB5b32E43134` is the older
     release; we should use 0.1.1.
+  - **Update 2026-11-04 (onchain):** CI's `eth_simulateV1 on Base Sepolia` job, run against
+    `https://sepolia.base.org`, found the module deployed on Base Sepolia at the same address
+    (`Allowance Module 0xAA46724893dedD72658219405185Fb0Fc91e091C: deployed`, 14,908 bytes of code).
+    Safe deploys it deterministically, so the same address on another chain means the same init code.
+    It is still absent from Safe's official list for 84532; whether that is enough to add it to
+    `addresses.ts` is the owner's call.
   - **Safe Allowance Module, Base Sepolia (`eip155:84532`):** **not in the official list**, in either
     release. The deterministic address may still hold the same code there, but that has to be
     checked against the chain (`cast code 0xAA46…091C --rpc-url https://sepolia.base.org`), and an

@@ -1,4 +1,4 @@
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, keccak256 } from 'viem'
 import { z } from 'zod'
 
 /**
@@ -28,8 +28,12 @@ try {
   console.log(`chain ${chainId} at ${host}: eth_simulateV1 supported (${block?.calls[0]?.status})`)
   const code = await client.getCode({ address: ALLOWANCE_MODULE })
   const deployed = code !== undefined && code !== '0x'
+  // Safe deploys the module deterministically, so the address is the same on every chain; the code
+  // hash lets anyone compare one chain's copy with another's.
   console.log(
-    `Allowance Module ${ALLOWANCE_MODULE}: ${deployed ? `deployed (${(code.length - 2) / 2} bytes)` : 'NOT deployed'}`,
+    deployed
+      ? `Allowance Module ${ALLOWANCE_MODULE}: deployed, code hash ${keccak256(code)}`
+      : `Allowance Module ${ALLOWANCE_MODULE}: NOT deployed`,
   )
 } catch (error) {
   // The first line names the failure; the rest of viem's message repeats the request body.
