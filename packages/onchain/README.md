@@ -76,9 +76,10 @@ to fund the Safe.
    against Base Sepolia in the `eth_simulateV1 on Base Sepolia` job.
 2. **Settings.** `BASE_CHAIN_ID=84532`, `BASE_RPC_URL`, the owner (`OWNER_SIGNER=key` with
    `OWNER_PRIVATE_KEY` on testnets), `HOT_WALLET_ADDRESS` (the guard's hot wallet; its key goes to
-   guard-core only). On Base Sepolia `shared/addresses.ts` has the Allowance Module, so only
-   `BASE_USDC` comes from `.env`, read from Circle's list until shared has it. The scripts refuse an
-   address with no code, and a token that does not report 6 decimals.
+   guard-core only). On Base Sepolia `shared/addresses.ts` has both USDC and the Allowance
+   Module, so leave `BASE_USDC` and `BASE_ALLOWANCE_MODULE` empty. On Base mainnet, USDC still comes
+   from `.env`, read from Circle's list, until shared has it. The scripts refuse an address with no
+   code, and a token that does not report 6 decimals.
 3. **The Safe.** `pnpm create-safe` deploys a Safe 1.4.1 with the owner as its only owner,
    threshold 1. Copy the printed `SAFE_ADDRESS` into `.env` (and guard-core's). It refuses to run
    when `SAFE_ADDRESS` is already set.
