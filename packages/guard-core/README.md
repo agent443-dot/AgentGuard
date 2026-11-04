@@ -27,7 +27,10 @@ For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTIS
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
 `BASE_RPC_URL`, `SAFE_ADDRESS`, `HOT_WALLET_PRIVATE_KEY` and, until `shared/addresses.ts` has
 verified values, `BASE_USDC` and `BASE_ALLOWANCE_MODULE`. A chain switched on with a value missing
-stops the start, naming the missing variables and never their values. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
+stops the start, naming the missing variables and never their values. Before trusting `SAFE_ADDRESS`
+and any address that came from the env rather than `shared/addresses.ts`, guard-core asks the chain:
+each must hold a contract, and the USDC must report 6 decimals. If any check fails, or the RPC cannot
+be reached, it refuses to start. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
 is signed and no money moves. With neither, there is no adapter and every payment is refused.
 
 ## Pipeline
