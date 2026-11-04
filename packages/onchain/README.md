@@ -146,18 +146,28 @@ addresses and transaction hashes.
 Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
 `cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
 
-### Foundry fork tests (EVM-6, not written yet)
+### Fork tests (EVM-6)
 
-Fork Base Sepolia and prove the onchain guarantee:
+`forge/AllowanceCap.t.sol` proves the same four properties as the Solana cap tests, against the
+official Allowance Module on a Base mainnet fork pinned to a fixed block. A Safe is created through
+the official proxy factory, the owner enables the module, adds the hot wallet as delegate and sets a
+100-unit daily allowance on a test token, and then:
 
-1. the delegate can pull up to the cap within one period
-2. pulling `cap + 1` reverts
-3. after the reset period the allowance refills
-4. after `kill`, the delegate cannot pull anything
+1. the delegate draws up to the cap;
+2. `cap + 1` reverts;
+3. after a day the allowance refills;
+4. after `removeDelegate`, nothing can be drawn.
+
+The token is a test token on purpose: the cap is the module's, and this way no token address is
+assumed. CI runs them in the `forge test (onchain)` job. On a machine with Foundry:
 
 ```bash
-forge test -vvv          # needs BASE_SEPOLIA_RPC_URL
+pnpm --filter @agentguard/onchain test:fork
 ```
+
+`BASE_FORK_RPC_URL` overrides the public endpoint (`https://mainnet.base.org`); the fork block needs
+an RPC that serves historical state, so a public endpoint that prunes will fail in `setUp`.
+`BASE_FORK_BLOCK` overrides the pinned block.
 
 ## Addresses
 
