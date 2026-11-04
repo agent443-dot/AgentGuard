@@ -4,7 +4,9 @@ import { destination, pino } from 'pino'
 import { httpGuard } from './adapters/guard.js'
 import { loadConfig } from './config.js'
 import { startHttp } from './http.js'
+import { usdcFor } from './domain/chains.js'
 import { createServer } from './server.js'
+import { checkDefaultChain } from './startup.js'
 
 const config = loadConfig()
 // stdout carries the MCP protocol in stdio mode, so logs always go to stderr.
@@ -26,7 +28,10 @@ const deps = {
   }),
   log,
   defaultChain: config.DEFAULT_CHAIN,
+  usdc: (chain: string) => usdcFor(chain, config.BASE_USDC),
 }
+
+await checkDefaultChain(deps.guard, config.DEFAULT_CHAIN, deps.usdc(config.DEFAULT_CHAIN), log)
 
 if (config.MCP_TRANSPORT === 'stdio') {
   await createServer(deps).connect(new StdioServerTransport())

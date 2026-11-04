@@ -19,8 +19,10 @@ Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
   a float by the time it arrives, so its exact value cannot be known. Negative values, exponents, `NaN`,
   `Infinity` and anything with more than 6 decimal places are refused before guard-core is called. A
   value that would have to be rounded is refused, never rounded.
-- **`transfer` without `chain`** uses `DEFAULT_CHAIN`. The token is always USDC on that chain, taken
-  from `@agentguard/shared`. A chain whose USDC address is not configured is refused.
+- **Chains**: Solana (mainnet, devnet) and Base (mainnet, Sepolia `eip155:84532`). `transfer` without
+  `chain` uses `DEFAULT_CHAIN`. The token is always USDC on that chain: from `@agentguard/shared`, or
+  `BASE_USDC` for a Base chain shared has no verified address for yet. A chain with neither is
+  refused. At startup the server warns if guard-core reports no balance on `DEFAULT_CHAIN`.
 - **Outcomes**: every result states the status and, on a rejection, each reject code with a short
   explanation. On `pending_approval` the model is told to tell the user and poll `check_intent`.
   For `paid_fetch`, once `check_intent` reports `approved` the model repeats the same request, which
@@ -33,17 +35,18 @@ Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
 
 ## Configuration
 
-| Variable         | Required    | Default                | Notes                                             |
-| ---------------- | ----------- | ---------------------- | ------------------------------------------------- |
-| `GUARD_URL`      | yes         |                        | guard-core base URL, e.g. `http://localhost:8787` |
-| `AGENT_ID`       | yes         |                        | The agent this server pays as                     |
-| `AGENT_TOKEN`    | yes         |                        | That agent's guard-core bearer token              |
-| `DEFAULT_CHAIN`  | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted        |
-| `MCP_TRANSPORT`  | no          | `stdio`                | `stdio` or `http`                                 |
-| `MCP_HTTP_HOST`  | no          | `127.0.0.1`            | HTTP only                                         |
-| `MCP_HTTP_PORT`  | no          | `8789`                 | HTTP only                                         |
-| `MCP_HTTP_TOKEN` | with `http` |                        | Bearer token clients must send, ≥ 32 chars        |
-| `LOG_LEVEL`      | no          | `info`                 | Logs go to stderr as JSON                         |
+| Variable         | Required    | Default                | Notes                                                                                        |
+| ---------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| `GUARD_URL`      | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
+| `AGENT_ID`       | yes         |                        | The agent this server pays as                                                                |
+| `AGENT_TOKEN`    | yes         |                        | That agent's guard-core bearer token                                                         |
+| `DEFAULT_CHAIN`  | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted                                                   |
+| `BASE_USDC`      | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
+| `MCP_TRANSPORT`  | no          | `stdio`                | `stdio` or `http`                                                                            |
+| `MCP_HTTP_HOST`  | no          | `127.0.0.1`            | HTTP only                                                                                    |
+| `MCP_HTTP_PORT`  | no          | `8789`                 | HTTP only                                                                                    |
+| `MCP_HTTP_TOKEN` | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
+| `LOG_LEVEL`      | no          | `info`                 | Logs go to stderr as JSON                                                                    |
 
 The config is validated at startup; a bad value stops the server with the field name, never the value.
 Logs never contain the tokens.

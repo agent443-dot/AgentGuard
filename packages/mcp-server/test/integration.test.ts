@@ -9,7 +9,7 @@ import { startTestApi } from '../examples/test-api/server.js'
 import { httpGuard } from '../src/adapters/guard.js'
 import { startHttp } from '../src/http.js'
 import { createServer } from '../src/server.js'
-import { call, connect, silent } from './support.js'
+import { call, connect, deps, silent } from './support.js'
 
 const RECIPIENT = 'Allowed1111111111111111111111111111111111111'
 const MCP_TOKEN = 'm'.repeat(40)
@@ -143,8 +143,7 @@ describe('streamable HTTP transport', () => {
       port: 0,
       token: MCP_TOKEN,
       log: silent,
-      newServer: () =>
-        createServer({ guard: remote, log: silent, defaultChain: CHAINS.solanaDevnet }),
+      newServer: () => createServer(deps(remote)),
     })
     base = `http://127.0.0.1:${(http.address() as AddressInfo).port}`
   })
