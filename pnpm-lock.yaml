@@ -160,6 +160,9 @@ importers:
       '@x402/core':
         specifier: ^2.29.0
         version: 2.29.0
+      '@x402/evm':
+        specifier: ^2.29.0
+        version: 2.29.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@x402/svm':
         specifier: ^2.29.0
         version: 2.29.0(@solana/kit@8.6.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/sysvars@8.6.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)
@@ -1709,6 +1712,9 @@ packages:
 
   '@x402/core@2.29.0':
     resolution: {integrity: sha512-fkS0JqVwHgczteDlwItLRipOlIzm28U9HWLvYnYpnNbfmepoBT/4ux7LjrR0xGD51JHoC8/r+Qo7uCfoAQYeuw==}
+
+  '@x402/evm@2.29.0':
+    resolution: {integrity: sha512-Gk4bJ6WoRR3jeT2+vERSPMSkSr1nRL5kjtVh14uoynRm8y+fGFH8xmvlGzuwKT0liA6OLjdr9xjZtN8i0WYk9g==}
 
   '@x402/svm@2.29.0':
     resolution: {integrity: sha512-7dToC3TmvgaykCbPbCLbRZURx6YWkUS8YFdoD7eotHoxyr2E5NjBiW1gmDXRVvnqirTU/soWERaj21M+/7+oiQ==}
@@ -4922,6 +4928,17 @@ snapshots:
   '@x402/core@2.29.0':
     dependencies:
       zod: 4.6.7
+
+  '@x402/evm@2.29.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+    dependencies:
+      '@x402/core': 2.29.0
+      viem: 2.57.16(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.7)
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - bufferutil
+      - mppx
+      - typescript
+      - utf-8-validate
 
   '@x402/svm@2.29.0(@solana/kit@8.6.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/sysvars@8.6.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)':
     dependencies:

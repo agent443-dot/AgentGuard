@@ -35,7 +35,7 @@ const deployment = await kit.createSafeDeploymentTransaction()
 
 const wallet = createWalletClient({
   account: owner,
-  chain: chainOf(config),
+  chain: chainOf(config.BASE_CHAIN_ID),
   transport: http(config.BASE_RPC_URL),
 })
 const hash = await wallet.sendTransaction({

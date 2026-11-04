@@ -108,12 +108,28 @@ A Safe holds the funds and the Safe Allowance Module caps the hot wallet per day
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm create-safe`      | Deploys a Safe with the owner EOA as its only owner, threshold 1. Refuses when `SAFE_ADDRESS` is already set, and reads owners and threshold back from the chain      |
 | `pnpm enable-allowance` | One Safe transaction: enables the Allowance Module if it is not, adds the hot wallet as delegate, and sets a USDC allowance of `DAILY_CAP` that resets every 1440 min |
+| `pnpm status:base`      | Owners, threshold, the module, the Safe's USDC and the delegate's allowance, all read from the chain                                                                  |
+| `pnpm kill:base`        | The owner removes the hot wallet as delegate, with its allowances, in one Safe transaction. Asks for `--yes`                                                          |
 
 `enable-allowance` takes the module and USDC addresses from `shared/addresses.ts` when it has a
 verified value for the chain, else from `BASE_ALLOWANCE_MODULE` and `BASE_USDC` in `.env`, and in
 both cases refuses unless the chain holds code there and USDC reports 6 decimals. The owner key is
 read from `.env` only; nothing secret goes on the command line, and the scripts print only
 addresses and transaction hashes.
+
+`createEvmAdapter({ chain, rpcUrl, hotWalletKey, safe, usdc, module })` is the `ChainAdapter`:
+
+- `topUpHotWallet` calls `executeAllowanceTransfer` as the delegate itself (an empty signature), so
+  the module's cap is the only limit and no relayer is paid.
+- `simulate` runs one `eth_simulateV1` block: the two balances, the transfer, the two balances again,
+  so before and after are read against the same state. Anything but exactly the amount moving is
+  `SIM_UNEXPECTED_EFFECT`.
+- `x402Scheme` gives the `@x402/evm` client a signer that can only sign typed data, and only an
+  EIP-3009 `TransferWithAuthorization` for this USDC, chain, payer, recipient and amount, valid for
+  at most an hour. Any other typed data, Permit and Permit2 included, is `PERMIT_DETECTED`. It has
+  no transaction signer and no EIP-7702 authorization, so approval and delegation paths have
+  nothing to sign with. What gets signed is rebuilt from the checked values, not passed through.
+- `buildKillTx` is one Safe call, `removeDelegate(hot, true)`, unsigned, for an owner.
 
 Safe's official list has no Allowance Module on Base Sepolia (CR-005). Check before running:
 `cast code 0xAA46724893dedD72658219405185Fb0Fc91e091C --rpc-url https://sepolia.base.org`.
