@@ -1,0 +1,3075 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>AgentGuard</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <meta
+      name="description"
+      content="AgentGuard is the security layer between AI agents and their wallets. Policy, simulation, Telegram approvals and an onchain daily cap on Solana and Base."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* Layout: one dark stage, full-bleed bands, a 1200px content column; the hero pairs a giant headline with a live intent feed. */
+      :root {
+        --bg: #050505;
+        --bg-2: #0a0a0a;
+        --panel: #0d0d0d;
+        --line: #1c1c1e;
+        --line-2: #2a2a2d;
+        --fg: #f5f5f5;
+        --muted: #a0a0a5;
+        --dim: #6a6a6f;
+        --violet: #9b6bff;
+        --aqua: #2ee6d6;
+        --mint: #3ff5a1;
+        --amber: #ffc35c;
+        --red: #ff6b7d;
+        --grad: linear-gradient(
+          100deg,
+          var(--violet) 0%,
+          #5b8cff 45%,
+          var(--aqua) 75%,
+          var(--mint) 100%
+        );
+        --display: 'Geist', 'Helvetica Neue', Arial, sans-serif;
+        --body: 'Geist', 'Helvetica Neue', Arial, sans-serif;
+        --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        --wrap: 1200px;
+        --gut-l: max(20px, env(safe-area-inset-left, 0px));
+        --gut-r: max(20px, env(safe-area-inset-right, 0px));
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0 0 auto;
+        height: env(safe-area-inset-top, 0px);
+        z-index: 60;
+        background: var(--bg);
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--aqua);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        margin: 0;
+        text-wrap: balance;
+        letter-spacing: -0.035em;
+      }
+      p {
+        margin: 0;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: var(--mono);
+      }
+
+      .wrap {
+        max-width: var(--wrap);
+        margin: 0 auto;
+        padding-left: var(--gut-l);
+        padding-right: var(--gut-r);
+      }
+      .band {
+        padding-block: clamp(80px, 11vw, 140px);
+        position: relative;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .eyebrow::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--grad);
+      }
+      .grad-text {
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .h2 {
+        font-size: clamp(36px, 5.4vw, 68px);
+        line-height: 1.02;
+        font-weight: 600;
+      }
+      .lede {
+        font-size: clamp(17px, 1.6vw, 20px);
+        color: var(--muted);
+        max-width: 60ch;
+      }
+      .sec-head {
+        display: grid;
+        gap: 22px;
+        margin-bottom: clamp(48px, 6vw, 72px);
+        max-width: 860px;
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        height: 52px;
+        padding: 0 26px;
+        border-radius: 999px;
+        font-weight: 500;
+        font-size: 15px;
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease,
+          border-color 0.2s ease;
+        white-space: nowrap;
+        cursor: pointer;
+        border: 0;
+        font-family: var(--body);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        background: var(--fg);
+        color: var(--bg);
+      }
+      .btn-primary:hover {
+        background: #fff;
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--line-2);
+      }
+      .btn-ghost:hover {
+        border-color: var(--muted);
+      }
+      .btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Nav */
+      .nav {
+        position: sticky;
+        top: env(safe-area-inset-top, 0px);
+        z-index: 50;
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+        background: rgba(5, 5, 5, 0.78);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 72px;
+        gap: 24px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font-weight: 600;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+      .brand svg {
+        width: 32px;
+        height: 32px;
+        filter: drop-shadow(0 0 7px rgba(91, 140, 255, 0.55));
+      }
+      .logo-mark {
+        overflow: visible;
+      }
+      .cta-logo {
+        width: clamp(100px, 13vw, 150px);
+        height: clamp(100px, 13vw, 150px);
+        filter: drop-shadow(0 0 22px rgba(91, 140, 255, 0.65))
+          drop-shadow(0 0 80px rgba(155, 107, 255, 0.5));
+      }
+      .nav-links {
+        display: flex;
+        gap: 34px;
+        font-size: 14.5px;
+        color: var(--muted);
+      }
+      .nav-links a:hover {
+        color: var(--fg);
+      }
+      .nav-cta {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .nav-cta .btn {
+        height: 42px;
+        padding: 0 20px;
+        font-size: 14px;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        padding: 6px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--amber);
+        box-shadow: 0 0 10px var(--amber);
+      }
+      @media (max-width: 960px) {
+        .nav-links,
+        .status-pill {
+          display: none;
+        }
+      }
+
+      /* Hero */
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding-block: clamp(70px, 9vw, 120px) clamp(60px, 7vw, 100px);
+      }
+      #ribbons {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      .hero::after {
+        content: '';
+        position: absolute;
+        inset: auto 0 0;
+        height: 220px;
+        background: linear-gradient(to bottom, transparent, var(--bg));
+        pointer-events: none;
+      }
+      .hero .wrap {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
+        gap: clamp(40px, 5vw, 80px);
+        align-items: center;
+      }
+      .hero h1 {
+        font-size: clamp(48px, 7.6vw, 104px);
+        line-height: 0.96;
+        font-weight: 600;
+        letter-spacing: -0.05em;
+      }
+      .hero-copy {
+        display: grid;
+        gap: 30px;
+        min-width: 0;
+      }
+      .hero .lede {
+        font-size: clamp(18px, 1.7vw, 21px);
+      }
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+      .hero-note {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--dim);
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .hero-note span {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .hero-note b {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      @media (max-width: 960px) {
+        .hero .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Intent feed */
+      .feed {
+        background: linear-gradient(180deg, rgba(15, 15, 16, 0.95), rgba(8, 8, 9, 0.95));
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 20px;
+        box-shadow:
+          0 40px 120px -40px rgba(155, 107, 255, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        min-width: 0;
+        position: relative;
+      }
+      .feed::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border-radius: 23px;
+        padding: 1px;
+        background: linear-gradient(
+          140deg,
+          rgba(155, 107, 255, 0.6),
+          transparent 40%,
+          transparent 60%,
+          rgba(46, 230, 214, 0.5)
+        );
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+      .feed-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 2px 4px 16px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 14px;
+        gap: 12px;
+      }
+      .feed-title {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .feed-live {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--dim);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .feed-live i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mint);
+        animation: pulse 1.6s infinite;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.25;
+        }
+      }
+      .feed-list {
+        display: grid;
+        gap: 10px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .intent {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 13px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        animation: slidein 0.5s ease both;
+      }
+      @keyframes slidein {
+        from {
+          transform: translateY(-8px);
+          opacity: 0.3;
+        }
+      }
+      .intent-ico {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .intent-main {
+        min-width: 0;
+      }
+      .intent-what {
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .intent-meta {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 5px 9px;
+        border-radius: 7px;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
+      }
+      .s-approved {
+        color: var(--mint);
+        background: rgba(63, 245, 161, 0.1);
+      }
+      .s-pending {
+        color: var(--amber);
+        background: rgba(255, 195, 92, 0.1);
+      }
+      .s-rejected {
+        color: var(--red);
+        background: rgba(255, 107, 125, 0.1);
+      }
+      .k-x402 {
+        background: rgba(155, 107, 255, 0.14);
+        color: var(--violet);
+      }
+      .k-transfer {
+        background: rgba(46, 230, 214, 0.12);
+        color: var(--aqua);
+      }
+      .feed-foot {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .feed-foot div {
+        display: grid;
+        gap: 2px;
+      }
+      .feed-foot small {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .feed-foot strong {
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        font-size: 15px;
+      }
+      .meter {
+        height: 4px;
+        border-radius: 4px;
+        background: var(--line);
+        overflow: hidden;
+        margin-top: 6px;
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        background: var(--grad);
+        width: 38%;
+        transition: width 0.6s ease;
+      }
+
+      /* Stats */
+      .stats {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-2);
+      }
+      .stats .wrap {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .stat {
+        padding: 40px 24px;
+        border-left: 1px solid var(--line);
+        display: grid;
+        gap: 8px;
+      }
+      .stat:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
+      .stat b {
+        font-size: clamp(34px, 4vw, 54px);
+        font-weight: 500;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .stats-cap {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--dim);
+        padding-block: 0 22px;
+        letter-spacing: 0.04em;
+      }
+      @media (max-width: 900px) {
+        .stats .wrap {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .stat {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          padding-left: 0;
+        }
+        .stat:nth-child(-n + 2) {
+          border-top: 0;
+        }
+        .stat:last-of-type {
+          grid-column: 1 / -1;
+        }
+      }
+
+      /* Marquee */
+      .marquee-band {
+        padding-block: 56px;
+        overflow: hidden;
+      }
+      .marquee-label {
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--dim);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 28px;
+      }
+      .marquee {
+        display: flex;
+        width: max-content;
+        animation: scroll 42s linear infinite;
+      }
+      .marquee-track {
+        display: flex;
+        gap: 72px;
+        padding-right: 72px;
+        align-items: center;
+      }
+      .mark {
+        font-size: clamp(22px, 2.6vw, 30px);
+        font-weight: 500;
+        color: #606065;
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .mark small {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--dim);
+        letter-spacing: 0.06em;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 3px 7px;
+      }
+      .marquee-mask {
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+      }
+      @keyframes scroll {
+        to {
+          transform: translateX(-50%);
+        }
+      }
+
+      /* Pipeline */
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        overflow: hidden;
+        background: var(--bg-2);
+      }
+      .step {
+        padding: 34px 30px 36px;
+        border-left: 1px solid var(--line);
+        display: grid;
+        gap: 18px;
+        align-content: start;
+        position: relative;
+        min-width: 0;
+      }
+      .step:first-child {
+        border-left: 0;
+      }
+      .step-n {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--dim);
+      }
+      .step h3 {
+        font-size: 24px;
+        font-weight: 500;
+        letter-spacing: -0.025em;
+      }
+      .step p {
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .step ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .step li {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        padding: 7px 10px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        overflow-wrap: anywhere;
+      }
+      .step-bar {
+        height: 3px;
+        width: 40px;
+        border-radius: 3px;
+      }
+      .outcomes {
+        display: grid;
+        gap: 8px;
+      }
+      .outcomes div {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      @media (max-width: 960px) {
+        .pipeline {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .step:nth-child(3) {
+          border-left: 0;
+        }
+        .step:nth-child(n + 3) {
+          border-top: 1px solid var(--line);
+        }
+      }
+      @media (max-width: 600px) {
+        .pipeline {
+          grid-template-columns: 1fr;
+        }
+        .step {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+        .step:first-child {
+          border-top: 0;
+        }
+      }
+
+      /* Money flow + loss calc */
+      .flow-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 28px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: clamp(26px, 3vw, 40px);
+        min-width: 0;
+      }
+      .flow {
+        display: grid;
+        gap: 0;
+        margin-top: 8px;
+      }
+      .node {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .node-ico {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line-2);
+        background: var(--bg-2);
+      }
+      .node-ico svg {
+        width: 20px;
+        height: 20px;
+      }
+      .node h4 {
+        margin: 0 0 4px;
+        font-size: 17px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .node p {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .node .mono {
+        font-size: 12px;
+        color: var(--dim);
+      }
+      .link {
+        margin-left: 21px;
+        border-left: 1px dashed var(--line-2);
+        height: 30px;
+        position: relative;
+      }
+      .link span {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--violet);
+        white-space: nowrap;
+      }
+      .formula {
+        font-size: clamp(22px, 2.6vw, 32px);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+        margin: 14px 0 28px;
+      }
+      .field {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 22px;
+      }
+      .field-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .field-row output {
+        color: var(--fg);
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 6px;
+        background: var(--line);
+        outline-offset: 6px;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--fg);
+        border: 4px solid var(--violet);
+        cursor: pointer;
+      }
+      input[type='range']::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--fg);
+        border: 4px solid var(--violet);
+        cursor: pointer;
+      }
+      .result {
+        margin-top: 8px;
+        padding: 22px;
+        border-radius: 18px;
+        background: linear-gradient(120deg, rgba(155, 107, 255, 0.14), rgba(46, 230, 214, 0.08));
+        border: 1px solid rgba(155, 107, 255, 0.25);
+        display: grid;
+        gap: 6px;
+      }
+      .result small {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .result b {
+        font-size: clamp(36px, 4.4vw, 56px);
+        font-weight: 500;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .result p {
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .flow-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Features */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        overflow: hidden;
+      }
+      .feature {
+        background: var(--bg);
+        padding: 36px 32px 40px;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        transition: background 0.25s ease;
+        min-width: 0;
+      }
+      .feature:hover {
+        background: var(--bg-2);
+      }
+      .feature-ico {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line-2);
+        margin-bottom: 8px;
+      }
+      .feature-ico svg {
+        width: 22px;
+        height: 22px;
+      }
+      .feature h3 {
+        font-size: 21px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .feature p {
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .feature code {
+        font-size: 12.5px;
+        color: var(--aqua);
+      }
+      @media (max-width: 960px) {
+        .features {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 620px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Telegram split */
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: clamp(40px, 6vw, 96px);
+        align-items: center;
+      }
+      .split-copy {
+        display: grid;
+        gap: 26px;
+      }
+      .checks {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 14px;
+      }
+      .checks li {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 12px;
+        color: var(--muted);
+        font-size: 15.5px;
+      }
+      .checks li b {
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .checks svg {
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+      }
+      .phone {
+        max-width: 400px;
+        width: 100%;
+        justify-self: center;
+        background: #0c0c0e;
+        border: 1px solid var(--line-2);
+        border-radius: 34px;
+        padding: 14px;
+        box-shadow: 0 50px 120px -50px rgba(46, 230, 214, 0.35);
+      }
+      .phone-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #0a0a0b;
+        border: 1px solid var(--line-2);
+        display: grid;
+        place-items: center;
+      }
+      .avatar svg {
+        width: 27px;
+        height: 27px;
+      }
+      .phone-top b {
+        font-size: 15px;
+        font-weight: 500;
+        display: block;
+        line-height: 1.2;
+      }
+      .phone-top small {
+        font-size: 12px;
+        color: var(--dim);
+      }
+      .chat {
+        padding: 16px 6px 6px;
+        display: grid;
+        gap: 10px;
+      }
+      .bubble {
+        background: #151518;
+        border-radius: 16px 16px 16px 4px;
+        padding: 14px 16px;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .bubble .mono {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .bubble hr {
+        border: 0;
+        border-top: 1px solid var(--line-2);
+        margin: 10px 0;
+      }
+      .bubble-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+      }
+      .bubble-row span:first-child {
+        color: var(--dim);
+      }
+      .bubble-row span:last-child {
+        font-family: var(--mono);
+        text-align: right;
+        overflow-wrap: anywhere;
+      }
+      .tg-btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .tg-btn {
+        height: 44px;
+        border-radius: 12px;
+        background: #151518;
+        border: 1px solid var(--line-2);
+        color: var(--fg);
+        font-family: var(--body);
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+      .tg-btn:hover {
+        background: #202024;
+      }
+      .tg-btn.ok {
+        color: var(--mint);
+      }
+      .tg-btn.no {
+        color: var(--red);
+      }
+      .tg-done {
+        font-family: var(--mono);
+        font-size: 12px;
+        text-align: center;
+        color: var(--muted);
+        padding: 6px;
+      }
+      .countdown {
+        color: var(--amber);
+      }
+      @media (max-width: 900px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Threats */
+      .threat-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 28px;
+      }
+      .tab {
+        height: 40px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid var(--line-2);
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--body);
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .tab:hover {
+        color: var(--fg);
+      }
+      .tab[aria-selected='true'] {
+        background: var(--fg);
+        color: var(--bg);
+        border-color: var(--fg);
+      }
+      .threats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+      }
+      .threat {
+        padding: 20px 22px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: var(--bg-2);
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        min-width: 0;
+      }
+      .threat code {
+        font-size: 12.5px;
+        color: var(--red);
+        overflow-wrap: anywhere;
+      }
+      .threat p {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .threat .tag {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      /* Developers */
+      .dev {
+        display: grid;
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        gap: clamp(36px, 5vw, 72px);
+        align-items: start;
+      }
+      .dev-copy {
+        display: grid;
+        gap: 26px;
+      }
+      .tools {
+        display: grid;
+        gap: 10px;
+      }
+      .tool {
+        display: grid;
+        grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+        gap: 16px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        align-items: baseline;
+      }
+      .tool code {
+        color: var(--aqua);
+        font-size: 13.5px;
+      }
+      .tool span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .code-card {
+        background: #0a0a0a;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .code-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px 12px 10px;
+        border-bottom: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+      .code-tabs {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .code-tab {
+        height: 34px;
+        padding: 0 14px;
+        border-radius: 9px;
+        border: 0;
+        background: transparent;
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 12.5px;
+        cursor: pointer;
+      }
+      .code-tab:hover {
+        color: var(--fg);
+      }
+      .code-tab[aria-selected='true'] {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--fg);
+      }
+      .copy {
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 9px;
+        border: 1px solid var(--line-2);
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .copy:hover {
+        color: var(--fg);
+      }
+      .code-scroll {
+        overflow-x: auto;
+      }
+      pre.code {
+        margin: 0;
+        padding: 22px 24px 26px;
+        font-size: 13px;
+        line-height: 1.75;
+        color: #c9c9d8;
+        tab-size: 2;
+      }
+      .t-k {
+        color: #c49bff;
+      }
+      .t-s {
+        color: #6ff0c2;
+      }
+      .t-n {
+        color: #ffc35c;
+      }
+      .t-c {
+        color: #5e5e74;
+      }
+      .t-p {
+        color: #7fb6ff;
+      }
+      @media (max-width: 960px) {
+        .dev {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 520px) {
+        .tool {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+      }
+
+      /* Chains */
+      .chains {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+      }
+      .chain {
+        position: relative;
+        overflow: hidden;
+        border-radius: 26px;
+        border: 1px solid var(--line);
+        padding: clamp(28px, 3.4vw, 44px);
+        background: var(--panel);
+        display: grid;
+        gap: 22px;
+        min-width: 0;
+      }
+      .chain::before {
+        content: '';
+        position: absolute;
+        width: 380px;
+        height: 380px;
+        right: -140px;
+        top: -160px;
+        border-radius: 50%;
+        filter: blur(70px);
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .chain.svm::before {
+        background: var(--violet);
+      }
+      .chain.evm::before {
+        background: #3b6dff;
+      }
+      .chain-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        flex-wrap: wrap;
+      }
+      .chain h3 {
+        font-size: clamp(30px, 3.4vw, 42px);
+        font-weight: 600;
+      }
+      .order {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--line-2);
+        color: var(--muted);
+      }
+      .kv {
+        display: grid;
+        position: relative;
+      }
+      .kv div {
+        display: grid;
+        grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
+        gap: 16px;
+        padding: 13px 0;
+        border-top: 1px solid var(--line);
+        font-size: 14.5px;
+      }
+      .kv dt {
+        color: var(--dim);
+      }
+      .kv dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .kv dd.mono {
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .chains {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 480px) {
+        .kv div {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+      }
+
+      /* Roadmap */
+      .road {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .phase {
+        border-top: 2px solid var(--line-2);
+        padding-top: 22px;
+        display: grid;
+        gap: 12px;
+        align-content: start;
+        min-width: 0;
+      }
+      .phase.done {
+        border-color: var(--mint);
+      }
+      .phase.now {
+        border-image: var(--grad) 1;
+      }
+      .phase-tag {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .phase.done .phase-tag {
+        color: var(--mint);
+      }
+      .phase.now .phase-tag {
+        color: var(--aqua);
+      }
+      .phase.next .phase-tag {
+        color: var(--dim);
+      }
+      .phase h3 {
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .phase ul {
+        margin: 0;
+        padding: 0 0 0 18px;
+        color: var(--muted);
+        font-size: 14.5px;
+        display: grid;
+        gap: 6px;
+      }
+      @media (max-width: 960px) {
+        .road {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          row-gap: 40px;
+        }
+      }
+      @media (max-width: 560px) {
+        .road {
+          grid-template-columns: 1fr;
+        }
+      }
+      .notice {
+        margin-top: 48px;
+        padding: 20px 24px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 195, 92, 0.3);
+        background: rgba(255, 195, 92, 0.06);
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        font-size: 15px;
+        color: var(--muted);
+      }
+      .notice b {
+        color: var(--amber);
+        font-weight: 500;
+      }
+
+      /* FAQ */
+      .faq {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: clamp(36px, 5vw, 80px);
+      }
+      details {
+        border-bottom: 1px solid var(--line);
+      }
+      details:first-of-type {
+        border-top: 1px solid var(--line);
+      }
+      summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 24px 0;
+        font-size: 18px;
+        font-weight: 500;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        letter-spacing: -0.015em;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::after {
+        content: '+';
+        font-weight: 300;
+        font-size: 24px;
+        line-height: 1;
+        color: var(--muted);
+        transition: transform 0.25s ease;
+      }
+      details[open] summary::after {
+        transform: rotate(45deg);
+      }
+      details p {
+        color: var(--muted);
+        padding-bottom: 24px;
+        max-width: 64ch;
+      }
+      details code {
+        font-size: 13px;
+        color: var(--aqua);
+      }
+      @media (max-width: 900px) {
+        .faq {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* CTA */
+      .cta {
+        position: relative;
+        overflow: hidden;
+        border-radius: 32px;
+        padding: clamp(56px, 8vw, 110px) clamp(24px, 6vw, 80px);
+        text-align: center;
+        background:
+          radial-gradient(120% 140% at 50% 0%, rgba(155, 107, 255, 0.28), transparent 55%),
+          radial-gradient(90% 100% at 100% 100%, rgba(46, 230, 214, 0.18), transparent 60%),
+          var(--panel);
+        border: 1px solid var(--line);
+        display: grid;
+        gap: 28px;
+        justify-items: center;
+      }
+      .cta h2 {
+        font-size: clamp(40px, 6.4vw, 84px);
+        line-height: 1;
+        font-weight: 600;
+        max-width: 14ch;
+      }
+      .cta .hero-actions {
+        justify-content: center;
+      }
+
+      /* Footer */
+      footer {
+        border-top: 1px solid var(--line);
+        padding-block: 64px 48px;
+      }
+      .foot {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+        gap: 40px;
+      }
+      .foot h5 {
+        margin: 0 0 16px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--dim);
+        font-weight: 400;
+      }
+      .foot ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+        font-size: 14.5px;
+        color: var(--muted);
+      }
+      .foot a:hover {
+        color: var(--fg);
+      }
+      .foot-brand {
+        display: grid;
+        gap: 16px;
+        align-content: start;
+      }
+      .foot-brand p {
+        color: var(--muted);
+        font-size: 14.5px;
+        max-width: 36ch;
+      }
+      .legal {
+        margin-top: 56px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        color: var(--dim);
+        font-family: var(--mono);
+      }
+      @media (max-width: 800px) {
+        .foot {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .foot-brand {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#9b6bff" />
+          <stop offset=".55" stop-color="#2ee6d6" />
+          <stop offset="1" stop-color="#3ff5a1" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <header class="nav">
+      <div class="wrap">
+        <a class="brand" href="#top" aria-label="AgentGuard home">
+          <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+            <defs>
+              <linearGradient id="lgm1" x1="0" y1="0" x2="1" y2="0.25">
+                <stop offset="0" stop-color="#3fd9ff" />
+                <stop offset=".5" stop-color="#5b8cff" />
+                <stop offset="1" stop-color="#9b6bff" />
+              </linearGradient>
+              <filter id="mglow1" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+              </filter>
+            </defs>
+            <g fill="none" stroke="url(#lgm1)">
+              <g filter="url(#mglow1)" opacity=".95">
+                <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="4"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+              </g>
+              <circle cx="50" cy="50" r="40" stroke-width="3" />
+              <path
+                d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                stroke-width="3.4"
+                stroke-linejoin="round"
+              />
+              <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+              <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+            </g>
+          </svg>
+          AgentGuard
+        </a>
+        <nav class="nav-links" aria-label="Main">
+          <a href="#how">How it works</a>
+          <a href="#security">Security</a>
+          <a href="#developers">Developers</a>
+          <a href="#chains">Chains</a>
+          <a href="#roadmap">Roadmap</a>
+        </nav>
+        <div class="nav-cta">
+          <span class="status-pill"><span class="dot"></span>v0.3 · test network</span>
+          <a class="btn btn-primary" href="#developers">Start building</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <canvas id="ribbons" aria-hidden="true"></canvas>
+        <div class="wrap">
+          <div class="hero-copy">
+            <h1>Let agents pay.<br /><span class="grad-text">Never let them drain you.</span></h1>
+            <p class="lede">
+              AgentGuard sits between your AI agents and your money. Every payment must pass the
+              rules you set, then a test run of the real transaction. Small payments go through,
+              bigger ones wait for your approval on Telegram, and anything suspicious is refused.
+              Your funds stay locked in your own vault — the agent only ever touches a small
+              allowance you set.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#developers"
+                >Start building
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M3 8h10M9 4l4 4-4 4"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+              <a class="btn btn-ghost" href="#how">See how it works</a>
+            </div>
+            <div class="hero-note">
+              <span><b>Solana</b> + <b>Base</b></span>
+              <span>USDC</span>
+              <span>x402 (pay-per-use APIs) · MCP (agent plug-in) · Telegram</span>
+            </div>
+          </div>
+
+          <aside class="feed" aria-label="Example intent feed">
+            <div class="feed-head">
+              <span class="feed-title">Payment requests · agent-1</span>
+              <span class="feed-live"><i></i>simulated example</span>
+            </div>
+            <ol class="feed-list" id="feed"></ol>
+            <div class="feed-foot">
+              <div>
+                <small>Spent today</small><strong id="spent">$38.40</strong>
+                <div class="meter"><i id="meter"></i></div>
+              </div>
+              <div><small>Daily max</small><strong>$100.00</strong></div>
+              <div><small>Per payment max</small><strong>$25.00</strong></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="AgentGuard by the numbers">
+        <div class="wrap">
+          <div class="stat"><b>2</b><span>blockchains: Solana first, Base next</span></div>
+          <div class="stat"><b>530</b><span>automated tests run on every change</span></div>
+          <div class="stat"><b>24</b><span>attack scenarios blocked in testing</span></div>
+          <div class="stat"><b>20</b><span>named reasons a payment is refused</span></div>
+          <div class="stat"><b>0</b><span>new smart contracts for you to trust</span></div>
+        </div>
+        <div class="wrap">
+          <p class="stats-cap">Figures from the codebase, SPEC v0.3, November 2026.</p>
+        </div>
+      </section>
+
+      <section class="marquee-band" aria-label="Built on">
+        <p class="marquee-label">
+          Built on proven, independently audited tools already live onchain
+        </p>
+        <div class="marquee-mask">
+          <div class="marquee">
+            <div class="marquee-track">
+              <span class="mark">Squads v4 <small>vault wallet</small></span>
+              <span class="mark">Safe <small>vault wallet</small></span>
+              <span class="mark">Safe Allowance Module <small>spend limit</small></span>
+              <span class="mark">x402 <small>pay-per-use payments</small></span>
+              <span class="mark">Model Context Protocol <small>how agents connect</small></span>
+              <span class="mark">USDC <small>digital dollar</small></span>
+              <span class="mark">Telegram <small>approvals</small></span>
+            </div>
+            <div class="marquee-track" aria-hidden="true">
+              <span class="mark">Squads v4 <small>vault wallet</small></span>
+              <span class="mark">Safe <small>vault wallet</small></span>
+              <span class="mark">Safe Allowance Module <small>spend limit</small></span>
+              <span class="mark">x402 <small>pay-per-use payments</small></span>
+              <span class="mark">Model Context Protocol <small>how agents connect</small></span>
+              <span class="mark">USDC <small>digital dollar</small></span>
+              <span class="mark">Telegram <small>approvals</small></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="how">
+        <div class="wrap">
+          <div class="sec-head">
+            <span class="eyebrow">How it works</span>
+            <h2 class="h2">
+              Every payment takes the same four steps. <span class="grad-text">No exceptions.</span>
+            </h2>
+            <p class="lede">
+              The agent never holds a key. It asks AgentGuard to pay, and AgentGuard decides. The
+              agent also sends text — its reason, the URL. You see that text, but AgentGuard never
+              uses it to decide.
+            </p>
+          </div>
+
+          <div class="pipeline">
+            <div class="step">
+              <span class="step-n">Step 1</span>
+              <div class="step-bar" style="background: var(--violet)"></div>
+              <h3>Request</h3>
+              <p>
+                Your agent asks AgentGuard to pay. It holds no keys and no money — asking is all it
+                can do.
+              </p>
+              <ul>
+                <li>paid_fetch</li>
+                <li>transfer</li>
+              </ul>
+            </div>
+            <div class="step">
+              <span class="step-n">Step 2</span>
+              <div class="step-bar" style="background: #6d84ff"></div>
+              <h3>Policy</h3>
+              <p>
+                AgentGuard checks the payment against the limits you set for this agent. Any doubt
+                means no.
+              </p>
+              <ul>
+                <li>per-payment and daily limits</li>
+                <li>networks and tokens you allow</li>
+                <li>recipients and websites you allow</li>
+              </ul>
+            </div>
+            <div class="step">
+              <span class="step-n">Step 3</span>
+              <div class="step-bar" style="background: var(--aqua)"></div>
+              <h3>Test run</h3>
+              <p>
+                Before any money moves, AgentGuard rehearses the exact payment to see what it would
+                really do — not what the agent says it does.
+              </p>
+              <ul>
+                <li>exact balance changes</li>
+                <li>hidden permissions</li>
+                <li>programs you never approved</li>
+              </ul>
+            </div>
+            <div class="step">
+              <span class="step-n">Step 4</span>
+              <div class="step-bar" style="background: var(--mint)"></div>
+              <h3>Decide</h3>
+              <p>
+                Each payment ends one of three ways. Every outcome is written to the audit log with
+                its reasons.
+              </p>
+              <div class="outcomes">
+                <div>Under your threshold <span class="chip s-approved">approved</span></div>
+                <div>At or above it <span class="chip s-pending">asks you</span></div>
+                <div>Breaks your rules <span class="chip s-rejected">rejected</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" style="padding-top: 0">
+        <div class="wrap">
+          <div class="flow-grid">
+            <div class="card">
+              <span class="eyebrow">Where the money lives</span>
+              <h3
+                style="font-size: clamp(26px, 2.8vw, 34px); font-weight: 500; margin: 18px 0 26px"
+              >
+                Funds stay in your vault. The agent spends from a small, capped wallet.
+              </h3>
+              <div class="flow">
+                <div class="node">
+                  <div class="node-ico">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#9b6bff"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="6" width="18" height="14" rx="3" />
+                      <path d="M3 10h18M16 15h2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Your vault (multisig)</h4>
+                    <p>
+                      Holds your funds. A wallet only you control — Squads v4 on Solana, Safe on
+                      Base.
+                    </p>
+                  </div>
+                </div>
+                <div class="link"><span>spend limit · your daily cap per 24h</span></div>
+                <div class="node">
+                  <div class="node-ico">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#6d84ff"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Built-in spend limit</h4>
+                    <p>
+                      Tops up the spending wallet, never above your cap. The blockchain itself
+                      enforces this, not our code.
+                    </p>
+                  </div>
+                </div>
+                <div class="link"><span>refill</span></div>
+                <div class="node">
+                  <div class="node-ico">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#2ee6d6"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 3 4 6.5v5.6c0 4.8 3.3 8.6 8 9.9 4.7-1.3 8-5.1 8-9.9V6.5L12 3Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Guard spending wallet</h4>
+                    <p>
+                      Pocket money only (the "hot wallet"). Its key never leaves AgentGuard — never
+                      shown to the agent, never written to logs.
+                    </p>
+                  </div>
+                </div>
+                <div class="link"><span>pays after policy + simulation</span></div>
+                <div class="node">
+                  <div class="node-ico">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#3ff5a1"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Pay-per-use APIs and transfers</h4>
+                    <p>Only websites and recipients you approved in advance.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <span class="eyebrow">Worst case, in writing</span>
+              <p class="formula">
+                Max loss per day = <span class="grad-text">daily cap + hot wallet balance.</span>
+              </p>
+              <p class="lede" style="font-size: 15.5px; margin-bottom: 30px">
+                This holds even if AgentGuard's own software has a bug or is hacked: the blockchain
+                itself enforces the cap, with independently audited code. Move the sliders to see
+                your own ceiling.
+              </p>
+              <div class="field">
+                <div class="field-row">
+                  <label for="cap">Onchain daily cap</label
+                  ><output id="capOut" for="cap">$100</output>
+                </div>
+                <input type="range" id="cap" min="10" max="2000" step="10" value="100" />
+              </div>
+              <div class="field">
+                <div class="field-row">
+                  <label for="hot">Hot wallet balance</label
+                  ><output id="hotOut" for="hot">$40</output>
+                </div>
+                <input type="range" id="hot" min="0" max="1000" step="5" value="40" />
+              </div>
+              <div class="field">
+                <div class="field-row">
+                  <label for="vault">Funds in your multisig</label
+                  ><output id="vaultOut" for="vault">$50,000</output>
+                </div>
+                <input type="range" id="vault" min="1000" max="500000" step="1000" value="50000" />
+              </div>
+              <div class="result" aria-live="polite">
+                <small>Most you can lose in 24 hours</small>
+                <b id="loss">$140</b>
+                <p id="lossNote">
+                  0.28% of your vault. The other $49,860 cannot be reached by the agent.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="band"
+        id="security"
+        style="
+          background: var(--bg-2);
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
+        "
+      >
+        <div class="wrap">
+          <div class="sec-head">
+            <span class="eyebrow">Security model</span>
+            <h2 class="h2">
+              Layers of protection. <span class="grad-text">Everything starts blocked.</span>
+            </h2>
+            <p class="lede">
+              Two layers that do not trust each other. The blockchain caps how much can ever be
+              lost. The guard decides what gets paid at all.
+            </p>
+          </div>
+          <div class="features">
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <path d="M4 6h16M4 12h10M4 18h6" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              </div>
+              <h3>Policy engine</h3>
+              <p>
+                You set how much per payment, how much per day, and exactly who can be paid. A new
+                agent cannot spend a cent until you allow it.
+              </p>
+            </article>
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <path d="M3 12h4l3-7 4 14 3-7h4" />
+                </svg>
+              </div>
+              <h3>Test run before signing</h3>
+              <p>
+                Every payment gets a rehearsal before it is signed. If it would do anything beyond
+                what you approved — even one hidden side effect — it never runs.
+              </p>
+            </article>
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <path d="m21 4-9.5 9.5M21 4l-6 17-3.5-7.5L4 10l17-6Z" />
+                </svg>
+              </div>
+              <h3>Telegram approvals</h3>
+              <p>
+                Payments at or above your threshold go to your phone with a plain summary of what
+                they will do. No answer in 10 minutes means no payment.
+              </p>
+            </article>
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5" />
+                </svg>
+              </div>
+              <h3>One-tap kill switch</h3>
+              <p>
+                Send <code>/kill</code> and every agent is paused at once. AgentGuard also drafts
+                the transaction that cuts each chain's spending limit to zero — you sign it, the
+                money is shut off.
+              </p>
+            </article>
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <rect x="4" y="10" width="16" height="11" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+              </div>
+              <h3>Onchain daily cap</h3>
+              <p>
+                The daily refill uses the built-in limits of Squads and Safe — widely used vault
+                wallets, independently audited. We add no code of our own to that layer.
+              </p>
+            </article>
+            <article class="feature">
+              <div class="feature-ico">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="url(#g)"
+                  stroke-width="1.8"
+                  aria-hidden="true"
+                >
+                  <path d="M6 3h9l4 4v14H6z" />
+                  <path d="M14 3v5h5M9 13h7M9 17h5" />
+                </svg>
+              </div>
+              <h3>Full audit log</h3>
+              <p>
+                Every decision is recorded with its exact reason, so you can always see what your
+                agent tried and why it was stopped. Amounts are exact to a millionth of a dollar —
+                never rounded.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap split">
+          <div class="split-copy">
+            <span class="eyebrow">Human in the loop</span>
+            <h2 class="h2">Big payments wait for <span class="grad-text">your thumb.</span></h2>
+            <p class="lede">
+              Set an approval threshold. Anything above it lands in Telegram with what the payment
+              will actually do, so you approve the effect, not the agent's story.
+            </p>
+            <ul class="checks">
+              <li>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" stroke="url(#g)" stroke-width="1.6" />
+                  <path
+                    d="m6.5 10.2 2.3 2.3 4.7-4.9"
+                    stroke="#3ff5a1"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  /></svg
+                ><span
+                  ><b>One yes, one payment.</b> Your approval covers exactly this amount, this
+                  recipient, this one time. It cannot be reused or stretched.</span
+                >
+              </li>
+              <li>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" stroke="url(#g)" stroke-width="1.6" />
+                  <path
+                    d="m6.5 10.2 2.3 2.3 4.7-4.9"
+                    stroke="#3ff5a1"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  /></svg
+                ><span
+                  ><b>Forged messages get nowhere.</b> Everything the guard sends the bot is
+                  cryptographically signed; old or duplicated messages are refused.</span
+                >
+              </li>
+              <li>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" stroke="url(#g)" stroke-width="1.6" />
+                  <path
+                    d="m6.5 10.2 2.3 2.3 4.7-4.9"
+                    stroke="#3ff5a1"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  /></svg
+                ><span
+                  ><b>Attack alerts.</b> If an agent tries something shady — like a hidden
+                  permission grab — your phone pings right away, with a suggestion to pause
+                  it.</span
+                >
+              </li>
+              <li>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" stroke="url(#g)" stroke-width="1.6" />
+                  <path
+                    d="m6.5 10.2 2.3 2.3 4.7-4.9"
+                    stroke="#3ff5a1"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  /></svg
+                ><span
+                  ><b>Fail safe.</b> If the bot restarts, pending approvals expire. Nothing is paid
+                  by default.</span
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div class="phone" aria-label="Example Telegram approval">
+            <div class="phone-top">
+              <div class="avatar">
+                <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="lgm2" x1="0" y1="0" x2="1" y2="0.25">
+                      <stop offset="0" stop-color="#3fd9ff" />
+                      <stop offset=".5" stop-color="#5b8cff" />
+                      <stop offset="1" stop-color="#9b6bff" />
+                    </linearGradient>
+                    <filter id="mglow2" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+                    </filter>
+                  </defs>
+                  <g fill="none" stroke="url(#lgm2)">
+                    <g filter="url(#mglow2)" opacity=".95">
+                      <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                      <path
+                        d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                        stroke-width="4"
+                      />
+                      <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                      <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+                    </g>
+                    <circle cx="50" cy="50" r="40" stroke-width="3" />
+                    <path
+                      d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                      stroke-width="3.4"
+                      stroke-linejoin="round"
+                    />
+                    <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+                    <circle
+                      cx="50"
+                      cy="43"
+                      r="6.6"
+                      fill="#5fb3ff"
+                      stroke="#050505"
+                      stroke-width="2.4"
+                    />
+                  </g>
+                </svg>
+              </div>
+              <div><b>AgentGuard</b><small>bot</small></div>
+            </div>
+            <div class="chat">
+              <div class="bubble">
+                <span class="mono">Approval needed · agent-1</span>
+                <div
+                  style="
+                    font-size: 20px;
+                    font-weight: 500;
+                    letter-spacing: -0.02em;
+                    margin-top: 4px;
+                  "
+                >
+                  Pay 18.00 USDC
+                </div>
+                <hr />
+                <div class="bubble-row"><span>Kind</span><span>x402</span></div>
+                <div class="bubble-row"><span>Domain</span><span>api.datafeed.example</span></div>
+                <div class="bubble-row"><span>Chain</span><span>Solana devnet</span></div>
+                <div class="bubble-row">
+                  <span>Effect</span><span>spending wallet −18.00 USDC</span>
+                </div>
+                <hr />
+                <div class="mono">
+                  Agent says: "Premium market data for the weekly report." Unverified.
+                </div>
+                <div class="mono" style="margin-top: 6px">
+                  Expires in <span class="countdown" id="cd">9:42</span>
+                </div>
+              </div>
+              <div class="tg-btns" id="tgBtns">
+                <button class="tg-btn ok" type="button" id="tgOk">Approve</button>
+                <button class="tg-btn no" type="button" id="tgNo">Reject</button>
+              </div>
+              <div class="tg-done" id="tgDone" hidden></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" style="padding-top: 0">
+        <div class="wrap">
+          <div class="sec-head">
+            <span class="eyebrow">What gets blocked</span>
+            <h2 class="h2">Twenty ways to say no.</h2>
+            <p class="lede">
+              Each refusal carries a reject code, so you, your agent and the audit log all know
+              exactly why.
+            </p>
+          </div>
+          <div class="threat-tabs" role="tablist" aria-label="Reject code groups">
+            <button class="tab" role="tab" aria-selected="true" data-group="shared" id="tab-shared">
+              Policy · 12
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-group="svm" id="tab-svm">
+              Solana · 5
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-group="evm" id="tab-evm">
+              Base · 3
+            </button>
+          </div>
+          <div class="threats" id="threats" role="tabpanel"></div>
+        </div>
+      </section>
+
+      <section
+        class="band"
+        id="developers"
+        style="
+          background: var(--bg-2);
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
+        "
+      >
+        <div class="wrap dev">
+          <div class="dev-copy">
+            <span class="eyebrow">For developers</span>
+            <h2 class="h2">Four tools. <span class="grad-text">Your agent is ready.</span></h2>
+            <p class="lede">
+              Plug it into Claude over MCP — the standard way to give AI assistants tools — or call
+              the plain HTTP API from any framework. The connector holds no keys and makes no
+              decisions. You think in dollars; it handles the exact onchain amounts and explains
+              every answer in plain English.
+            </p>
+            <div class="tools">
+              <div class="tool">
+                <code>paid_fetch</code
+                ><span>Call a pay-per-use API. Pays only if your rules allow.</span>
+              </div>
+              <div class="tool">
+                <code>transfer</code><span>Send USDC to a recipient you pre-approved.</span>
+              </div>
+              <div class="tool">
+                <code>get_budget</code
+                ><span>Spent today, your limits, spending wallet balance.</span>
+              </div>
+              <div class="tool">
+                <code>check_intent</code
+                ><span>Check whether a payment is still waiting for your approval.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="code-card">
+            <div class="code-bar">
+              <div class="code-tabs" role="tablist" aria-label="Code examples">
+                <button
+                  class="code-tab"
+                  role="tab"
+                  aria-selected="true"
+                  data-code="mcp"
+                  id="ct-mcp"
+                >
+                  claude_desktop_config.json
+                </button>
+                <button
+                  class="code-tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-code="policy"
+                  id="ct-policy"
+                >
+                  policy.json
+                </button>
+                <button
+                  class="code-tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-code="http"
+                  id="ct-http"
+                >
+                  curl
+                </button>
+              </div>
+              <button class="copy" type="button" id="copy">Copy</button>
+            </div>
+            <div class="code-scroll"><pre class="code" id="code"></pre></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="chains">
+        <div class="wrap">
+          <div class="sec-head">
+            <span class="eyebrow">Chains</span>
+            <h2 class="h2">Solana first. <span class="grad-text">Base right behind.</span></h2>
+            <p class="lede">
+              The same protection everywhere: the same limits, the same test run before signing, and
+              the same kill switch — whether your agent pays on Solana or Base.
+            </p>
+          </div>
+          <div class="chains">
+            <article class="chain svm">
+              <div class="chain-head">
+                <h3>Solana</h3>
+                <span class="order">Ships first</span>
+              </div>
+              <dl class="kv">
+                <div>
+                  <dt>Vault wallet</dt>
+                  <dd>Squads v4</dd>
+                </div>
+                <div>
+                  <dt>Spend limit</dt>
+                  <dd>Squads Spending Limit, resets every 24 h</dd>
+                </div>
+                <div>
+                  <dt>Payments</dt>
+                  <dd>x402 pay-per-use, in USDC</dd>
+                </div>
+                <div>
+                  <dt>Test network</dt>
+                  <dd>Solana devnet</dd>
+                </div>
+                <div>
+                  <dt>Network ID</dt>
+                  <dd class="mono">solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp</dd>
+                </div>
+              </dl>
+            </article>
+            <article class="chain evm">
+              <div class="chain-head">
+                <h3>Base</h3>
+                <span class="order">Ships second</span>
+              </div>
+              <dl class="kv">
+                <div>
+                  <dt>Vault wallet</dt>
+                  <dd>Safe</dd>
+                </div>
+                <div>
+                  <dt>Spend limit</dt>
+                  <dd>Safe Allowance Module, resets every 24 h</dd>
+                </div>
+                <div>
+                  <dt>Payments</dt>
+                  <dd>x402 pay-per-use, in USDC</dd>
+                </div>
+                <div>
+                  <dt>Test network</dt>
+                  <dd>Base Sepolia</dd>
+                </div>
+                <div>
+                  <dt>Network ID</dt>
+                  <dd class="mono">eip155:8453</dd>
+                </div>
+              </dl>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="roadmap" style="padding-top: 0">
+        <div class="wrap">
+          <div class="sec-head">
+            <span class="eyebrow">Roadmap</span>
+            <h2 class="h2">Where we are, plainly.</h2>
+          </div>
+          <div class="road">
+            <div class="phase done">
+              <span class="phase-tag">Done</span>
+              <h3>Core stack</h3>
+              <ul>
+                <li>Policy engine and HTTP API</li>
+                <li>MCP server, four tools</li>
+                <li>Telegram approvals and kill</li>
+                <li>530 tests, 24 attack cases</li>
+              </ul>
+            </div>
+            <div class="phase done">
+              <span class="phase-tag">Done</span>
+              <h3>Onchain cap on devnet</h3>
+              <ul>
+                <li>Spending inside the cap works</li>
+                <li>One unit over the cap: refused by the chain itself</li>
+                <li>After the kill switch, nothing can be drawn</li>
+              </ul>
+            </div>
+            <div class="phase now">
+              <span class="phase-tag">In progress</span>
+              <h3>Full stack on devnet</h3>
+              <ul>
+                <li>Real signing end to end</li>
+                <li>Hardware wallet kill</li>
+                <li>Agent token revocation</li>
+                <li>Second security review</li>
+              </ul>
+            </div>
+            <div class="phase next">
+              <span class="phase-tag">Next</span>
+              <h3>Mainnet beta</h3>
+              <ul>
+                <li>Solana mainnet-beta</li>
+                <li>Base mainnet</li>
+                <li>Bug bounty</li>
+              </ul>
+            </div>
+          </div>
+          <div class="notice">
+            <span class="dot" style="margin-top: 8px; flex: none"></span>
+            <p>
+              <b>Not handling real money yet.</b> AgentGuard runs on Solana's test network (devnet)
+              today. We publish every launch blocker in the open. We will not ask anyone to put real
+              money behind AgentGuard until each one is closed.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" style="padding-top: 0">
+        <div class="wrap faq">
+          <div class="sec-head" style="margin: 0; align-content: start">
+            <span class="eyebrow">FAQ</span>
+            <h2 class="h2">Questions builders ask.</h2>
+          </div>
+          <div>
+            <details open>
+              <summary>Can my agent ever touch the funds in my multisig?</summary>
+              <p>
+                No. The agent never holds a key. AgentGuard holds the key of a small spending
+                wallet, and your vault refills that wallet through a blockchain-enforced limit that
+                can never exceed your daily cap.
+              </p>
+            </details>
+            <details>
+              <summary>What if AgentGuard itself is compromised?</summary>
+              <p>
+                The cap still holds, because the blockchain enforces it — not our software. The most
+                anyone can take in a day is your daily cap plus whatever sits in the spending
+                wallet. Press <code>/kill</code> and sign the prepared transaction to shut it off
+                entirely.
+              </p>
+            </details>
+            <details>
+              <summary>Do you deploy your own smart contracts?</summary>
+              <p>
+                No. AgentGuard uses Squads v4 on Solana and Safe on Base — widely used vault wallets
+                that are independently audited and already live. There is no new contract for you to
+                trust.
+              </p>
+            </details>
+            <details>
+              <summary>What is x402?</summary>
+              <p>
+                An open standard that lets a website or API charge a small fee per request, paid
+                automatically. When an API asks for payment, AgentGuard reads the terms, checks your
+                rules, runs the test run, pays only if everything passes, and hands the result to
+                your agent.
+              </p>
+            </details>
+            <details>
+              <summary>Which tokens are supported?</summary>
+              <p>
+                USDC only in v0.1 — a digital dollar. Every amount is handled as an exact whole
+                count of the token's smallest unit, like counting in cents. A value that would need
+                rounding is refused, never rounded.
+              </p>
+            </details>
+            <details>
+              <summary>Does the agent's explanation affect the decision?</summary>
+              <p>
+                Never. The reason an agent gives is shown to you in Telegram and marked as
+                unverified. Decisions use only your policy and the simulated effect of the
+                transaction.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" style="padding-top: 0">
+        <div class="wrap">
+          <div class="cta">
+            <svg class="logo-mark cta-logo" viewBox="0 0 100 100" aria-hidden="true">
+              <defs>
+                <linearGradient id="lgm3" x1="0" y1="0" x2="1" y2="0.25">
+                  <stop offset="0" stop-color="#3fd9ff" />
+                  <stop offset=".5" stop-color="#5b8cff" />
+                  <stop offset="1" stop-color="#9b6bff" />
+                </linearGradient>
+                <filter id="mglow3" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+                </filter>
+              </defs>
+              <g fill="none" stroke="url(#lgm3)">
+                <g filter="url(#mglow3)" opacity=".95">
+                  <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                  <path
+                    d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                    stroke-width="4"
+                  />
+                  <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                  <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+                </g>
+                <circle cx="50" cy="50" r="40" stroke-width="3" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="3.4"
+                  stroke-linejoin="round"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+                <circle
+                  cx="50"
+                  cy="43"
+                  r="6.6"
+                  fill="#5fb3ff"
+                  stroke="#050505"
+                  stroke-width="2.4"
+                />
+              </g>
+            </svg>
+            <span class="eyebrow">Get started</span>
+            <h2>Give your agents a budget, <span class="grad-text">not your keys.</span></h2>
+            <p class="lede" style="text-align: center">
+              Clone the repo, run the stack on devnet in minutes, and connect your first agent over
+              MCP.
+            </p>
+            <div class="hero-actions">
+              <a
+                class="btn btn-primary"
+                href="https://github.com/kikume/AgentGuard"
+                target="_blank"
+                rel="noopener"
+                >View on GitHub
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M5 11 11 5M6 5h5v5"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+              <a class="btn btn-ghost" href="#developers">Read the quickstart</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div class="foot">
+          <div class="foot-brand">
+            <a class="brand" href="#top">
+              <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                  <linearGradient id="lgm4" x1="0" y1="0" x2="1" y2="0.25">
+                    <stop offset="0" stop-color="#3fd9ff" />
+                    <stop offset=".5" stop-color="#5b8cff" />
+                    <stop offset="1" stop-color="#9b6bff" />
+                  </linearGradient>
+                  <filter id="mglow4" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+                  </filter>
+                </defs>
+                <g fill="none" stroke="url(#lgm4)">
+                  <g filter="url(#mglow4)" opacity=".95">
+                    <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                    <path
+                      d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                      stroke-width="4"
+                    />
+                    <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                    <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+                  </g>
+                  <circle cx="50" cy="50" r="40" stroke-width="3" />
+                  <path
+                    d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                    stroke-width="3.4"
+                    stroke-linejoin="round"
+                  />
+                  <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+                  <circle
+                    cx="50"
+                    cy="43"
+                    r="6.6"
+                    fill="#5fb3ff"
+                    stroke="#050505"
+                    stroke-width="2.4"
+                  />
+                </g>
+              </svg>
+              AgentGuard
+            </a>
+            <p>
+              The security layer between AI agents and their wallets. Built for Solana and Base.
+            </p>
+          </div>
+          <div>
+            <h5>Product</h5>
+            <ul>
+              <li><a href="#how">How it works</a></li>
+              <li><a href="#security">Security model</a></li>
+              <li><a href="#chains">Chains</a></li>
+              <li><a href="#roadmap">Roadmap</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5>Developers</h5>
+            <ul>
+              <li><a href="#developers">MCP tools</a></li>
+              <li>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/SPEC.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Spec</a
+                >
+              </li>
+              <li>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/LAUNCH.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Launch checklist</a
+                >
+              </li>
+              <li>
+                <a href="https://github.com/kikume/AgentGuard" target="_blank" rel="noopener"
+                  >GitHub</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h5>Standards</h5>
+            <ul>
+              <li><a href="https://www.x402.org" target="_blank" rel="noopener">x402</a></li>
+              <li>
+                <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener"
+                  >Model Context Protocol</a
+                >
+              </li>
+              <li><a href="https://squads.so" target="_blank" rel="noopener">Squads</a></li>
+              <li><a href="https://safe.global" target="_blank" rel="noopener">Safe</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal"><span>© 2026 AgentGuard</span><span>SPEC v0.3 · devnet</span></div>
+      </div>
+    </footer>
+
+    <script>
+      ;(() => {
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+        const usd = (n) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 })
+
+        // Ribbons: layered sine strokes, drawn once when motion is reduced.
+        const cv = document.getElementById('ribbons')
+        const ctx = cv.getContext('2d')
+        let w = 0,
+          h = 0,
+          t = 0
+        function size() {
+          const r = devicePixelRatio || 1
+          w = cv.clientWidth
+          h = cv.clientHeight
+          cv.width = w * r
+          cv.height = h * r
+          ctx.setTransform(r, 0, 0, r, 0, 0)
+        }
+        function draw() {
+          ctx.clearRect(0, 0, w, h)
+          const g = ctx.createLinearGradient(0, 0, w, 0)
+          g.addColorStop(0, 'rgba(155,107,255,0)')
+          g.addColorStop(0.35, 'rgba(155,107,255,0.55)')
+          g.addColorStop(0.7, 'rgba(46,230,214,0.5)')
+          g.addColorStop(1, 'rgba(63,245,161,0)')
+          ctx.strokeStyle = g
+          for (let i = 0; i < 26; i++) {
+            ctx.beginPath()
+            ctx.lineWidth = 1
+            ctx.globalAlpha = 0.15 + (i / 26) * 0.5
+            for (let x = 0; x <= w; x += 8) {
+              const k = x / w
+              const y =
+                h * 0.62 +
+                Math.sin(k * 3.2 + t + i * 0.12) * (60 + i * 3) +
+                Math.cos(k * 1.4 - t * 0.7 + i * 0.05) * 40 -
+                i * 4
+              x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+            }
+            ctx.stroke()
+          }
+          ctx.globalAlpha = 1
+        }
+        function loop() {
+          t += 0.004
+          draw()
+          requestAnimationFrame(loop)
+        }
+        size()
+        draw()
+        addEventListener('resize', () => {
+          size()
+          draw()
+        })
+        if (!reduce) loop()
+
+        // Intent feed: example intents, cycled.
+        const samples = [
+          {
+            k: 'x402',
+            what: 'GET api.datafeed.example/quotes',
+            amt: 0.25,
+            s: 'approved',
+            meta: 'solana · rules ok · test run ok',
+          },
+          {
+            k: 'transfer',
+            what: 'Transfer to vendor 7xKX…q4Pd',
+            amt: 18,
+            s: 'pending',
+            meta: '≥ approval threshold · sent to Telegram',
+          },
+          {
+            k: 'x402',
+            what: 'POST evil-mirror.example/v1/run',
+            amt: 2,
+            s: 'rejected',
+            meta: 'DOMAIN_NOT_ALLOWED',
+          },
+          {
+            k: 'x402',
+            what: 'GET api.weather.example/forecast',
+            amt: 0.05,
+            s: 'approved',
+            meta: 'solana · rules ok · test run ok',
+          },
+          {
+            k: 'transfer',
+            what: 'Transfer to 9fQe…1aZr',
+            amt: 5,
+            s: 'rejected',
+            meta: 'DELEGATE_DETECTED · SPL Approve hidden in tx',
+          },
+          {
+            k: 'x402',
+            what: 'GET api.search.example/v2',
+            amt: 0.4,
+            s: 'approved',
+            meta: 'solana · rules ok · test run ok',
+          },
+          {
+            k: 'transfer',
+            what: 'Transfer to vendor 7xKX…q4Pd',
+            amt: 60,
+            s: 'rejected',
+            meta: 'PER_TX_EXCEEDED · max $25.00',
+          },
+          {
+            k: 'x402',
+            what: 'GET api.llm-router.example/chat',
+            amt: 1.2,
+            s: 'approved',
+            meta: 'solana · rules ok · test run ok',
+          },
+          {
+            k: 'transfer',
+            what: 'Transfer to 3Hn8…uW2c',
+            amt: 4,
+            s: 'rejected',
+            meta: 'AUTHORITY_CHANGE_DETECTED',
+          },
+        ]
+        const label = { approved: 'approved', pending: 'pending', rejected: 'rejected' }
+        const feed = document.getElementById('feed')
+        const spentEl = document.getElementById('spent')
+        const meter = document.getElementById('meter')
+        let spent = 38.4,
+          idx = 0
+        function row(it) {
+          const li = document.createElement('li')
+          li.className = 'intent'
+          li.innerHTML =
+            `<span class="intent-ico ${it.k === 'x402' ? 'k-x402' : 'k-transfer'}">${it.k === 'x402' ? '402' : '→'}</span>` +
+            `<div class="intent-main"><div class="intent-what"></div><div class="intent-meta"></div></div>` +
+            `<span class="chip s-${it.s}">${label[it.s]} · $${it.amt.toFixed(2)}</span>`
+          li.querySelector('.intent-what').textContent = it.what
+          li.querySelector('.intent-meta').textContent = it.meta
+          return li
+        }
+        function push() {
+          const it = samples[idx++ % samples.length]
+          feed.prepend(row(it))
+          while (feed.children.length > 4) feed.lastElementChild.remove()
+          if (it.s === 'approved') {
+            spent = spent + it.amt > 95 ? 12 : spent + it.amt
+            spentEl.textContent = '$' + spent.toFixed(2)
+            meter.style.width = spent + '%'
+          }
+        }
+        for (let i = 0; i < 4; i++) push()
+        meter.style.width = spent + '%'
+        if (!reduce) setInterval(push, 2600)
+
+        // Loss calculator.
+        const cap = document.getElementById('cap'),
+          hot = document.getElementById('hot'),
+          vault = document.getElementById('vault')
+        function calc() {
+          const c = +cap.value,
+            hw = +hot.value,
+            v = +vault.value
+          const loss = c + hw
+          document.getElementById('capOut').textContent = usd(c)
+          document.getElementById('hotOut').textContent = usd(hw)
+          document.getElementById('vaultOut').textContent = usd(v)
+          document.getElementById('loss').textContent = usd(loss)
+          const pct = Math.min(100, (loss / v) * 100)
+          const safe = Math.max(0, v - loss)
+          document.getElementById('lossNote').textContent =
+            `${pct < 0.01 ? '<0.01' : pct.toFixed(2)}% of your vault. The other ${usd(safe)} cannot be reached by the agent.`
+        }
+        ;[cap, hot, vault].forEach((el) => el.addEventListener('input', calc))
+        calc()
+
+        // Telegram mockup.
+        let secs = 582
+        const cd = document.getElementById('cd')
+        const tick = setInterval(() => {
+          secs = secs > 0 ? secs - 1 : 600
+          cd.textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0')
+        }, 1000)
+        function decide(ok) {
+          clearInterval(tick)
+          document.getElementById('tgBtns').hidden = true
+          const d = document.getElementById('tgDone')
+          d.hidden = false
+          d.innerHTML = ok
+            ? '<span style="color:var(--mint)">Approved.</span> This pays once, on exactly these terms.'
+            : '<span style="color:var(--red)">Rejected.</span> OWNER_REJECTED written to the audit log.'
+        }
+        document.getElementById('tgOk').addEventListener('click', () => decide(true))
+        document.getElementById('tgNo').addEventListener('click', () => decide(false))
+
+        // Reject codes.
+        const codes = {
+          shared: [
+            ['PAUSED', 'The agent or the whole guard is paused.'],
+            ['CHAIN_NOT_ALLOWED', "The chain is not in this agent's policy."],
+            ['TOKEN_NOT_ALLOWED', 'The token is not on the allowlist.'],
+            ['RECIPIENT_NOT_ALLOWED', 'Direct transfer to an address you did not allow.'],
+            ['DOMAIN_NOT_ALLOWED', 'A payment to a website you did not allow.'],
+            ['PER_TX_EXCEEDED', 'Above your per-payment maximum.'],
+            ['DAILY_EXCEEDED', "Would push today's spend past your daily max."],
+            ['SIM_FAILED', 'The test run failed, so nothing was signed.'],
+            ['SIM_UNEXPECTED_EFFECT', 'The test run shows an effect the agent never asked for.'],
+            ['OWNER_REJECTED', 'You pressed Reject in Telegram.'],
+            ['APPROVAL_TIMEOUT', 'No answer within 10 minutes.'],
+            ['INVALID_402', 'The payment request looked malformed, so it was refused.'],
+          ],
+          svm: [
+            [
+              'DELEGATE_DETECTED',
+              'A hidden permission that would let someone spend your tokens later.',
+            ],
+            [
+              'AUTHORITY_CHANGE_DETECTED',
+              'An attempt to hand control of an account to someone else.',
+            ],
+            ['ACCOUNT_CLOSE_DETECTED', 'An attempt to close an account and sweep out its balance.'],
+            ['UNKNOWN_PROGRAM_DETECTED', 'The payment calls a program you never approved.'],
+            [
+              'HIDDEN_ACCOUNTS_DETECTED',
+              'The transaction tries to hide which accounts it touches.',
+            ],
+          ],
+          evm: [
+            ['APPROVAL_DETECTED', 'A hidden token approval that would allow withdrawals later.'],
+            ['PERMIT_DETECTED', 'A signature request that would authorize future spending.'],
+            ['DELEGATION_DETECTED', 'An attempt to hand the whole account over to other code.'],
+          ],
+        }
+        const tagName = { shared: 'All chains', svm: 'Solana', evm: 'Base' }
+        const grid = document.getElementById('threats')
+        function showCodes(group) {
+          grid.innerHTML = ''
+          for (const [c, d] of codes[group]) {
+            const el = document.createElement('div')
+            el.className = 'threat'
+            el.innerHTML = `<span class="tag">${tagName[group]}</span><code>${c}</code><p>${d}</p>`
+            grid.append(el)
+          }
+          grid.setAttribute('aria-labelledby', 'tab-' + group)
+        }
+        document.querySelectorAll('.tab').forEach((b) =>
+          b.addEventListener('click', () => {
+            document
+              .querySelectorAll('.tab')
+              .forEach((x) => x.setAttribute('aria-selected', x === b))
+            showCodes(b.dataset.group)
+          }),
+        )
+        showCodes('shared')
+
+        // Code samples.
+        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        const samplesCode = {
+          mcp: `{
+  "mcpServers": {
+    "agentguard": {
+      "command": "/path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx",
+      "args": ["/path/to/AgentGuard/packages/mcp-server/src/main.ts"],
+      "env": {
+        "GUARD_URL": "http://localhost:8787",
+        "AGENT_ID": "my-agent",
+        "AGENT_TOKEN": "<agent token from guard-core>"
+      }
+    }
+  }
+}`,
+          policy: `{
+  "agentId": "my-agent",
+  "chains": ["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"],
+  "tokens": ["<USDC mint>"],
+  "perTxMax": "25000000",
+  "dailyMax": "100000000",
+  "approvalThreshold": "10000000",
+  "allowedRecipients": [],
+  "allowedDomains": ["api.datafeed.example"],
+  "paused": false
+}`,
+          http: `# Ask the guard to call a paid API for the agent
+curl -X POST http://localhost:8787/v1/agent/x402/fetch \\
+  -H "Authorization: Bearer $AGENT_TOKEN" \\
+  -H "content-type: application/json" \\
+  -d '{ "agentId": "my-agent",
+        "url": "https://api.datafeed.example/quotes",
+        "method": "GET",
+        "maxAmount": "500000" }'
+
+# Pause everything, from anywhere
+curl -X POST http://localhost:8787/v1/admin/kill \\
+  -H "Authorization: Bearer $ADMIN_TOKEN" -d '{}'`,
+        }
+        function highlight(src, kind) {
+          let s = esc(src)
+          if (kind === 'http') {
+            return s
+              .split('\n')
+              .map((l) =>
+                l.startsWith('#')
+                  ? `<span class="t-c">${l}</span>`
+                  : l
+                      .replace(/^(curl)/, '<span class="t-k">$1</span>')
+                      .replace(/(-X|-H|-d)\b/g, '<span class="t-p">$1</span>')
+                      .replace(/("[^"]*")/g, '<span class="t-s">$1</span>'),
+              )
+              .join('\n')
+          }
+          return s
+            .replace(/("[^"]+")(\s*:)/g, '<span class="t-p">$1</span>$2')
+            .replace(/(:\s*|\[|,\s*)("[^"]*")/g, '$1<span class="t-s">$2</span>')
+            .replace(/\b(true|false)\b/g, '<span class="t-n">$1</span>')
+        }
+        const codeEl = document.getElementById('code')
+        let current = 'mcp'
+        function showCode(k) {
+          current = k
+          codeEl.innerHTML = highlight(samplesCode[k], k)
+        }
+        document.querySelectorAll('.code-tab').forEach((b) =>
+          b.addEventListener('click', () => {
+            document
+              .querySelectorAll('.code-tab')
+              .forEach((x) => x.setAttribute('aria-selected', x === b))
+            showCode(b.dataset.code)
+          }),
+        )
+        showCode('mcp')
+        const copyBtn = document.getElementById('copy')
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(samplesCode[current]).then(
+            () => {
+              copyBtn.textContent = 'Copied'
+              setTimeout(() => (copyBtn.textContent = 'Copy'), 1600)
+            },
+            () => {
+              const r = document.createRange()
+              r.selectNodeContents(codeEl)
+              const sel = getSelection()
+              sel.removeAllRanges()
+              sel.addRange(r)
+              copyBtn.textContent = 'Selected'
+            },
+          )
+        })
+      })()
+    </script>
+  </body>
+</html>
