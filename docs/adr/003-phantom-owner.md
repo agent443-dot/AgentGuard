@@ -1,8 +1,11 @@
-# ADR draft — the Solana owner key in Phantom
+# ADR 003 — the Solana owner key in Phantom
 
-- **Status:** draft, for the integrator to number and move to `/docs/adr` if accepted
+- **Status:** accepted, 2026-11-05. The manager approved option 2: a static signing page in
+  `packages/onchain`, hosted as its own project on its own subdomain, separate from the landing site.
+  It is deployed only from protected `main`, with a strict Content-Security-Policy and no third-party
+  scripts at runtime.
 - **Date:** 2026-11-05
-- **Context:** D4 in [`/LAUNCH.md`](../../../LAUNCH.md) is now **Phantom**, a software wallet, for the
+- **Context:** D4 in [`/LAUNCH.md`](../../LAUNCH.md) is now **Phantom**, a software wallet, for the
   mainnet owner key. The owner has accepted the risk. Exporting the key to a file is ruled out.
 - **Scope:** Solana (Squads v4) only. The Base Safe owner is not covered here.
 
@@ -155,8 +158,7 @@ fresh Phantom account:
     for the page's checks;
   - make `status` strict.
 - **bot:** add the inline URL button on the kill alert, built from the multisig and the hot wallet.
-- **integrator / manager:** decide where the page is hosted, a path on the site we already deploy or
-  its own project, and its deploy protections.
+- **integrator / manager:** decided: its own project on its own subdomain, as in the status line.
 - **HUMAN, on devnet, with a fresh Phantom account:** run create, add limit and kill through the page;
   record what Phantom shows on each confirmation; and run the option 1 checks (config authority,
   non-member limit, limit address) in the Squads app.

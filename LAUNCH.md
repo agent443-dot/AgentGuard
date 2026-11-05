@@ -108,6 +108,20 @@ Each line can be checked by someone other than its author.
       for example through the Squads app. Pass criteria: the kill lands on devnet signed from
       Phantom, `pnpm status` then prints `spending limit:   none at <address>`, and no Phantom key
       ever sits in a file. Until this passes, the kill switch's last step has no tested path.
+- [ ] **The Phantom signing page is a trust root (D4, [ADR 003](docs/adr/003-phantom-owner.md)).**
+      Whoever can change the deployed page can ask the owner to sign a harmful config change behind
+      a harmless summary. Before launch: it is its own project on its own subdomain, separate from
+      the landing site; it is deployed only from protected `main`; it has a strict
+      Content-Security-Policy, no third-party scripts at runtime, and pinned dependencies; and
+      `status` fails on any limit or member other than the expected ones.
+- [ ] **ADR 003's five devnet checks, run with a fresh Phantom account,** each with its result written
+      into the ADR:
+  1. whether the Squads app can set a config authority at creation;
+  2. whether it can add a limit for a hot wallet that is not a voting member. Checks 1 and 2 only
+     decide whether the app can be a setup fallback;
+  3. whether Phantom signs and sends a transaction the page has already partly signed (`createKey`);
+  4. what Phantom shows for `multisigRemoveSpendingLimit`: the origin, the simulation, any decoding;
+  5. whether the universal link opens the page inside Phantom on iOS and Android, from Telegram.
 - [ ] **Only if D4 moves to a Ledger later: the Ledger path on real hardware, on devnet.** Follow
       "The owner on a Ledger" in `packages/onchain/README.md` with a real device. Pass criteria:
   - for `create-multisig`, `add-spending-limit` and `kill`, the **Message Hash shown on the device
