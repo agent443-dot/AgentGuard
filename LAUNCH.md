@@ -94,6 +94,13 @@ Each line can be checked by someone other than its author.
 
 ### Open
 
+- [ ] **Launch conditions for a Phantom owner (D4)**, all three mandatory:
+  - a **fresh recovery phrase** dedicated to the owner account, created for it. Not a new account
+    added to an existing Phantom, which would share that wallet's phrase;
+  - that account is **used for nothing else**: no dapps, no other tokens, no signing anything but
+    AgentGuard's owner operations;
+  - the **vault is kept low**: it holds only what the agents need for the coming days, since a
+    stolen owner key reaches all of it, not just the daily cap.
 - [ ] **Launch blocker, tied to D4: the owner's operations from Phantom, without exporting the key.**
       The repo's scripts sign with a key file or a Ledger, and neither fits D4. On devnet, with a
       **new** Phantom account used for nothing else, prove the owner can create the multisig and
