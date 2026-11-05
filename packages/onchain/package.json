@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
@@ -26,7 +26,9 @@
     "status:base": "tsx --env-file=.env src/scripts/base-status.ts",
     "kill:base": "tsx --env-file=.env src/scripts/base-kill.ts",
     "test:fork": "forge test -vvv",
-    "check:simulate": "tsx src/scripts/check-simulate.ts"
+    "check:simulate": "tsx src/scripts/check-simulate.ts",
+    "build:web": "tsx web/build.ts",
+    "test:web": "vitest run --config web/vitest.config.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
@@ -46,7 +48,10 @@
   },
   "devDependencies": {
     "bs58": "^6.0.0",
+    "buffer": "6.0.3",
+    "esbuild": "0.25.12",
     "litesvm": "1.6.1",
+    "playwright": "1.63.0",
     "tsx": "^4.23.15"
   },
   "optionalDependencies": {
