@@ -103,6 +103,55 @@ describe('owner commands', () => {
   })
 })
 
+const PHANTOM = 'https://phantom.app/ul/browse/https%3A%2F%2Fsign.example%2F%3Faction%3Dkill?ref=x'
+
+function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
+  const markup = call?.payload['reply_markup'] as
+    { inline_keyboard: { url?: string; text: string }[][] } | undefined
+  return (markup?.inline_keyboard ?? []).flat().filter((button) => button.url !== undefined)
+}
+
+describe('/kill with the signing page configured', () => {
+  it('offers the onchain kill in Phantom next to the guard-core kill, and says what each does', async () => {
+    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    await bot.handleUpdate(command(OWNER, '/kill'))
+    const prompt = sent(calls, 'sendMessage')[0]
+    expect(phantomButtons(prompt)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
+    expect(prompt?.payload['text']).toContain('<b>Kill everything</b> pauses every agent')
+    expect(prompt?.payload['text']).toContain('removes the Solana spending limit onchain')
+  })
+
+  it('keeps the button after the kill and says the limit is still live', async () => {
+    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    const done = sent(calls, 'editMessageText')[0]
+    expect(done?.payload['text']).toContain(
+      'guard-core has paused 2 agents and signs no more payments',
+    )
+    expect(done?.payload['text']).toContain('The Solana spending limit is still live onchain')
+    expect(phantomButtons(done)).toHaveLength(1)
+  })
+
+  it('keeps the button when guard-core fails, when the onchain kill matters most', async () => {
+    const kill = vi.fn().mockRejectedValue(new Error('down'))
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKill: PHANTOM })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    const failed = sent(calls, 'editMessageText')[0]
+    expect(failed?.payload['text']).toContain('Kill failed')
+    expect(failed?.payload['text']).toContain('It works even if guard-core is down')
+    expect(phantomButtons(failed)).toHaveLength(1)
+  })
+
+  it('shows no Phantom button at all without the signing page', async () => {
+    const { bot, calls } = setup()
+    await bot.handleUpdate(command(OWNER, '/kill'))
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    expect(phantomButtons(sent(calls, 'sendMessage')[0])).toEqual([])
+    expect(phantomButtons(sent(calls, 'editMessageText')[0])).toEqual([])
+    expect(JSON.stringify(calls)).not.toContain('Phantom')
+  })
+})
+
 describe('/kill', () => {
   it('names both chains in the confirmation when guard-core reports them', async () => {
     const chains = vi.fn().mockResolvedValue([
@@ -164,7 +213,9 @@ describe('/kill', () => {
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
 
     expect(kill).toHaveBeenCalledOnce()
-    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain('Paused agents: 2')
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain(
+      'guard-core has paused 2 agents',
+    )
     const txs = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
     expect(txs[0]).toContain('<b>Solana devnet</b>: Remove spending limit')
     expect(txs[1]).toContain('<b>Base Sepolia</b>: Reset allowance')
@@ -184,7 +235,7 @@ describe('/kill', () => {
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
 
     const summary = String(sent(calls, 'editMessageText')[0]?.payload['text'])
-    expect(summary).toContain('Paused agents: 1')
+    expect(summary).toContain('guard-core has paused 1 agent and')
     expect(summary).toContain('Sign the transaction below')
     const [built, unbuilt] = sent(calls, 'sendMessage').map((call) => String(call.payload['text']))
     expect(built).toContain('<pre>')

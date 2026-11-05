@@ -110,7 +110,12 @@ export function fakeGuard(overrides: Partial<GuardClient> = {}): GuardClient {
 }
 
 export function setup(
-  options: { guard?: GuardClient; now?: () => Date; fail?: (call: ApiCall) => boolean } = {},
+  options: {
+    guard?: GuardClient
+    now?: () => Date
+    fail?: (call: ApiCall) => boolean
+    phantomKill?: string
+  } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
   const { bot, desk } = createBot({
@@ -121,6 +126,7 @@ export function setup(
     log: silent,
     now: options.now ?? (() => NOW),
     botConfig: { botInfo: BOT_INFO },
+    phantomKill: options.phantomKill,
   })
   const calls = mockTelegram(bot, options.fail)
   return { bot, desk, guard, calls }

@@ -9,20 +9,30 @@ import {
   ownerTransactionText,
   statusText,
 } from '../domain/text.js'
-import { chainsText, killWarning } from '../domain/chains.js'
+import { chainsText, killWarning, PHANTOM_STEP } from '../domain/chains.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
   guard: GuardClient
   desk: Desk
   log: Logger
+  /** The onchain kill on the signing page, when SIGN_PAGE_URL is configured. */
+  phantomKill?: string
 }
 
 const HTML = { parse_mode: 'HTML' } as const
 
 const AGENT_ID = /^\S{1,64}$/
 
-export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): void {
+export function registerCommands(bot: Bot, { guard, desk, log, phantomKill }: CommandDeps): void {
+  const phantom = phantomKill !== undefined
+
+  function phantomButton(keyboard = new InlineKeyboard()) {
+    return phantomKill === undefined
+      ? keyboard
+      : keyboard.row().url('Open kill in Phantom', phantomKill)
+  }
+
   /** A command that cannot reach guard-core says so instead of going quiet. */
   async function guarded(ctx: Context, work: () => Promise<void>) {
     try {
@@ -83,11 +93,11 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
   }
 
   bot.command('kill', async (ctx) =>
-    ctx.reply(killWarning(await chains()), {
+    ctx.reply(killWarning(await chains(), phantom), {
       ...HTML,
-      reply_markup: new InlineKeyboard()
-        .text('Kill everything', 'kill:confirm')
-        .text('Cancel', 'kill:cancel'),
+      reply_markup: phantomButton(
+        new InlineKeyboard().text('Kill everything', 'kill:confirm').text('Cancel', 'kill:cancel'),
+      ),
     }),
   )
 
@@ -102,16 +112,22 @@ export function registerCommands(bot: Bot, { guard, desk, log }: CommandDeps): v
     try {
       const { pausedAgents, ownerTransactions } = await guard.kill()
       const built = ownerTransactions.filter(isBuilt).length
-      await ctx.editMessageText(killedText(pausedAgents, built), HTML)
+      await ctx.editMessageText(killedText(pausedAgents, built, phantom), {
+        ...HTML,
+        reply_markup: phantomButton(),
+      })
       for (const tx of ownerTransactions) {
         await ctx.reply(ownerTransactionText(tx), HTML)
       }
     } catch (err) {
       log.error({ err }, 'kill failed')
-      await ctx.editMessageText(
-        '<b>Kill failed</b>: guard-core did not confirm. Assume nothing is paused and run /kill again.',
-        HTML,
-      )
+      // guard-core being down is exactly when the onchain kill matters most.
+      const failed =
+        '<b>Kill failed</b>: guard-core did not confirm. Assume nothing is paused and run /kill again.'
+      await ctx.editMessageText(phantom ? `${failed}\n${PHANTOM_STEP}` : failed, {
+        ...HTML,
+        reply_markup: phantomButton(),
+      })
     }
   })
 }

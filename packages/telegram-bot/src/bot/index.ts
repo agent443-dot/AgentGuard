@@ -13,12 +13,23 @@ export interface BotDeps {
   now?: () => Date
   /** Tests pass botInfo so the bot never calls getMe. */
   botConfig?: BotConfig<Context>
+  /** The onchain kill link; no Phantom button without it. */
+  phantomKill?: string
 }
 
 const DECISION = /^(approve|reject):([0-9a-f-]{36})$/
 const RECIPIENT = /^recipient:([0-9a-f-]{36})$/
 
-export function createBot({ token, owners, guard, notifyAbove, log, now, botConfig }: BotDeps) {
+export function createBot({
+  token,
+  owners,
+  guard,
+  notifyAbove,
+  log,
+  now,
+  botConfig,
+  phantomKill,
+}: BotDeps) {
   const bot = new Bot(token, botConfig)
   const desk = new Desk({ api: bot.api, owners, guard, notifyAbove, log, now })
 
@@ -52,7 +63,7 @@ export function createBot({ token, owners, guard, notifyAbove, log, now, botConf
     ctx.answerCallbackQuery({ text: desk.recipient(ctx.match[1] ?? ''), show_alert: true }),
   )
 
-  registerCommands(bot, { guard, desk, log })
+  registerCommands(bot, { guard, desk, log, phantomKill })
 
   bot.catch(({ error }) => log.error({ err: error }, 'update failed'))
 

@@ -84,6 +84,26 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 | `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |
 | `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
 
+## Onchain kill in Phantom
+
+The owner's Solana key is in Phantom (ADR 003), so the bot cannot remove the onchain spending limit
+itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, `/kill` and the
+messages after it carry an **Open kill in Phantom** button. Pressing it opens the signing page from
+`packages/onchain/web` inside Phantom:
+
+```
+https://phantom.app/ul/browse/<encodeURIComponent(link)>?ref=<encodeURIComponent(origin)>
+link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>
+```
+
+- **Kill everything** is unchanged: guard-core pauses every agent and signs nothing more. The button
+  is the other half, the onchain limit, and it works even when guard-core does not answer. The
+  messages say which half each one is.
+- Every value in the link is public, and all of them come from the bot's config. The cluster is
+  derived from `SOLANA_CHAIN`, never from anything a user sends.
+- `SIGN_PAGE_URL` must be https with no query or fragment. With it set, the bot refuses to start
+  unless `SQUADS_MULTISIG` and `SOLANA_HOT_WALLET_PUBKEY` are set too. Without it, there is no button.
+
 ## Notifications
 
 From `POST /hooks/intent-event`:

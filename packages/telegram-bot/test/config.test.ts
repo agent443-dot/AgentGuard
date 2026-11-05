@@ -10,6 +10,12 @@ const env = {
   BOT_WEBHOOK_SECRET: 'd'.repeat(32),
 }
 
+const killPage = {
+  SIGN_PAGE_URL: 'https://sign.agentguard.example',
+  SQUADS_MULTISIG: '3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu',
+  SOLANA_HOT_WALLET_PUBKEY: 'AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita',
+}
+
 describe('loadConfig', () => {
   it('parses owners and the threshold', () => {
     const config = loadConfig(env)
@@ -24,6 +30,41 @@ describe('loadConfig', () => {
       loadConfig({ ...env, OWNER_TELEGRAM_IDS: 'ana', BOT_WEBHOOK_SECRET: 'short' })
     expect(attempt).toThrow('invalid configuration: OWNER_TELEGRAM_IDS, BOT_WEBHOOK_SECRET')
     expect(attempt).not.toThrow(/short/)
+  })
+
+  it('has no kill page unless SIGN_PAGE_URL is set, and treats an empty line as unset', () => {
+    expect(loadConfig(env).SIGN_PAGE_URL).toBeUndefined()
+    expect(loadConfig({ ...env, SIGN_PAGE_URL: '' }).SIGN_PAGE_URL).toBeUndefined()
+    expect(loadConfig(env).SOLANA_CHAIN).toBe('solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1')
+  })
+
+  it('takes an https kill page with both Solana keys', () => {
+    const config = loadConfig({ ...env, ...killPage })
+    expect(config.SIGN_PAGE_URL).toBe(killPage.SIGN_PAGE_URL)
+    expect(config.SQUADS_MULTISIG).toBe(killPage.SQUADS_MULTISIG)
+  })
+
+  it.each([
+    ['http', { SIGN_PAGE_URL: 'http://sign.agentguard.example' }],
+    ['a query', { SIGN_PAGE_URL: 'https://sign.agentguard.example/?action=create' }],
+    ['a fragment', { SIGN_PAGE_URL: 'https://sign.agentguard.example/#x' }],
+    ['not a url', { SIGN_PAGE_URL: 'sign.agentguard.example' }],
+  ])('refuses a kill page with %s', (_case, override) => {
+    expect(() => loadConfig({ ...env, ...killPage, ...override })).toThrow(
+      /^invalid configuration: SIGN_PAGE_URL$/,
+    )
+  })
+
+  it('refuses a kill page without the keys the link needs', () => {
+    expect(() => loadConfig({ ...env, SIGN_PAGE_URL: killPage.SIGN_PAGE_URL })).toThrow(
+      /^invalid configuration: SQUADS_MULTISIG, SOLANA_HOT_WALLET_PUBKEY$/,
+    )
+    expect(() => loadConfig({ ...env, ...killPage, SQUADS_MULTISIG: '0xabc' })).toThrow(
+      /^invalid configuration: SQUADS_MULTISIG$/,
+    )
+    expect(() => loadConfig({ ...env, ...killPage, SOLANA_CHAIN: 'eip155:84532' })).toThrow(
+      /^invalid configuration: SOLANA_CHAIN$/,
+    )
   })
 
   it('needs at least one owner', () => {

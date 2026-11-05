@@ -30,13 +30,18 @@ function chainLine({ chain, allowance }: ChainStatus): string {
 }
 
 /** Names the chains when guard-core reports them, so the owner sees what kill will cover. */
-export function killWarning(chains: ChainStatus[] | undefined): string {
+export function killWarning(chains: ChainStatus[] | undefined, phantom = false): string {
   const scope =
     chains === undefined || chains.length === 0
       ? 'for each chain'
       : `for ${chains.map(({ chain }) => chainName(chain)).join(' and ')}`
-  return (
-    `<b>Kill switch.</b> This pauses every agent and prepares, ${scope}, the owner transaction ` +
-    'that sets the allowance to 0 and removes the delegate. Continue?'
-  )
+  const warning =
+    `<b>Kill switch.</b> <b>Kill everything</b> pauses every agent and prepares, ${scope}, the ` +
+    'owner transaction that sets the allowance to 0 and removes the delegate.'
+  return phantom ? `${warning}\n${PHANTOM_STEP}\nContinue?` : `${warning} Continue?`
 }
+
+/** Only the owner's key can remove the onchain limit, so the bot can hand it over but not do it. */
+export const PHANTOM_STEP =
+  '<b>Open kill in Phantom</b> removes the Solana spending limit onchain, after you confirm in ' +
+  'Phantom. It works even if guard-core is down.'
