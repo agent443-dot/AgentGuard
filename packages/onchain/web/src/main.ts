@@ -1,10 +1,14 @@
 import './shim.js'
 import { Connection, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { z } from 'zod'
-import { isPublicKey, planKill, readKillState, type KillRequest } from './kill.js'
+import { prepareCreate } from './create.js'
+import { prepareKill } from './kill.js'
+import { prepareLimit } from './limit.js'
+import { isPublicKey, type Plan } from './plan.js'
 import { openInPhantom, phantom, type Wallet } from './wallet.js'
 
 declare const RPC_URLS: Record<string, string>
+declare const USDC_MINTS: Record<string, string>
 
 const app = document.getElementById('app')!
 
@@ -28,92 +32,115 @@ function button(label: string, action: () => void) {
   app.append(element)
 }
 
-const key = z.string().refine(isPublicKey, 'not a Solana address')
-const params = z.object({
-  action: z.literal('kill'),
-  cluster: z.string().refine((cluster) => cluster in RPC_URLS, 'unknown cluster'),
-  multisig: key,
-  hot: key,
-})
+const key = z
+  .string()
+  .refine(isPublicKey, 'not a Solana address')
+  .transform((value) => new PublicKey(value))
+// Own names only: `in` would also accept inherited ones such as toString.
+const cluster = z.string().refine((name) => Object.hasOwn(RPC_URLS, name), 'unknown cluster')
+const link = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('kill'), cluster, multisig: key, hot: key }),
+  z.object({ action: z.literal('create'), cluster }),
+  z.object({
+    action: z.literal('add-limit'),
+    cluster,
+    multisig: key,
+    hot: key,
+    amount: z
+      .string()
+      .regex(/^[1-9]\d{0,19}$/, 'a positive whole number of base units')
+      .transform(BigInt)
+      .refine((amount) => amount < 2n ** 64n, 'too large'),
+  }),
+])
+
+function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof link>) {
+  switch (request.action) {
+    case 'kill':
+      return prepareKill(connection, { ...request, hotWallet: request.hot }, owner)
+    case 'create':
+      return prepareCreate(connection, request.cluster, owner)
+    case 'add-limit': {
+      const usdc = Object.hasOwn(USDC_MINTS, request.cluster)
+        ? USDC_MINTS[request.cluster]
+        : undefined
+      if (!usdc) {
+        return Promise.resolve<Plan>({
+          kind: 'refused',
+          reason: `This page knows no USDC for ${request.cluster}.`,
+        })
+      }
+      return prepareLimit(
+        connection,
+        { ...request, hotWallet: request.hot, usdc: new PublicKey(usdc) },
+        owner,
+      )
+    }
+  }
+}
 
 async function main() {
-  const parsed = params.safeParse(Object.fromEntries(new URLSearchParams(location.search)))
+  const parsed = link.safeParse(Object.fromEntries(new URLSearchParams(location.search)))
   if (!parsed.success) {
-    show(
-      'This link is not valid',
-      [parsed.error.issues.map((i) => `${i.path}: ${i.message}`).join('; ')],
-      'stop',
-    )
+    const issues = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+    show('This link is not valid', [issues.join('; ')], 'stop')
     return
   }
   const wallet = phantom()
   if (!wallet) {
     show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
-    const link = document.createElement('a')
-    link.href = openInPhantom(location.href)
-    link.textContent = 'Open in Phantom'
-    app.append(link)
+    const open = document.createElement('a')
+    open.href = openInPhantom(location.href)
+    open.textContent = 'Open in Phantom'
+    app.append(open)
     return
   }
-  const request: KillRequest = {
-    cluster: parsed.data.cluster,
-    multisig: new PublicKey(parsed.data.multisig),
-    hotWallet: new PublicKey(parsed.data.hot),
-  }
-  const connection = new Connection(RPC_URLS[request.cluster]!, 'confirmed')
+  const connection = new Connection(RPC_URLS[parsed.data.cluster]!, 'confirmed')
   const owner = new PublicKey((await wallet.connect()).publicKey.toString())
-  await kill(connection, wallet, request, owner)
+  show('Checking the chain…', [])
+  await run(connection, wallet, owner, await prepare(connection, owner, parsed.data))
 }
 
-async function kill(
-  connection: Connection,
-  wallet: Wallet,
-  request: KillRequest,
-  owner: PublicKey,
-) {
-  show('Checking the chain…', [])
-  const plan = planKill(request, owner, await readKillState(connection, request))
+async function run(connection: Connection, wallet: Wallet, owner: PublicKey, plan: Plan) {
   if (plan.kind === 'refused') {
     show('Nothing to sign', [plan.reason], 'stop')
     return
   }
   if (plan.kind === 'done') {
-    show('Already killed', plan.summary, 'done')
+    show(plan.title, plan.summary, 'done')
     return
   }
-  show('Kill the hot wallet', plan.summary)
+  show(plan.title, plan.summary)
   const { blockhash } = await connection.getLatestBlockhash()
-  const message = new TransactionMessage({
-    payerKey: owner,
-    recentBlockhash: blockhash,
-    instructions: [plan.instruction],
-  }).compileToV0Message()
+  const tx = new VersionedTransaction(
+    new TransactionMessage({
+      payerKey: owner,
+      recentBlockhash: blockhash,
+      instructions: plan.instructions,
+    }).compileToV0Message(),
+  )
+  if (plan.coSigners.length > 0) {
+    tx.sign(plan.coSigners)
+  }
   try {
-    await wallet.signAndSendTransaction(new VersionedTransaction(message))
+    await wallet.signAndSendTransaction(tx)
   } catch (error) {
-    show('Kill the hot wallet', [...plan.summary, `Not signed: ${String(error)}`], 'stop')
-    button('Ask Phantom again', () => void kill(connection, wallet, request, owner))
+    show(plan.title, [...plan.summary, `Not signed: ${String(error)}`], 'stop')
+    button('Ask Phantom again', () => void run(connection, wallet, owner, plan))
     return
   }
   show('Waiting for the chain…', plan.summary)
   for (let attempt = 0; attempt < 60; attempt++) {
-    const { limitInfo } = await readKillState(connection, request)
-    if (!limitInfo) {
-      show(
-        'Killed',
-        [
-          `The spending limit ${plan.limit.toBase58()} is gone.`,
-          'The hot wallet can no longer draw from the vault.',
-        ],
-        'done',
-      )
+    const result = await plan.landed()
+    if (result) {
+      show(plan.after, result, 'done')
       return
     }
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   show(
     'Not confirmed yet',
-    [`The limit ${plan.limit.toBase58()} still exists. Run status before trying again.`],
+    ['The change is not on the chain yet. Run status before trying again.'],
     'stop',
   )
 }

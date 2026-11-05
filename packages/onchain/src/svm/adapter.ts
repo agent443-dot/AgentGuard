@@ -31,13 +31,8 @@ import {
 } from '../ChainAdapter.js'
 import { inspectTransfer } from './inspect.js'
 import { simulateMessage, topUpFor } from './simulate.js'
-import {
-  confirm,
-  connect,
-  readSpendingLimit,
-  spendingLimitPda,
-  useSpendingLimit,
-} from './squads.js'
+import { confirm, connect, readSpendingLimit, spendingLimitPda } from './squads.js'
+import { useSpendingLimit } from './draw.js'
 import { expectedTransfer, transferInstructions, type Payment } from './transfer.js'
 import { gatedScheme } from './x402.js'
 

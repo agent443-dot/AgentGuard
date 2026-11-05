@@ -12,7 +12,7 @@ import {
 } from '@solana/web3.js'
 import type { SimulationOutcome } from '../ChainAdapter.js'
 import { inspectTransfer } from './inspect.js'
-import { drawInstructions, hotTokenAccount, vaultTokenAccount, type Draw } from './squads.js'
+import { drawInstructions, hotTokenAccount, vaultTokenAccount, type Draw } from './draw.js'
 import { checkEffects, expectedTransfer, formatUnits, type Payment } from './transfer.js'
 
 /** The draw on the spending limit that guard-core will make before paying, when the hot wallet is short. */

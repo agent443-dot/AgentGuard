@@ -1,8 +1,4 @@
 import type { Amount } from '@agentguard/shared'
-import {
-  createAssociatedTokenAccountIdempotentInstruction,
-  getAssociatedTokenAddressSync,
-} from '@solana/spl-token'
 import * as multisig from '@sqds/multisig'
 import {
   Connection,
@@ -96,21 +92,35 @@ export async function createMultisig(
     programConfigPda,
   )
 
-  const create = multisig.instructions.multisigCreateV2({
-    treasury: programConfig.treasury,
-    creator: owner.publicKey,
-    multisigPda,
-    configAuthority: owner.publicKey,
-    threshold: 1,
-    members: [{ key: owner.publicKey, permissions: multisig.types.Permissions.all() }],
-    timeLock: 0,
-    createKey: createKey.publicKey,
-    rentCollector: null,
-  })
+  const create = createMultisigInstruction(
+    owner.publicKey,
+    createKey.publicKey,
+    programConfig.treasury,
+  )
   const signature = await sendAsOwner(connection, owner, [create], [createKey])
 
   const [vault] = multisig.getVaultPda({ multisigPda, index: VAULT_INDEX })
   return { multisigPda, vault, signature }
+}
+
+/** The owner as config authority and sole member, threshold one; `createKey` must co-sign. */
+export function createMultisigInstruction(
+  owner: PublicKey,
+  createKey: PublicKey,
+  treasury: PublicKey,
+): TransactionInstruction {
+  const [multisigPda] = multisig.getMultisigPda({ createKey })
+  return multisig.instructions.multisigCreateV2({
+    treasury,
+    creator: owner,
+    multisigPda,
+    configAuthority: owner,
+    threshold: 1,
+    members: [{ key: owner, permissions: multisig.types.Permissions.all() }],
+    timeLock: 0,
+    createKey,
+    rentCollector: null,
+  })
 }
 
 export function spendingLimitPda(multisigPda: PublicKey, createKey: PublicKey): PublicKey {
@@ -125,20 +135,29 @@ export function spendingLimitPda(multisigPda: PublicKey, createKey: PublicKey): 
 export async function addDailySpendingLimit(
   connection: Connection,
   owner: OwnerSigner,
-  params: {
-    multisigPda: PublicKey
-    createKey: PublicKey
-    mint: PublicKey
-    amount: bigint
-    members: PublicKey[]
-    destinations: PublicKey[]
-  },
+  params: DailyLimit,
 ): Promise<TransactionSignature> {
-  const add = multisig.instructions.multisigAddSpendingLimit({
+  return sendAsOwner(connection, owner, [addSpendingLimitInstruction(owner.publicKey, params)])
+}
+
+export interface DailyLimit {
+  multisigPda: PublicKey
+  createKey: PublicKey
+  mint: PublicKey
+  amount: bigint
+  members: PublicKey[]
+  destinations: PublicKey[]
+}
+
+export function addSpendingLimitInstruction(
+  configAuthority: PublicKey,
+  params: DailyLimit,
+): TransactionInstruction {
+  return multisig.instructions.multisigAddSpendingLimit({
     multisigPda: params.multisigPda,
-    configAuthority: owner.publicKey,
+    configAuthority,
     spendingLimit: spendingLimitPda(params.multisigPda, params.createKey),
-    rentPayer: owner.publicKey,
+    rentPayer: configAuthority,
     createKey: params.createKey,
     vaultIndex: VAULT_INDEX,
     mint: params.mint,
@@ -147,7 +166,6 @@ export async function addDailySpendingLimit(
     members: params.members,
     destinations: params.destinations,
   })
-  return sendAsOwner(connection, owner, [add])
 }
 
 /** The kill switch: without its spending limit the hot wallet cannot draw on the vault at all. */
@@ -203,77 +221,4 @@ export async function readSpendingLimit(
     members: account.members.map((m) => m.toBase58()),
     destinations: account.destinations.map((d) => d.toBase58()),
   }
-}
-
-/** The hot wallet's own token account for the mint, which a draw on the limit pays into. */
-export function hotTokenAccount(mint: PublicKey, hotWallet: PublicKey): PublicKey {
-  return getAssociatedTokenAddressSync(mint, hotWallet)
-}
-
-/** The vault's token account for the mint, which a draw on the limit pays out of. */
-export function vaultTokenAccount(multisigPda: PublicKey, mint: PublicKey): PublicKey {
-  const [vault] = multisig.getVaultPda({ multisigPda, index: VAULT_INDEX })
-  return getAssociatedTokenAddressSync(mint, vault, true)
-}
-
-export interface Draw {
-  multisigPda: PublicKey
-  spendingLimit: PublicKey
-  mint: PublicKey
-  amount: bigint
-  decimals: number
-  /** The member drawing, paid into its own token account. */
-  member: PublicKey
-  /** Whether that token account has yet to be created. */
-  createAccount: boolean
-}
-
-/**
- * The hot wallet drawing on its limit, creating its token account first when it has none. The SDK
- * takes the amount as a JS number while every amount we handle is a bigint, so the conversion is
- * confined here and refuses anything a double cannot hold exactly rather than rounding it.
- */
-export function drawInstructions(draw: Draw): TransactionInstruction[] {
-  if (draw.amount > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error(`amount_exceeds_sdk_precision: ${draw.amount}`)
-  }
-  const account = hotTokenAccount(draw.mint, draw.member)
-  const create = createAssociatedTokenAccountIdempotentInstruction(
-    draw.member,
-    account,
-    draw.member,
-    draw.mint,
-  )
-  const use = multisig.instructions.spendingLimitUse({
-    multisigPda: draw.multisigPda,
-    member: draw.member,
-    spendingLimit: draw.spendingLimit,
-    mint: draw.mint,
-    vaultIndex: VAULT_INDEX,
-    amount: Number(draw.amount),
-    decimals: draw.decimals,
-    destination: draw.member,
-  })
-  return draw.createAccount ? [create, use] : [use]
-}
-
-export async function useSpendingLimit(
-  connection: Connection,
-  member: Keypair,
-  draw: Omit<Draw, 'member' | 'createAccount'>,
-): Promise<TransactionSignature> {
-  const account = await connection.getAccountInfo(hotTokenAccount(draw.mint, member.publicKey))
-  const { blockhash } = await connection.getLatestBlockhash()
-  const message = new TransactionMessage({
-    payerKey: member.publicKey,
-    recentBlockhash: blockhash,
-    instructions: drawInstructions({
-      ...draw,
-      member: member.publicKey,
-      createAccount: account === null,
-    }),
-  }).compileToV0Message()
-  const tx = new VersionedTransaction(message)
-  tx.sign([member])
-  return confirm(connection, await connection.sendRawTransaction(tx.serialize()))
 }
