@@ -883,20 +883,26 @@ desta página.
 
 ## ⬜ HUMAN-15 — Ensaio em devnet com a Phantom como owner
 
-Depois da `HUMAN-14`. É o ensaio geral da mainnet com a decisão D4: um multisig novo em devnet em que
-a owner é uma conta Phantom, e tudo o que é da owner assinado na Phantom, no telemóvel. O integrator
-guia-te passo a passo, como na `HUMAN-13`; aqui fica o resumo.
+Depois da `HUMAN-14`. É o ensaio geral da mainnet com a decisão D4. **O multisig com a Phantom como
+owner passa a ser o setup de devnet daqui em diante**; o antigo (`3UUS…cVu`) fica reformado, com os
+25,5 USDC de devnet lá dentro, sem risco. A hot wallet continua a ser a `H5fc…jw`.
 
-1. **Uma conta Phantom nova, só para isto**, com a Phantom em modo de teste (Settings → Developer
-   Settings → Testnet Mode → Solana Devnet) e um pouco de SOL de devnet de `faucet.solana.com`.
-2. **Criar o multisig**: no navegador dentro da Phantom, abrir a página de assinatura com
-   `?action=create&cluster=devnet`, ler o resumo, assinar.
-3. **Pôr o teto**: a mesma página com `?action=add-limit`, o multisig do passo 2 e 50 USDC. A página
-   só aceita a tua hot wallet de devnet e no máximo 50 USDC.
-4. **O kill a partir do Telegram**: com o `SIGN_PAGE_URL` no `.env` do bot, enviar `/kill`, tocar em
-   **Open kill in Phantom**, confirmar na Phantom, e ver com `pnpm status` que o teto desapareceu.
-5. Anotar o que a Phantom te mostrou antes de cada assinatura e se o botão abriu a Phantom
-   diretamente — são as cinco verificações da ADR 003.
+O integrator guia-te ao vivo, com o endereço real da página; aqui fica o resumo da ordem:
+
+1. **Phantom nova**, com uma frase de recuperação nova, em modo de teste (Settings → Developer
+   Settings → Testnet Mode → Solana Devnet). Uns 0,1 SOL de devnet de `faucet.solana.com`.
+2. **Criar o multisig** na página de assinatura, aberta no navegador dentro da Phantom. Anotar o
+   multisig, o cofre e a transação.
+3. **Pôr USDC no cofre novo**, em `faucet.circle.com`, rede Solana devnet.
+4. **Pôr o teto de 50 USDC** na mesma página. Anotar a transação.
+5. **Trocar o sistema para o multisig novo**: `SQUADS_MULTISIG` nos três `.env` (guard-core, onchain,
+   bot), e no do bot também `SIGN_PAGE_URL` e `SOLANA_HOT_WALLET_PUBKEY`. Reiniciar o `pnpm dev:all`.
+6. **Confirmar**: `pnpm status` mostra a Phantom como config authority, o teto de 50 USDC e a hot
+   wallet como único membro e destino. Depois um pagamento x402 de 0,5 USDC com a hot wallet vazia.
+7. **O kill**: `/kill` no Telegram → **Kill everything** → **Open kill in Phantom** → confirmar na
+   Phantom. Anotar o que a Phantom mostrou (o nosso domínio, a simulação sem saída de USDC) e se o
+   botão abriu dentro da Phantom no telemóvel. `pnpm status` tem de dizer `spending limit: none`.
+8. **Repor**: `/resume agent-1` no Telegram e repetir o passo 4. `pnpm status` mostra o teto de volta.
 
 ---
 
