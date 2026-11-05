@@ -21,7 +21,9 @@ const client = publicClient(config)
 
 console.log(`chain:    ${caip2(config)}`)
 console.log(`owner:    ${owner.address} (${config.OWNER_SIGNER})`)
-console.log(`executor: ${executor.address} (pays the gas, owns nothing)`)
+const role =
+  config.OWNER_SIGNER === 'ledger' ? 'pays the gas, owns nothing' : 'the owner, pays the gas'
+console.log(`executor: ${executor.address} (${role})`)
 
 // Deploying needs no owner signature: the owner is fixed by the setup data, whoever sends it.
 const kit = await Safe.init({
