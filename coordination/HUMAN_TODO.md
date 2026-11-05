@@ -847,7 +847,37 @@ criar quando chegarmos lá.
 
 ---
 
-## ⬜ HUMAN-8 — Decisão e assinatura de mainnet
+## ⏳ HUMAN-8 — Decisão e assinatura de mainnet
+
+**As seis decisões foram tomadas por ti em 2026-11-05** e estão registadas no `LAUNCH.md` (PR #65):
+
+|     | Decidido                                                             |
+| --- | -------------------------------------------------------------------- |
+| D1  | 50 USDC por dia; a hot wallet guarda no máximo 20                    |
+| D2  | 5 USDC por pagamento, 25 por dia, aprovação acima de 1; deny-all     |
+| D3  | Fly.io                                                               |
+| D4  | **Phantom** para a chave da owner — risco aceite por ti (ver abaixo) |
+| D5  | Secrets do Fly.io                                                    |
+| D6  | Solana primeiro                                                      |
+
+**Sobre a D4.** A chave da owner manda no cofre inteiro e é a única que faz o kill. Numa carteira de
+software, quem tomar o teu computador ou telemóvel toma o cofre — por isso recomendei uma Ledger. A
+decisão é tua e está registada assim. Três regras passam a ser obrigatórias com a Phantom:
+
+1. **Uma frase de recuperação nova, só para isto.** Não uma conta nova dentro de uma Phantom que já
+   tens: todas as contas de uma Phantom vêm da mesma frase, e se essa frase alguma vez escapou, todas
+   escaparam. Cria uma carteira Phantom nova, com uma frase nova, escrita em papel e nunca fotografada.
+2. **Essa conta não faz mais nada** — não liga a sites, não assina outras coisas, não guarda outros
+   tokens. Assim nenhum site malicioso tem onde te pedir uma assinatura.
+3. **O cofre fica com pouco.** Com o teto de 50 USDC por dia, mantém no cofre só o que precisas para
+   umas semanas, e repõe à medida.
+
+O bloqueio da Ledger foi trocado por um da Phantom: antes de mainnet, numa conta Phantom nova em devnet,
+criar o multisig e o spending limit e fazer o kill **assinando na Phantom**. Estou a ver com a Sessão 1
+o caminho mais simples para isso e para o kill ficar a um toque a partir do Telegram; dou-te os passos
+quando estiver pronto.
+
+O texto abaixo fica como registo de como chegámos aqui.
 
 O último passo, e é inteiramente teu. Não avanço para aqui sem a tua decisão escrita.
 
