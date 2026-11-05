@@ -472,8 +472,8 @@ de teste na owner EVM:
 - owner: `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`
 - hot wallet: `0x4FCEE11b4620Cb9122B83688B243bb996660F43b`
 
-ETH sem conta no faucet da Alchemy (`alchemy.com/faucets/base-sepolia`), ou no do Coinbase Developer
-Platform (`portal.cdp.coinbase.com`) com conta. USDC em `faucet.circle.com`, rede **Base Sepolia**. A
+ETH no faucet do Coinbase Developer Platform (`portal.cdp.coinbase.com`), com conta. O da Alchemy
+recusa: só dá ETH de teste a quem já tem ETH na mainnet. USDC em `faucet.circle.com`, rede **Base Sepolia**. A
 lista oficial de faucets da Base está em `docs.base.org/chain/network-faucets`.
 
 ```bash
@@ -706,7 +706,21 @@ Se quiseres: cria conta em `tenderly.co`, cria um projeto, gera uma access key e
 
 ---
 
-## ⏳ HUMAN-12 — A Safe na Base Sepolia
+## ✅ HUMAN-12 — A Safe na Base Sepolia
+
+**Feito em 2026-11-05**, guiado pelo integrator. Tudo público:
+
+| O quê                        | Valor                                                                |
+| ---------------------------- | -------------------------------------------------------------------- |
+| Safe                         | `0x1df91C7e227370F138Ae546f3D2fa2Fde8a48C2D`                         |
+| Owner (threshold 1)          | `0xaF553AaAcB5Ea0659B07cde7bdDd870C3FaF9A04`                         |
+| Delegate (hot wallet)        | `0x4FCEE11b4620Cb9122B83688B243bb996660F43b`                         |
+| Teto                         | 100 USDC, renova a cada 1440 min                                     |
+| Transação `create-safe`      | `0x7c81fa17ca5ad46b975f36ad293b35e4bd8645e3faf8c6eb29933fbce259e1e0` |
+| Transação `enable-allowance` | `0xcbe604b253efbd0f864f217e6168d54e0cc84a74033ea8315d311871a9937157` |
+
+O `SAFE_ADDRESS` está nos dois `.env`. O texto abaixo fica como registo. O que vem a seguir é a
+`HUMAN-13`.
 
 Desbloqueia: `EVM-1` e `EVM-2` ao vivo, e depois a corrida da Base (`INT-6`). É o equivalente da Base ao
 que fizeste em Solana com o multisig e o spending limit: uma Safe tua, com a hot wallet como delegate
@@ -785,6 +799,20 @@ Logo a seguir à Parte A.
    Tem de acabar com `module enabled: true` e `allowance: 100000000, spent 0, resets every 1440 min`.
 
 10. Cola-me as saídas dos passos 8 e 9. É tudo público.
+
+---
+
+## ⏳ HUMAN-13 — Primeira corrida ao vivo na Base Sepolia
+
+Desbloqueia: fecha a `INT-6`, a corrida da Base equivalente à `HUMAN-11`. O integrator está a guiar-te
+passo a passo na sessão dele; aqui fica só o resumo para saberes onde estás:
+
+1. USDC de teste da Circle (`faucet.circle.com`, rede **Base Sepolia**) enviado **diretamente para a
+   Safe** `0x1df91C7e227370F138Ae546f3D2fa2Fde8a48C2D` — é lá que o dinheiro vive, como no cofre da
+   Solana.
+2. `pnpm status:base` para confirmar a Safe, o módulo, o teto e o saldo, lidos da chain.
+3. A corrida x402 através do guard-core: `pnpm --filter e2e paywall:base`, um pagamento abaixo do
+   limite (automático) e outro acima (aprovado por ti no Telegram).
 
 ---
 
