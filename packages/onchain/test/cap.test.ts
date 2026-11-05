@@ -13,7 +13,7 @@ import {
   removeSpendingLimit,
   spendingLimitPda,
 } from '../src/svm/squads.js'
-import { chain, USDC, type Chain } from './fixture.js'
+import { chain, plantProgramConfig, USDC, type Chain } from './fixture.js'
 import { fakeLedger } from './ledger.js'
 
 /**
@@ -47,22 +47,6 @@ function warp(seconds: bigint) {
       now.unixTimestamp + seconds,
     ),
   )
-}
-
-function plantProgramConfig(target: Chain) {
-  const [address] = multisig.getProgramConfigPda({})
-  const data = multisig.accounts.ProgramConfig.fromArgs({
-    authority: Keypair.generate().publicKey,
-    multisigCreationFee: 0,
-    treasury: Keypair.generate().publicKey,
-    reserved: new Array<number>(64).fill(0),
-  }).serialize()[0]
-  target.svm.setAccount(address, {
-    lamports: Number(target.svm.minimumBalanceForRentExemption(BigInt(data.length))),
-    data,
-    owner: multisig.PROGRAM_ID,
-    executable: false,
-  })
 }
 
 describe('the Squads spending limit', () => {

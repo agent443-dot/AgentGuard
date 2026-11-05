@@ -151,3 +151,20 @@ function plant(c: Chain, address: PublicKey, data: Buffer) {
     executable: false,
   })
 }
+
+/** The Squads program's global config, which multisig creation reads for its fee and treasury. */
+export function plantProgramConfig(target: Chain) {
+  const [address] = multisig.getProgramConfigPda({})
+  const data = multisig.accounts.ProgramConfig.fromArgs({
+    authority: Keypair.generate().publicKey,
+    multisigCreationFee: 0,
+    treasury: Keypair.generate().publicKey,
+    reserved: new Array<number>(64).fill(0),
+  }).serialize()[0]
+  target.svm.setAccount(address, {
+    lamports: Number(target.svm.minimumBalanceForRentExemption(BigInt(data.length))),
+    data,
+    owner: multisig.PROGRAM_ID,
+    executable: false,
+  })
+}

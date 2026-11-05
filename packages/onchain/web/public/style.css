@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  padding: 16px;
+}
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+main[data-state='stop'] h1 {
+  color: #c62828;
+}
+main[data-state='done'] h1 {
+  color: #2e7d32;
+}
+button,
+a {
+  font-size: 1.1rem;
+  padding: 0.6rem 1rem;
+}

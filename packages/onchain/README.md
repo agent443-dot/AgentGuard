@@ -192,6 +192,35 @@ the Solana app's APDUs, signs with real ed25519 keys and refuses unknown program
 signing is off. It records the Message Hash it would display, and the tests check that it equals the
 hash the script printed. `test/cap.test.ts` signs the kill with it.
 
+#### The owner in Phantom: the signing page
+
+The scripts cannot sign with Phantom, so the owner signs through a static page in `web/`. The
+design is in [ADR 003](../../docs/adr/003-phantom-owner.md). Only the kill is
+built so far; create-multisig and add-spending-limit come next.
+
+- **The link carries the action and public addresses only:**
+  `/?action=kill&cluster=mainnet-beta&multisig=<multisig>&hot=<hot wallet>`. The page builds
+  `multisigRemoveSpendingLimit` itself with `removeSpendingLimitInstruction`, for the limit derived
+  from the hot wallet, so it removes the limit the adapter draws on and nothing else.
+- **It checks the chain before asking Phantom.** The multisig must belong to the Squads program and
+  have the connected wallet as its config authority. A limit with unexpected members or destinations
+  is still removed, with a warning shown.
+- **It shows the summary, then asks Phantom right away.** It uses `signAndSendTransaction`, then
+  reads the chain until the limit is gone.
+- **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
+  inside Phantom.
+- **The RPC endpoints are fixed when the page is built,** never taken from the link:
+  `SOLANA_MAINNET_RPC` and `SOLANA_DEVNET_RPC` override the public defaults. The CSP allows scripts
+  and styles from the page's own origin and connections to those endpoints only.
+
+```bash
+pnpm build:web   # web/dist, ready for any static host
+pnpm test:web    # Chromium, against the real Squads program in LiteSVM, with a stand-in for Phantom
+```
+
+`web/vercel.json` deploys it as its own project, separate from the landing site, with the security
+headers. The owner creates that project and protects its deploys.
+
 ### Base adapter
 
 A Safe holds the funds and the Safe Allowance Module caps the hot wallet per day. Neither is ours.
