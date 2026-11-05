@@ -802,7 +802,19 @@ Logo a seguir à Parte A.
 
 ---
 
-## ⏸️ HUMAN-13 — Primeira corrida ao vivo na Base Sepolia
+## ✅ HUMAN-13 — Primeira corrida ao vivo na Base Sepolia
+
+**Feito em 2026-11-05.** A Base passou de ponta a ponta, e a Solana voltou a passar a partir do pior
+caso. Tudo com a hot wallet a começar vazia, depois da correção do PR #63:
+
+| Chain  | O quê                                                  | Transação                                                                                  |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Base   | x402 de 1,5 USDC, aprovado no Telegram                 | `0x54fdc347386a518a7045ce9e21fcd538b40ee814db20ad18f4d92a7bea35cc21`                       |
+| Base   | x402 de 0,5 USDC, hot wallet vazia, levantado da Safe  | `0x1f40b2d003eac15bcfc06fb045ffe32ca19b1e259f8bf10c251abc0528974493`                       |
+| Solana | x402 de 0,5 USDC, hot wallet vazia e sem conta de USDC | `23kwrForwWeYT9U3CALogx83pUCP6fsYZPEQxYpbBZkm1gzqkGh1bGwfHNqnjnTpaYEGj1Yd9ff6w8dWfJx3ccDh` |
+
+Depois de cada pagamento, o teto onchain mostrou exatamente 0,5 USDC gasto, e o dinheiro saiu da Safe
+e do cofre — não de outro lado. O texto abaixo fica como registo.
 
 **Parada em 2026-11-05 por um bug que a tua corrida encontrou.** O primeiro pagamento (0,5 USDC) foi
 recusado antes de assinar nada: o guard-core simula o pagamento antes de tirar o dinheiro da Safe para
