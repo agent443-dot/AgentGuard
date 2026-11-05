@@ -79,7 +79,7 @@ export async function clear(
     return { cleared: false, intent: reject(deps, intent, reasons) }
   }
 
-  const { simulation, reasons: simReasons } = await simulate(adapter, intent)
+  const { simulation, reasons: simReasons, error } = await simulate(deps, adapter, intent)
   repo.audit(
     db,
     {
@@ -87,7 +87,7 @@ export async function clear(
       intentId: intent.id,
       agentId: intent.agentId,
       reasons: simReasons,
-      detail: { summary: simulation?.summary },
+      detail: { summary: simulation?.summary, error },
     },
     now(),
   )
@@ -106,9 +106,10 @@ export async function clear(
 
 /** GC-2: nothing is signed unless the simulation found nothing to object to. */
 async function simulate(
+  deps: PaymentDeps,
   adapter: ChainAdapter,
   intent: PayIntent,
-): Promise<{ simulation?: SimulationResult; reasons: RejectCode[] }> {
+): Promise<{ simulation?: SimulationResult; reasons: RejectCode[]; error?: string }> {
   try {
     const outcome = await adapter.simulate(intent)
     const reasons =
@@ -116,8 +117,15 @@ async function simulate(
         ? outcome.rejectReasons
         : checkSimulation(outcome.simulation, intent)
     return { simulation: outcome.simulation, reasons }
-  } catch {
-    return { reasons: ['SIM_FAILED'] }
+  } catch (thrown) {
+    // Without the adapter's message a SIM_FAILED on a live chain leaves nothing to debug from.
+    // RPC clients quote the endpoint in it, and a provider URL often carries the API key.
+    const error = (thrown instanceof Error ? thrown.message : String(thrown)).replace(
+      /\w+:\/\/\S+/g,
+      '<url>',
+    )
+    deps.log.warn({ intentId: intent.id, chain: intent.chain, error }, 'simulation failed')
+    return { reasons: ['SIM_FAILED'], error }
   }
 }
 

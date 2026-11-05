@@ -86,9 +86,17 @@ describe('simulation gate (GC-2)', () => {
   })
 
   it('treats a simulation that throws as SIM_FAILED', async () => {
-    vi.spyOn(h.chain, 'simulate').mockRejectedValue(new Error('rpc down'))
+    vi.spyOn(h.chain, 'simulate').mockRejectedValue(
+      new Error('HTTP request failed.\nURL: https://base.example/v2/secret-key\nrpc down'),
+    )
     const res = await h.agent('POST', '/v1/agent/transfer', transfer('1000000'))
     expect(res.json().rejectReasons).toEqual(['SIM_FAILED'])
+    const simulated = h.db
+      .select()
+      .from(schema.auditLog)
+      .all()
+      .find((row) => row.intentId === res.json().intentId && row.event === 'simulated')
+    expect(simulated?.detail).toEqual({ error: 'HTTP request failed.\nURL: <url>\nrpc down' })
   })
 
   it('rejects a simulation that drains more than the amount, even with no codes', async () => {
