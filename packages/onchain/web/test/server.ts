@@ -94,7 +94,7 @@ export async function servePage(svm: Svm, dist: string, wallet: () => Keypair) {
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-  return { origin, signed, close: () => new Promise((resolve) => server.close(resolve)) }
+  return { origin, dist, signed, close: () => new Promise((resolve) => server.close(resolve)) }
 }
 
 async function text(req: IncomingMessage): Promise<string> {

@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { CHAINS, getAddress } from '@agentguard/shared'
 import { build } from 'esbuild'
 
 /**
@@ -18,6 +19,18 @@ export function rpcUrls(env: NodeJS.ProcessEnv = process.env): Record<string, st
     'mainnet-beta': env['SOLANA_MAINNET_RPC'] ?? 'https://api.mainnet-beta.solana.com',
     ...(env['SOLANA_LOCALNET_RPC'] ? { localnet: env['SOLANA_LOCALNET_RPC'] } : {}),
   }
+}
+
+/** USDC for each cluster, from the verified addresses in shared, so no link can name another mint. */
+export function usdcMints(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const known = {
+    devnet: getAddress(CHAINS.solanaDevnet, 'usdc'),
+    'mainnet-beta': getAddress(CHAINS.solanaMainnet, 'usdc'),
+    localnet: env['SOLANA_LOCALNET_USDC'],
+  }
+  return Object.fromEntries(
+    Object.entries(known).filter(([, mint]) => mint !== undefined),
+  ) as Record<string, string>
 }
 
 export function csp(rpc: Record<string, string>): string {
@@ -46,7 +59,11 @@ export async function buildPage(outdir = here('./dist'), env = process.env) {
     minify: true,
     legalComments: 'none',
     // Some dependencies read process.env; a browser has no process.
-    define: { RPC_URLS: JSON.stringify(rpc), 'process.env': '{}' },
+    define: {
+      RPC_URLS: JSON.stringify(rpc),
+      USDC_MINTS: JSON.stringify(usdcMints(env)),
+      'process.env': '{}',
+    },
     logLevel: 'warning',
   })
   const html = await readFile(here('./public/index.html'), 'utf8')

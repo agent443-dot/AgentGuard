@@ -1,7 +1,8 @@
 import { getMint } from '@solana/spl-token'
 import { PublicKey, SendTransactionError } from '@solana/web3.js'
 import { loadKeypair, loadSvmConfig } from '../svm/config.js'
-import { connect, readSpendingLimit, spendingLimitPda, useSpendingLimit } from '../svm/squads.js'
+import { useSpendingLimit } from '../svm/draw.js'
+import { connect, readSpendingLimit, spendingLimitPda } from '../svm/squads.js'
 
 /**
  * A test harness for the onchain cap. In production guard-core makes this draw through the

@@ -195,18 +195,28 @@ hash the script printed. `test/cap.test.ts` signs the kill with it.
 #### The owner in Phantom: the signing page
 
 The scripts cannot sign with Phantom, so the owner signs through a static page in `web/`. The
-design is in [ADR 003](../../docs/adr/003-phantom-owner.md). Only the kill is
-built so far; create-multisig and add-spending-limit come next.
+design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
 
-- **The link carries the action and public addresses only:**
-  `/?action=kill&cluster=mainnet-beta&multisig=<multisig>&hot=<hot wallet>`. The page builds
-  `multisigRemoveSpendingLimit` itself with `removeSpendingLimitInstruction`, for the limit derived
-  from the hot wallet, so it removes the limit the adapter draws on and nothing else.
+- **The link carries the action and public addresses only.** Each action builds its instruction
+  with the same builder as the script it replaces:
+
+  | Link                                                                                   | Instruction                   | Builder                          |
+  | -------------------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
+  | `/?action=create&cluster=<cluster>`                                                    | `multisigCreateV2`            | `createMultisigInstruction`      |
+  | `/?action=add-limit&cluster=<cluster>&multisig=<pda>&hot=<pubkey>&amount=<base units>` | `multisigAddSpendingLimit`    | `addSpendingLimitInstruction`    |
+  | `/?action=kill&cluster=<cluster>&multisig=<pda>&hot=<pubkey>`                          | `multisigRemoveSpendingLimit` | `removeSpendingLimitInstruction` |
+
+  The limit's address is derived from the hot wallet, so the page adds and removes the limit the
+  adapter draws on and nothing else. The USDC mint comes from `shared/addresses.ts` at build time,
+  never from the link. Create makes its one-time create key in the browser; the key signs before
+  Phantom does.
+
 - **It checks the chain before asking Phantom.** The multisig must belong to the Squads program and
-  have the connected wallet as its config authority. A limit with unexpected members or destinations
-  is still removed, with a warning shown.
+  have the connected wallet as its config authority. Add-limit refuses when a limit already exists:
+  changing the cap means a kill, then a new limit. A kill still removes a limit with unexpected
+  members or destinations, with a warning shown.
 - **It shows the summary, then asks Phantom right away.** It uses `signAndSendTransaction`, then
-  reads the chain until the limit is gone.
+  reads the chain until the change is there, and checks it is what was signed.
 - **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
   inside Phantom.
 - **The RPC endpoints are fixed when the page is built,** never taken from the link:
