@@ -111,7 +111,8 @@ Each line can be checked by someone other than its author.
 - [ ] **The Phantom signing page is a trust root (D4, [ADR 003](docs/adr/003-phantom-owner.md)).**
       Whoever can change the deployed page can ask the owner to sign a harmful config change behind
       a harmless summary. Before launch: it is its own project on its own subdomain, separate from
-      the landing site; it is deployed only from protected `main`; it has a strict
+      the landing site; it is deployed only from protected `main`, with preview deployments off, since a
+      PR branch's preview would be an unreviewed signing page on a public URL; it has a strict
       Content-Security-Policy, no third-party scripts at runtime, and pinned dependencies; and
       `status` fails on any limit or member other than the expected ones.
 - [ ] **ADR 003's five devnet checks, run with a fresh Phantom account,** each with its result written
