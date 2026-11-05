@@ -4,18 +4,18 @@ Draft (INT-8) as of 2026-11-03, written against `main` at `571db23`. **AgentGuar
 mainnet.** This document lists exactly what is missing. It describes the code as it is, not as
 planned. Anything proven only on a stub chain is marked as such.
 
-## 1. Owner decisions (open)
+## 1. Owner decisions
 
-None of these can be made by a session. Each blocks launch until the owner writes the answer down.
+Made by the owner on 2026-11-05, in the integrator session. None of these can be made by a session.
 
-| #   | Decision                                                                                 | Why it matters                                                                                                                                                                                                                                  | Status |
-| --- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| D1  | **Mainnet daily cap** (`DAILY_CAP`, USDC atomic units)                                   | The most the owner can lose per day, together with whatever the hot wallet holds (SPEC: max daily loss = cap + hot wallet balance). Devnet uses 100 USDC. A beta wants it low.                                                                  | open   |
-| D2  | **Per-agent policy for launch**: `perTxMax`, `dailyMax`, `approvalThreshold`, allowlists | guard-core enforces these offchain, beneath the onchain cap. A new agent starts deny-all.                                                                                                                                                       | open   |
-| D3  | **Deploy host**: Fly.io or Railway (HUMAN-7)                                             | Decides how secrets reach the process, and what fronts each service (§3).                                                                                                                                                                       | open   |
-| D4  | **Owner key custody**: a hardware wallet                                                 | The owner key is the multisig's only member and config authority (threshold 1). Whoever holds it can move the whole vault.                                                                                                                      | open   |
-| D5  | **Hot wallet key storage**: which secrets manager                                        | guard-core reads the hot wallet from a keypair file (`SOLANA_HOT_WALLET_KEYPAIR`). Whatever is chosen must deliver it as a file, or guard-core has to change (SPEC: "later: KMS").                                                              | open   |
-| D6  | **Solana only, or wait for Base**                                                        | SPEC v0.3 ships both chains in v0.1. The EVM-\* work started on 2026-11-04 (#27). A Solana-only beta is possible, but it is the owner's call. On Base the bound differs in one way that matters for the decision; see the note below the table. | open   |
+| #   | Decision                                                                                 | Answer                                                                                                                                                                                                                                                                                                              | Status                     |
+| --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| D1  | **Mainnet daily cap** (`DAILY_CAP`, USDC atomic units)                                   | **50 USDC a day** (`DAILY_CAP=50000000`), with the hot wallet holding at most 20 USDC. Max daily loss: about 70 USDC. Raised only after some weeks without incidents.                                                                                                                                               | **decided**                |
+| D2  | **Per-agent policy for launch**: `perTxMax`, `dailyMax`, `approvalThreshold`, allowlists | Each new agent: **5 USDC per payment, 25 a day, Telegram approval above 1 USDC**, deny-all to start, and only domains the owner adds.                                                                                                                                                                               | **decided**                |
+| D3  | **Deploy host** (HUMAN-7)                                                                | **Fly.io**, one region, a persistent volume for the database, guard-core on the private network only. Only the bot's webhook is public, behind TLS.                                                                                                                                                                 | **decided**                |
+| D4  | **Owner key custody**                                                                    | **Phantom**, a software wallet: the owner's choice, against the recommendation of a hardware wallet. The owner key can move the whole vault, so it stays in Phantom and is **never exported to a file**. The owner signs its operations through Phantom, not through this repo's scripts. See the D4 blocker in §2. | **decided, risk accepted** |
+| D5  | **Hot wallet key storage**                                                               | **Fly.io secrets**, written to an in-memory file at startup, delivered as `SOLANA_HOT_WALLET_KEYPAIR`. KMS later, when the cap rises.                                                                                                                                                                               | **decided**                |
+| D6  | **Solana only, or wait for Base**                                                        | **Solana only first.** Base follows once Solana has run for some weeks without incidents and the Base owner path is settled. Base ran live on Sepolia on 2026-11-05 (HUMAN-13); its any-recipient allowance (below) is the reason to wait.                                                                          | **decided**                |
 
 **Base differs from Solana in where the daily allowance can go.** On Solana, the spending limit's
 only destination is the hot wallet: a stolen hot-wallet key can only draw the day's cap into the hot
@@ -94,7 +94,14 @@ Each line can be checked by someone other than its author.
 
 ### Open
 
-- [ ] **Launch blocker, tied to D4: the Ledger path on real hardware, on devnet.** Follow
+- [ ] **Launch blocker, tied to D4: the owner's operations from Phantom, without exporting the key.**
+      The repo's scripts sign with a key file or a Ledger, and neither fits D4. On devnet, with a
+      **new** Phantom account used for nothing else, prove the owner can create the multisig and
+      the spending limit, and, above all, remove the spending limit (the kill) by signing in Phantom,
+      for example through the Squads app. Pass criteria: the kill lands on devnet signed from
+      Phantom, `pnpm status` then prints `spending limit:   none at <address>`, and no Phantom key
+      ever sits in a file. Until this passes, the kill switch's last step has no tested path.
+- [ ] **Only if D4 moves to a Ledger later: the Ledger path on real hardware, on devnet.** Follow
       "The owner on a Ledger" in `packages/onchain/README.md` with a real device. Pass criteria:
   - for `create-multisig`, `add-spending-limit` and `kill`, the **Message Hash shown on the device
     equals the one the script printed**, character for character. The tests only show that the
@@ -113,13 +120,14 @@ Each line can be checked by someone other than its author.
   - each of the three lands on Base Sepolia, signed by the Ledger, gas paid by the executor;
   - after the kill, `pnpm status:base` shows no allowance for the hot wallet;
   - Blind signing is off again at the end.
-- [ ] **Mainnet keys** generated fresh (key rule above). The owner key goes on the hardware wallet
-      (D4), and the hot wallet key into the secrets manager (D5).
+- [ ] **Mainnet keys** generated fresh (key rule above). The owner key is a new Phantom account,
+      used for nothing else (D4). The hot wallet key goes into Fly.io secrets (D5).
 - [ ] **Mainnet setup**, with the new keys:
-  - `create-multisig` and `add-spending-limit` run with `SOLANA_CLUSTER=mainnet-beta` and
-    `SOLANA_OWNER_KEYPAIR=usb://ledger?key=0`. **The multisig is created by the Ledger from the
-    start**: the creating key becomes the config authority, the only key that can remove the limit,
-    and no script here moves it afterwards;
+  - the multisig and the spending limit are created **signed from the Phantom owner account**, by the
+    path the D4 blocker proves on devnet. The creating key becomes the config authority, the only key
+    that can remove the limit, and no script here moves it afterwards. The repo's
+    `create-multisig` and `add-spending-limit` would need the key as a file, so they are not used on
+    mainnet;
   - `USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (Circle; also in
     `packages/shared/src/addresses.ts`);
   - `DAILY_CAP` set from D1;
@@ -190,7 +198,11 @@ leaked token or key, or any doubt at all. A kill is cheap to undo; a drain is no
    step 1 only stops the guard. The bot's message gives the `removeSpendingLimit` instruction, which
    must be signed by the config authority, the owner key.
 
-   With the owner key on a Ledger (mainnet):
+   With the owner key in Phantom (D4): sign `removeSpendingLimit` from the Phantom owner account by
+   the path the D4 blocker proved on devnet, then check `pnpm status` prints
+   `spending limit:   none at <address>`. Write the exact steps here once that run passes.
+
+   With the owner key on a Ledger, if D4 changes:
    1. Plug the Ledger in, unlock it, and open the Solana app.
    2. Turn **Blind signing** on (Solana app, Settings). The app cannot display Squads instructions.
    3. Run:
