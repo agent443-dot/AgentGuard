@@ -70,6 +70,20 @@ Each line can be checked by someone other than its author.
 
   The tx ids are in `coordination/HUMAN_TODO.md`. This closes INT-3 and INT-4.
 
+- [x] **HUMAN-12 and HUMAN-13: the full stack on Base Sepolia** (2026-11-05, run by the owner). Safe
+      `0x1df91C7e227370F138Ae546f3D2fa2Fde8a48C2D`, owned by the owner key alone, with the hot wallet
+      as Allowance Module delegate and a 100 USDC daily cap. The payments, all x402 through guard-core
+      to the self-settling Base paywall:
+  - 0.5 USDC paid without asking, and 1.5 USDC approved on Telegram and redeemed once;
+  - the official run, **from an empty hot wallet**: 0.5 USDC drawn from the Safe through the
+    module, then paid (`0x1f40b2d0…4493`). The Safe fell by exactly 0.5 USDC.
+
+  The first attempt from an empty hot wallet was refused with `SIM_FAILED`. The simulation ran before
+  the top-up and saw a hot wallet with nothing in it. Solana had the same gap, plus a hot wallet
+  without a token account could not receive the draw. Both are fixed in #63, with the reason now
+  logged (#62). **Re-checked live on Solana devnet** from a hot wallet with no USDC token account at
+  all: 0.5 USDC drawn from the vault and paid (`23kwrFor…ccDh`). This closes INT-6.
+
 - [x] **SVM-8: all four cap properties as automated tests** (#22), against the real Squads v4
       program (dumped from mainnet) under LiteSVM 1.6.1. A draw up to the cap succeeds, `cap + 1` is
       refused with `SpendingLimitExceeded`, the limit refills after a warped day, and nothing can be
