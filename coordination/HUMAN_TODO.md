@@ -839,6 +839,35 @@ passo a passo na sessão dele; aqui fica só o resumo para saberes onde estás:
 
 ---
 
+## ⏳ HUMAN-14 — Alojar a página de assinatura da Phantom
+
+Desbloqueia: o kill a um toque a partir do Telegram, e a seguir a corrida em devnet com a Phantom
+(D4, ADR 003). A página está no `main` em `packages/onchain/web`. Não tem servidor nem segredos: só
+constrói a transação, mostra-te o que vais assinar e passa-a à Phantom.
+
+Fica num **projeto Vercel só dela**, separado da landing page, para que nenhuma mudança no site de
+marketing possa tocar no que tu assinas.
+
+1. Em [vercel.com/new](https://vercel.com/new), importa o repositório `kikume/AgentGuard` outra vez,
+   como um **projeto novo** (não mexas no projeto da landing page).
+2. Nome do projeto: `agentguard-sign`. Em **Root Directory** escolhe `packages/onchain/web`. Deixa o
+   resto como está — o `vercel.json` da pasta já define a instalação, o build e os cabeçalhos de
+   segurança. Carrega em **Deploy**.
+3. Depois do primeiro deploy, em **Settings → Git**, confirma que o **Production Branch** é `main`.
+   Na mesma página, em **Ignored Build Step**, escolhe **Custom** e cola isto, para que só o `main`
+   seja publicado:
+
+   ```bash
+   [ "$VERCEL_GIT_COMMIT_REF" != "main" ]
+   ```
+
+4. Diz-me o endereço que o Vercel te deu (algo como `agentguard-sign.vercel.app`). É público.
+
+Um domínio próprio fica para mainnet; para devnet o endereço do Vercel chega e já é uma origem só
+desta página.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
