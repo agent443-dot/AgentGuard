@@ -63,6 +63,29 @@ jobs:
           BASE_RPC_URL: https://sepolia.base.org
         run: pnpm check:simulate
 
+  # The owner's signing page (ADR 003) in a real Chromium, with Phantom faked. Kept out of
+  # `pnpm test`: it needs a browser, and it is the page the owner trusts with the kill.
+  signing-page:
+    name: signing page (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: npx --prefix packages/onchain playwright install --with-deps chromium
+
+      - name: test:web
+        run: pnpm --filter @agentguard/onchain test:web
+
   foundry:
     name: forge test (onchain)
     runs-on: ubuntu-latest
