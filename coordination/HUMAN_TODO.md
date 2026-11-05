@@ -810,6 +810,11 @@ a hot wallet, e com a hot wallet vazia a simulação falha. A Sessão 1 está a 
 Base para incluir esse levantamento. Retomas quando eu te disser que a correção entrou no `main`, e a
 corrida conta só com a hot wallet a começar vazia.
 
+A causa ficou confirmada no mesmo dia: com 20 USDC postos à mão na hot wallet, o mesmo pagamento passou
+(`0x4ff9be8c8a2778ffdb94b19288fe28af60c8a06dd043a9f6fef247499c17de34`). A correção (PR #63) mostrou que
+a Solana tinha a mesma falha, e mais uma: o levantamento falhava se a hot wallet nunca tivesse tido
+USDC. Por isso a corrida desta tarefa inclui também **um pagamento na Solana com a hot wallet vazia**.
+
 Desbloqueia: fecha a `INT-6`, a corrida da Base equivalente à `HUMAN-11`. O integrator está a guiar-te
 passo a passo na sessão dele; aqui fica só o resumo para saberes onde estás:
 
