@@ -11,15 +11,15 @@ sign with a hot wallet that can draw no more than a daily cap set onchain.
 
 ## What works
 
-| Area                    | Solana                                                                    | Base                                                                       |
-| ----------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Onchain cap             | Squads v4 spending limit, hot wallet as the only destination              | Safe Allowance Module 0.1.1. The delegate can send to any address (risk 1) |
-| Cap proven              | LiteSVM against the real program: cap, cap + 1, daily refill, after kill  | Foundry, on a Base mainnet fork with the official module (EVM-6)           |
-| Transfer and x402       | Live on devnet (HUMAN-11): a transfer and two x402 payments, one approved | Stub chain only (INT-6). The live run waits on HUMAN-12                    |
-| Attack suite            | 24 cases, stub and devnet (INT-5)                                         | 15 cases on the stub chain (INT-6)                                         |
-| Signing gate            | Transaction inspection, then a simulation of the exact transfer           | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`    |
-| Kill                    | The spending limit is removed, signed by the owner                        | `removeDelegate(hot, true)`, proven on the fork                            |
-| Owner signs with Ledger | Built, proven against a fake device (SVM-9)                               | Built (EVM-9, #41), proven against a fake device. Real hardware is open    |
+| Area                    | Solana                                                                   | Base                                                                          |
+| ----------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Onchain cap             | Squads v4 spending limit, hot wallet as the only destination             | Safe Allowance Module 0.1.1. The delegate can send to any address (risk 1)    |
+| Cap proven              | LiteSVM against the real program: cap, cap + 1, daily refill, after kill | Foundry, on a Base mainnet fork with the official module (EVM-6)              |
+| Transfer and x402       | Live on devnet (HUMAN-11), and again from an empty hot wallet (HUMAN-13) | Live on Base Sepolia (HUMAN-13): auto, approved, and from an empty hot wallet |
+| Attack suite            | 24 cases, stub and devnet (INT-5)                                        | 15 cases on the stub chain (INT-6)                                            |
+| Signing gate            | Transaction inspection, then a simulation of the exact transfer          | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`       |
+| Kill                    | The spending limit is removed, signed by the owner                       | `removeDelegate(hot, true)`, proven on the fork                               |
+| Owner signs with Ledger | Built, proven against a fake device (SVM-9)                              | Built (EVM-9, #41), proven against a fake device. Real hardware is open       |
 
 Across both chains, guard-core has:
 
@@ -63,7 +63,12 @@ Two mutations of the guard each made the e2e suite fail, so it detects real regr
 What only a person ran, recorded in `coordination/HUMAN_TODO.md`:
 
 - HUMAN-11, the full stack on Solana devnet with real Telegram;
-- the devnet attack cases in INT-5.
+- the devnet attack cases in INT-5;
+- HUMAN-12 and HUMAN-13, the Safe and the full stack on Base Sepolia, plus a Solana re-check. Both
+  chains paid from an empty hot wallet, drawing from the Safe or the vault.
+
+The first live Base run found a real bug: the simulation ran before the top-up, so an empty hot wallet
+could never pay, on either chain. The fix is in #63, and the tests now start from an empty hot wallet.
 
 ## Known risks
 
