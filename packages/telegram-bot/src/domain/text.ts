@@ -190,14 +190,21 @@ export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string
   ].join('\n')
 }
 
-export function killedText(pausedAgents: number, transactions: number): string {
+export function killedText(pausedAgents: number, transactions: number, phantom = false): string {
   const next =
     transactions > 0
       ? `Sign the ${transactions === 1 ? 'transaction' : `${transactions} transactions`} below from ` +
         'the owner multisig to set each allowance to 0 and remove the delegate.'
       : '<b>No owner transaction is ready.</b> The onchain allowances are still live: ' +
         'remove them from the multisig directly.'
-  return [`<b>Kill switch engaged.</b> Paused agents: ${pausedAgents}.`, next].join('\n')
+  const stopped =
+    `<b>Kill switch engaged.</b> guard-core has paused ${pausedAgents} ` +
+    `${pausedAgents === 1 ? 'agent' : 'agents'} and signs no more payments.`
+  const onchain = phantom
+    ? '<b>The Solana spending limit is still live onchain.</b> Tap <b>Open kill in Phantom</b> ' +
+      'and confirm to remove it.'
+    : next
+  return [stopped, onchain].join('\n')
 }
 
 export function ownerTransactionText(tx: OwnerTransaction): string {
