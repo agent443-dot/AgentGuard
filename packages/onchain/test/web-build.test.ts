@@ -10,7 +10,14 @@ describe('the signing page build', () => {
 
   it('knows a hot wallet only for the clusters the build names', () => {
     expect(hotWallets({})).toEqual({})
-    expect(hotWallets({ SOLANA_HOT_WALLET_DEVNET: 'Hot111' })).toEqual({ devnet: 'Hot111' })
+    const key = '11111111111111111111111111111112'
+    expect(hotWallets({ SOLANA_HOT_WALLET_DEVNET: key })).toEqual({ devnet: key })
+  })
+
+  it('fails the build on a hot wallet that is not a public key', () => {
+    expect(() => hotWallets({ SOLANA_HOT_WALLET_MAINNET: 'Hot111' })).toThrow(
+      'the hot wallet for mainnet-beta is not a Solana public key: Hot111',
+    )
   })
 
   it('lets the page connect to its RPC endpoints and nothing else', () => {

@@ -2,6 +2,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { CHAINS, getAddress } from '@agentguard/shared'
 import { build } from 'esbuild'
+import { isPublicKey } from './src/plan.js'
 
 /**
  * The owner's signing page, as static files in web/dist. Everything the page runs is bundled here
@@ -44,10 +45,14 @@ export function hotWallets(env: NodeJS.ProcessEnv = process.env): Record<string,
     'mainnet-beta': env['SOLANA_HOT_WALLET_MAINNET'],
     localnet: env['SOLANA_HOT_WALLET_LOCALNET'],
   }
-  return Object.fromEntries(Object.entries(known).filter(([, key]) => key)) as Record<
-    string,
-    string
-  >
+  const set = Object.entries(known).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  for (const [cluster, key] of set) {
+    // A typo fails the deploy here rather than the owner's page later.
+    if (!isPublicKey(key)) {
+      throw new Error(`the hot wallet for ${cluster} is not a Solana public key: ${key}`)
+    }
+  }
+  return Object.fromEntries(set)
 }
 
 /** The largest daily cap a link may ask for, in USDC base units. D1 sets 50 USDC. */
