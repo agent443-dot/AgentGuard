@@ -852,7 +852,17 @@ marketing possa tocar no que tu assinas.
    como um **projeto novo** (não mexas no projeto da landing page).
 2. Nome do projeto: `agentguard-sign`. Em **Root Directory** escolhe `packages/onchain/web`. Deixa o
    resto como está — o `vercel.json` da pasta já define a instalação, o build e os cabeçalhos de
-   segurança. Carrega em **Deploy**.
+   segurança. Antes de carregar em **Deploy**, abre **Environment Variables** e acrescenta uma:
+
+   | Nome                       | Valor                                          |
+   | -------------------------- | ---------------------------------------------- |
+   | `SOLANA_HOT_WALLET_DEVNET` | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
+
+   É o endereço público da tua hot wallet de devnet. A página fica com ele gravado, e por isso nenhum
+   link falso te consegue fazer assinar um teto para a chave de outra pessoa. O teto máximo que a
+   página aceita é 50 USDC, como decidiste na D1. Para mainnet acrescenta-se depois
+   `SOLANA_HOT_WALLET_MAINNET`, com a hot wallet nova. Depois carrega em **Deploy**.
+
 3. Depois do primeiro deploy, confirma duas coisas:
    - em **Settings → Git**, o **Production Branch** é `main` (a regra de só publicar o `main` já vem
      no `vercel.json`);
