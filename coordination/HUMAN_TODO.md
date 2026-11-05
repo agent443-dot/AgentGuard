@@ -866,6 +866,8 @@ marketing possa tocar no que tu assinas.
 3. Depois do primeiro deploy, confirma duas coisas:
    - em **Settings → Git**, o **Production Branch** é `main` (a regra de só publicar o `main` já vem
      no `vercel.json`);
+   - em **Settings → Deployment Protection**, liga a proteção para **Preview Deployments**, para que
+     nenhuma versão fora do `main` fique acessível a quem não seja tu;
    - em **Settings → Build and Deployment**, **Include files outside the Root Directory** está ligado
      (vem ligado por defeito).
 
