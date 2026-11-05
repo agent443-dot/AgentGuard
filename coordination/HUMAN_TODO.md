@@ -802,7 +802,13 @@ Logo a seguir à Parte A.
 
 ---
 
-## ⏳ HUMAN-13 — Primeira corrida ao vivo na Base Sepolia
+## ⏸️ HUMAN-13 — Primeira corrida ao vivo na Base Sepolia
+
+**Parada em 2026-11-05 por um bug que a tua corrida encontrou.** O primeiro pagamento (0,5 USDC) foi
+recusado antes de assinar nada: o guard-core simula o pagamento antes de tirar o dinheiro da Safe para
+a hot wallet, e com a hot wallet vazia a simulação falha. A Sessão 1 está a corrigir a simulação da
+Base para incluir esse levantamento. Retomas quando eu te disser que a correção entrou no `main`, e a
+corrida conta só com a hot wallet a começar vazia.
 
 Desbloqueia: fecha a `INT-6`, a corrida da Base equivalente à `HUMAN-11`. O integrator está a guiar-te
 passo a passo na sessão dele; aqui fica só o resumo para saberes onde estás:
