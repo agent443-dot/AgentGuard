@@ -228,7 +228,7 @@ pnpm build:web   # web/dist, ready for any static host
 pnpm test:web    # Chromium, against the real Squads program in LiteSVM, with a stand-in for Phantom
 ```
 
-`web/vercel.json` deploys it as its own project, separate from the landing site, with the security
+`web/vercel.json` deploys it as its own project, separate from the landing site, only from `main` (its `ignoreCommand` skips every other branch, previews included), with the security
 headers. The owner creates that project and protects its deploys.
 
 ### Base adapter
