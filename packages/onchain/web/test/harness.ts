@@ -32,6 +32,8 @@ export async function stage() {
   await buildPage(server.dist, {
     SOLANA_LOCALNET_RPC: `${server.origin}/rpc`,
     SOLANA_LOCALNET_USDC: c.mint.toBase58(),
+    SOLANA_HOT_WALLET_LOCALNET: c.hotWallet.publicKey.toBase58(),
+    MAX_DAILY_CAP: '100000000',
   })
 
   async function open(

@@ -200,15 +200,17 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
 - **The link carries the action and public addresses only.** Each action builds its instruction
   with the same builder as the script it replaces:
 
-  | Link                                                                                   | Instruction                   | Builder                          |
-  | -------------------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
-  | `/?action=create&cluster=<cluster>`                                                    | `multisigCreateV2`            | `createMultisigInstruction`      |
-  | `/?action=add-limit&cluster=<cluster>&multisig=<pda>&hot=<pubkey>&amount=<base units>` | `multisigAddSpendingLimit`    | `addSpendingLimitInstruction`    |
-  | `/?action=kill&cluster=<cluster>&multisig=<pda>&hot=<pubkey>`                          | `multisigRemoveSpendingLimit` | `removeSpendingLimitInstruction` |
+  | Link                                                                      | Instruction                   | Builder                          |
+  | ------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
+  | `/?action=create&cluster=<cluster>`                                       | `multisigCreateV2`            | `createMultisigInstruction`      |
+  | `/?action=add-limit&cluster=<cluster>&multisig=<pda>&amount=<base units>` | `multisigAddSpendingLimit`    | `addSpendingLimitInstruction`    |
+  | `/?action=kill&cluster=<cluster>&multisig=<pda>&hot=<pubkey>`             | `multisigRemoveSpendingLimit` | `removeSpendingLimitInstruction` |
 
   The limit's address is derived from the hot wallet, so the page adds and removes the limit the
   adapter draws on and nothing else. The USDC mint comes from `shared/addresses.ts` at build time,
-  never from the link. Create makes its one-time create key in the browser; the key signs before
+  never from the link. So does the hot wallet that add-limit grants: a link naming any other key is
+  refused, since a crafted one could otherwise let an attacker's key draw the full cap. Rotating the
+  hot wallet is a redeploy from `main`. The amount must not exceed `MAX_DAILY_CAP`. Create makes its one-time create key in the browser; the key signs before
   Phantom does.
 
 - **It checks the chain before asking Phantom.** The multisig must belong to the Squads program and
@@ -219,9 +221,15 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   reads the chain until the change is there, and checks it is what was signed.
 - **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
   inside Phantom.
-- **The RPC endpoints are fixed when the page is built,** never taken from the link:
-  `SOLANA_MAINNET_RPC` and `SOLANA_DEVNET_RPC` override the public defaults. The CSP allows scripts
-  and styles from the page's own origin and connections to those endpoints only.
+- **The build fixes what a link must not choose:**
+  - the RPC endpoints, where `SOLANA_MAINNET_RPC` and `SOLANA_DEVNET_RPC` override the public
+    defaults;
+  - the hot wallet per cluster, `SOLANA_HOT_WALLET_MAINNET` and `SOLANA_HOT_WALLET_DEVNET`;
+    add-limit refuses on a cluster with none;
+  - `MAX_DAILY_CAP`, in base units, 50 USDC unless set (D1).
+
+  The CSP allows scripts and styles from the page's own origin and connections to those endpoints
+  only.
 
 ```bash
 pnpm build:web   # web/dist, ready for any static host

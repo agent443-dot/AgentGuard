@@ -33,6 +33,32 @@ export function usdcMints(env: NodeJS.ProcessEnv = process.env): Record<string, 
   ) as Record<string, string>
 }
 
+/**
+ * The hot wallet each cluster's limit is for. The add-limit page grants exactly this key the right to
+ * draw, so it is fixed here, where only a deploy from protected main can change it, and never read
+ * from a link: a crafted link could otherwise name an attacker's key.
+ */
+export function hotWallets(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const known = {
+    devnet: env['SOLANA_HOT_WALLET_DEVNET'],
+    'mainnet-beta': env['SOLANA_HOT_WALLET_MAINNET'],
+    localnet: env['SOLANA_HOT_WALLET_LOCALNET'],
+  }
+  return Object.fromEntries(Object.entries(known).filter(([, key]) => key)) as Record<
+    string,
+    string
+  >
+}
+
+/** The largest daily cap a link may ask for, in USDC base units. D1 sets 50 USDC. */
+export function maxDailyCap(env: NodeJS.ProcessEnv = process.env): string {
+  const max = env['MAX_DAILY_CAP'] ?? '50000000'
+  if (!/^[1-9]\d*$/.test(max)) {
+    throw new Error(`MAX_DAILY_CAP must be a positive whole number of base units, not ${max}`)
+  }
+  return max
+}
+
 export function csp(rpc: Record<string, string>): string {
   const origins = [...new Set(Object.values(rpc).map((url) => new URL(url).origin))]
   return [
@@ -62,6 +88,8 @@ export async function buildPage(outdir = here('./dist'), env = process.env) {
     define: {
       RPC_URLS: JSON.stringify(rpc),
       USDC_MINTS: JSON.stringify(usdcMints(env)),
+      HOT_WALLETS: JSON.stringify(hotWallets(env)),
+      MAX_DAILY_CAP: JSON.stringify(maxDailyCap(env)),
       'process.env': '{}',
     },
     logLevel: 'warning',

@@ -9,6 +9,12 @@ import { openInPhantom, phantom, type Wallet } from './wallet.js'
 
 declare const RPC_URLS: Record<string, string>
 declare const USDC_MINTS: Record<string, string>
+declare const HOT_WALLETS: Record<string, string>
+declare const MAX_DAILY_CAP: string
+
+/** A build-time value for the cluster, by its own name only. */
+const built = (map: Record<string, string>, cluster: string) =>
+  Object.hasOwn(map, cluster) ? map[cluster] : undefined
 
 const app = document.getElementById('app')!
 
@@ -45,12 +51,16 @@ const link = z.discriminatedUnion('action', [
     action: z.literal('add-limit'),
     cluster,
     multisig: key,
-    hot: key,
+    // Optional, and only ever checked against the hot wallet the page was built for.
+    hot: key.optional(),
     amount: z
       .string()
       .regex(/^[1-9]\d{0,19}$/, 'a positive whole number of base units')
       .transform(BigInt)
-      .refine((amount) => amount < 2n ** 64n, 'too large'),
+      .refine(
+        (amount) => amount <= BigInt(MAX_DAILY_CAP),
+        `above this page's maximum daily cap of ${MAX_DAILY_CAP} base units`,
+      ),
   }),
 ])
 
@@ -61,20 +71,20 @@ function prepare(connection: Connection, owner: PublicKey, request: z.infer<type
     case 'create':
       return prepareCreate(connection, request.cluster, owner)
     case 'add-limit': {
-      const usdc = Object.hasOwn(USDC_MINTS, request.cluster)
-        ? USDC_MINTS[request.cluster]
-        : undefined
-      if (!usdc) {
-        return Promise.resolve<Plan>({
-          kind: 'refused',
-          reason: `This page knows no USDC for ${request.cluster}.`,
-        })
+      const usdc = built(USDC_MINTS, request.cluster)
+      const hot = built(HOT_WALLETS, request.cluster)
+      const refuse = (reason: string) => Promise.resolve<Plan>({ kind: 'refused', reason })
+      if (!usdc || !hot) {
+        return refuse(`This page knows no USDC or no hot wallet for ${request.cluster}.`)
       }
-      return prepareLimit(
-        connection,
-        { ...request, hotWallet: request.hot, usdc: new PublicKey(usdc) },
-        owner,
-      )
+      const hotWallet = new PublicKey(hot)
+      if (request.hot && !request.hot.equals(hotWallet)) {
+        return refuse(
+          `The link names ${request.hot.toBase58()} as the hot wallet, but this page only sets the ` +
+            `limit for ${hot}. Do not sign anything from this link.`,
+        )
+      }
+      return prepareLimit(connection, { ...request, hotWallet, usdc: new PublicKey(usdc) }, owner)
     }
   }
 }

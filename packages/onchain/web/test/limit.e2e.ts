@@ -1,4 +1,4 @@
-import { Keypair, type PublicKey } from '@solana/web3.js'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { chromium, type Browser } from 'playwright'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -112,6 +112,38 @@ describe('the add-limit page', () => {
       expect(s.server.signed).toEqual([])
     },
   )
+
+  it('refuses a link naming another hot wallet: only the one built in may draw', async () => {
+    const attacker = Keypair.generate().publicKey.toBase58()
+    const page = await s.open(browser, { ...addLimit(), hot: attacker })
+    await expect.poll(() => heading(page).textContent()).toBe('Nothing to sign')
+    expect(await lines(page)).toEqual([
+      `The link names ${attacker} as the hot wallet, but this page only sets the limit for ` +
+        `${s.c.hotWallet.publicKey.toBase58()}. Do not sign anything from this link.`,
+    ])
+    expect(s.server.signed).toEqual([])
+    expect(s.c.svm.getAccount(spendingLimitPda(multisigPda, new PublicKey(attacker)))).toBeNull()
+  })
+
+  it('sets the limit for the built-in hot wallet when the link names none', async () => {
+    const { hot: _hot, ...link } = addLimit()
+    const page = await s.open(browser, link)
+    await expect.poll(() => heading(page).textContent(), { timeout: 20_000 }).toBe('Daily cap set')
+    expect((await readSpendingLimit(s.c.connection, limit)).members).toEqual([
+      s.c.hotWallet.publicKey.toBase58(),
+    ])
+  })
+
+  it("refuses a cap above the build's maximum, and accepts one exactly at it", async () => {
+    const above = await s.open(browser, addLimit('100000001'))
+    await expect.poll(() => heading(above).textContent()).toBe('This link is not valid')
+    expect(await lines(above)).toEqual([
+      "amount: above this page's maximum daily cap of 100000000 base units",
+    ])
+    expect(s.server.signed).toEqual([])
+    const at = await s.open(browser, addLimit('100000000'))
+    await expect.poll(() => heading(at).textContent(), { timeout: 20_000 }).toBe('Daily cap set')
+  })
 
   it('takes the mint from the build, never from the link', async () => {
     const page = await s.open(browser, {
