@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import type { PayIntent } from '@agentguard/shared'
+import { getAssociatedTokenAddressSync } from '@solana/spl-token'
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram, type PublicKey } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { Clock } from './svm.js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { svmAdapter } from '../src/svm/adapter.js'
+import { svmAdapter, type SvmAdapter } from '../src/svm/adapter.js'
 import { ledgerOwner } from '../src/svm/owner.js'
 import {
   addDailySpendingLimit,
@@ -31,6 +33,8 @@ const GONE = /AccountNotInitialized/
 let c: Chain
 let draw: (amount: bigint) => Promise<string>
 let removeLimit: () => Promise<string>
+let limited: SvmAdapter
+let vault: PublicKey
 
 function warp(seconds: bigint) {
   const now = c.svm.getClock()
@@ -70,7 +74,9 @@ describe('the Squads spending limit', () => {
     // The owner on a Ledger, as on mainnet: the kill below is signed by the device.
     const owner = await ledgerOwner(fakeLedger(), "44'/501'/0'", () => {})
     c.svm.airdrop(owner.publicKey, BigInt(10 * LAMPORTS_PER_SOL))
-    const { multisigPda, vault } = await createMultisig(c.connection, owner)
+    const created = await createMultisig(c.connection, owner)
+    const { multisigPda } = created
+    vault = created.vault
     c.fund(vault, 1_000n * USDC)
     c.fund(c.hotWallet.publicKey, 0n)
     await addDailySpendingLimit(c.connection, owner, {
@@ -83,14 +89,14 @@ describe('the Squads spending limit', () => {
     })
 
     // The fixture's adapter points at a placeholder multisig; this one draws on the real limit.
-    const adapter = svmAdapter({
+    limited = svmAdapter({
       chain: c.adapter.chain,
       connection: c.connection,
       hotWallet: c.hotWallet,
       multisigPda,
       mint: c.mint,
     })
-    draw = (amount) => adapter.topUpHotWallet(amount.toString())
+    draw = (amount) => limited.topUpHotWallet(amount.toString())
     removeLimit = () =>
       removeSpendingLimit(
         c.connection,
@@ -124,5 +130,64 @@ describe('the Squads spending limit', () => {
     await removeLimit()
     await expect(draw(1n)).rejects.toThrow(GONE)
     expect(c.balance(c.hotWallet.publicKey)).toBe(0n)
+  })
+
+  describe('a payment from an empty hot wallet', () => {
+    const recipient = Keypair.generate().publicKey
+    const pay = (amount: bigint): PayIntent => ({
+      id: '00000000-0000-4000-8000-000000000000',
+      agentId: 'agent-1',
+      kind: 'transfer',
+      chain: c.adapter.chain,
+      token: c.mint.toBase58(),
+      amount: amount.toString(),
+      recipient: recipient.toBase58(),
+      reason: 'test',
+      status: 'approved',
+      rejectReasons: [],
+      createdAt: '2026-11-03T00:00:00.000Z',
+      expiresAt: '2026-11-03T00:10:00.000Z',
+    })
+    // A hot wallet that never held USDC has no token account at all.
+    const neverHeld = () =>
+      c.svm.setAccount(getAssociatedTokenAddressSync(c.mint, c.hotWallet.publicKey), {
+        lamports: 0,
+        data: new Uint8Array(),
+        owner: SystemProgram.programId,
+        executable: false,
+      })
+
+    it('clears, with the draw from the vault simulated in front of it and nothing moved', async () => {
+      neverHeld()
+      const outcome = await limited.simulate(pay(5n * USDC))
+      expect(outcome.rejectReasons).toEqual([])
+      expect(outcome.simulation.summary).toMatch(/^draws 5 USDC from the vault, then pays 5 USDC/)
+      expect(c.balance(vault)).toBe(1_000n * USDC)
+      expect(c.balance(c.hotWallet.publicKey)).toBe(0n)
+    })
+
+    it('is then paid for real: the top-up creates the token account, the payment goes out', async () => {
+      neverHeld()
+      await limited.topUpHotWallet((5n * USDC).toString())
+      await limited.send(pay(5n * USDC))
+      expect(c.balance(vault)).toBe(995n * USDC)
+      expect(c.balance(recipient)).toBe(5n * USDC)
+    })
+
+    it('draws only the shortfall when the hot wallet holds part of it', async () => {
+      await draw(2n * USDC)
+      const outcome = await limited.simulate(pay(5n * USDC))
+      expect(outcome.rejectReasons).toEqual([])
+      expect(outcome.simulation.summary).toMatch(/^draws 3 USDC from the vault/)
+    })
+
+    it('fails, saying so, when the limit cannot cover the shortfall', async () => {
+      await draw(98n * USDC)
+      const outcome = await limited.simulate(pay(101n * USDC))
+      expect(outcome.rejectReasons).toEqual(['SIM_FAILED'])
+      expect(outcome.simulation.summary).toMatch(
+        /^simulation failed: the top-up of 3 USDC from the vault exceeds the spending limit/,
+      )
+    })
   })
 })

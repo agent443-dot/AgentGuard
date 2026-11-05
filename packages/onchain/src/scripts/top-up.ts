@@ -51,7 +51,6 @@ try {
     mint,
     amount: BigInt(amountArg),
     decimals,
-    destination: hotWallet.publicKey,
   })
 } catch (error) {
   console.error(`REFUSED: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)

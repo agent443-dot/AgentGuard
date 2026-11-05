@@ -30,7 +30,7 @@ import {
   type SimulationOutcome,
 } from '../ChainAdapter.js'
 import { inspectTransfer } from './inspect.js'
-import { simulateMessage } from './simulate.js'
+import { simulateMessage, topUpFor } from './simulate.js'
 import {
   confirm,
   connect,
@@ -84,6 +84,14 @@ export function createSvmAdapter(config: {
 
 const NOT_SIMULATED = { summary: 'not simulated', balanceChanges: [] }
 
+const notSimulated = (error: unknown): SimulationOutcome => ({
+  simulation: {
+    summary: `not simulated: ${error instanceof Error ? error.message : String(error)}`,
+    balanceChanges: [],
+  },
+  rejectReasons: ['SIM_FAILED'],
+})
+
 function atomic(amount: Amount): bigint {
   if (!/^[1-9]\d*$/.test(amount)) {
     throw new Error(`invalid_amount: ${amount}`)
@@ -94,6 +102,7 @@ function atomic(amount: Amount): bigint {
 export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
   const { chain, connection, hotWallet, multisigPda, mint } = deps
   const limit = spendingLimitPda(multisigPda, hotWallet.publicKey)
+  const draw = { multisigPda, spendingLimit: limit, mint, member: hotWallet.publicKey }
 
   function payment(recipient: Address, amount: Amount, feePayer = hotWallet.publicKey): Payment {
     return {
@@ -155,7 +164,6 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
         mint,
         amount: atomic(amount),
         decimals: USDC_DECIMALS,
-        destination: hotWallet.publicKey,
       })
     },
 
@@ -167,10 +175,15 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
       let pay: Payment
       try {
         pay = payment(intent.recipient, intent.amount)
-      } catch {
-        return { simulation: NOT_SIMULATED, rejectReasons: ['SIM_FAILED'] }
+      } catch (error) {
+        return notSimulated(error)
       }
-      return simulateMessage(connection, await message(pay), pay)
+      return simulateMessage(
+        connection,
+        await message(pay),
+        pay,
+        await topUpFor(connection, draw, pay.amount),
+      )
     },
 
     async checkPayment(foreign: ForeignPayment): Promise<SimulationOutcome> {
@@ -182,10 +195,15 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
         received = VersionedTransaction.deserialize(
           Buffer.from(foreign.transaction, 'base64'),
         ).message
-      } catch {
-        return { simulation: NOT_SIMULATED, rejectReasons: ['SIM_FAILED'] }
+      } catch (error) {
+        return notSimulated(error)
       }
-      return simulateMessage(connection, received, pay)
+      return simulateMessage(
+        connection,
+        received,
+        pay,
+        await topUpFor(connection, draw, pay.amount),
+      )
     },
 
     async send(intent: PayIntent): Promise<TxId> {

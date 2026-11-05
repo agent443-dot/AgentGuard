@@ -70,16 +70,17 @@ export interface TokenAccounts {
 
 /**
  * Compares the two token accounts before and after the simulated transaction. The hot wallet's must
- * fall by exactly the amount and still be the hot wallet's alone; the recipient's must rise by
- * exactly the amount.
+ * move by exactly the top-up less the amount and still be the hot wallet's alone; the recipient's
+ * must rise by exactly the amount. Only a top-up may create the hot wallet's account.
  */
 export function checkEffects(
   before: TokenAccounts,
   after: TokenAccounts,
   payment: Payment,
+  topUp = 0n,
 ): RejectCode[] {
   const { source, destination } = after
-  if (!before.source || !source || !destination) {
+  if ((!before.source && topUp === 0n) || !source || !destination) {
     return ['SIM_UNEXPECTED_EFFECT']
   }
   const sourceIntact =
@@ -87,7 +88,7 @@ export function checkEffects(
     source.owner.equals(payment.hotWallet) &&
     source.delegate === null &&
     source.closeAuthority === null &&
-    source.amount === before.source.amount - payment.amount
+    source.amount === (before.source?.amount ?? 0n) + topUp - payment.amount
   const destinationPaid =
     destination.mint.equals(payment.mint) &&
     destination.owner.equals(payment.recipient) &&

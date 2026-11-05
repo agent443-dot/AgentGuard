@@ -105,16 +105,16 @@ Ledger as owner from the start.
 `createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
 built from plain values, so guard-core never handles a Solana SDK type.
 
-| Method                | What it does                                                                                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getAllowanceState`   | Cap, spent and next reset, read from the spending limit account                                                                                                                                                      |
-| `getHotWalletBalance` | The hot wallet's token account; zero when it has none                                                                                                                                                                |
-| `topUpHotWallet`      | Draws on the spending limit into the hot wallet. The Squads program refuses anything past the cap                                                                                                                    |
-| `simulate`            | Builds the exact message `send` would sign, runs `inspectTransfer`, then `simulateTransaction`. Both balances must move by exactly the amount, or `SIM_UNEXPECTED_EFFECT`                                            |
-| `send`                | Rebuilds, re-inspects, signs and confirms a `TransferChecked` from the hot wallet                                                                                                                                    |
-| `buildKillTx`         | The unsigned `removeSpendingLimit` instruction for the config authority, as JSON, with a description for the owner                                                                                                   |
-| `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                                                                  |
-| `x402Scheme`          | A scheme client for `@x402/core` bound to one intent. The hot wallet signs only after the SDK's transaction passes the inspection and the simulation; otherwise it throws `SigningRefused` with the reasons (CR-003) |
+| Method                | What it does                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAllowanceState`   | Cap, spent and next reset, read from the spending limit account                                                                                                                                                                                                                                                                                                                              |
+| `getHotWalletBalance` | The hot wallet's token account; zero when it has none                                                                                                                                                                                                                                                                                                                                        |
+| `topUpHotWallet`      | Draws on the spending limit into the hot wallet, creating its token account first if it has none. The Squads program refuses anything past the cap                                                                                                                                                                                                                                           |
+| `simulate`            | Builds the exact message `send` would sign, runs `inspectTransfer`, then `simulateTransaction`. A hot wallet short of the amount gets the spending-limit draw for the shortfall in front of the payment, in the simulation only, and the vault must fall by exactly that. Both payment balances must move by exactly the amount, or `SIM_UNEXPECTED_EFFECT`. A `SIM_FAILED` summary says why |
+| `send`                | Rebuilds, re-inspects, signs and confirms a `TransferChecked` from the hot wallet                                                                                                                                                                                                                                                                                                            |
+| `buildKillTx`         | The unsigned `removeSpendingLimit` instruction for the config authority, as JSON, with a description for the owner                                                                                                                                                                                                                                                                           |
+| `checkPayment`        | The same inspection and simulation for an x402 transaction guard-core did not build                                                                                                                                                                                                                                                                                                          |
+| `x402Scheme`          | A scheme client for `@x402/core` bound to one intent. The hot wallet signs only after the SDK's transaction passes the inspection and the simulation; otherwise it throws `SigningRefused` with the reasons (CR-003)                                                                                                                                                                         |
 
 #### Tests
 
@@ -200,9 +200,13 @@ A Safe holds the funds and the Safe Allowance Module caps the hot wallet per day
 
 - `topUpHotWallet` calls `executeAllowanceTransfer` as the delegate itself (an empty signature), so
   the module's cap is the only limit and no relayer is paid.
-- `simulate` runs one `eth_simulateV1` block: the two balances, the transfer, the two balances again,
-  so before and after are read against the same state. Anything but exactly the amount moving is
-  `SIM_UNEXPECTED_EFFECT`.
+- `simulate` runs one `eth_simulateV1` block: the Safe, hot wallet and recipient balances, the
+  transfer, the three balances again, so before and after are read against the same state.
+  guard-core tops the hot wallet up only after the simulation clears, so when the hot wallet holds
+  less than the amount, the block starts with the `executeAllowanceTransfer` for the shortfall. The
+  Safe must fall by exactly the shortfall and the recipient rise by exactly the amount, or
+  `SIM_UNEXPECTED_EFFECT`. A `SIM_FAILED` summary names the call that reverted and its revert
+  string; a top-up past the allowance says the allowance cannot cover it.
 - `x402Scheme` gives the `@x402/evm` client a signer that can only sign typed data, and only an
   EIP-3009 `TransferWithAuthorization` for this USDC, chain, payer, recipient and amount, valid for
   at most an hour. Any other typed data, Permit and Permit2 included, is `PERMIT_DETECTED`. It has

@@ -1,66 +1,30 @@
-import { CHAINS, type PayIntent } from '@agentguard/shared'
+import { CHAINS } from '@agentguard/shared'
 import type { PaymentRequirements } from '@x402/core/types'
 import {
   decodeFunctionData,
   encodeAbiParameters,
-  getAddress,
   parseAbi,
   recoverTypedDataAddress,
   zeroAddress,
   type Address,
   type Hex,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SigningRefused, type ChainAdapter } from '../src/ChainAdapter.js'
 import { evmAdapter } from '../src/evm/adapter.js'
 import { allowanceModuleAbi } from '../src/evm/safe.js'
-import { fakeNode } from './evm-rpc.js'
-
-const account = privateKeyToAccount(`0x${'11'.repeat(32)}`)
-const hot = account.address
-const safe: Address = getAddress('0x5afe000000000000000000000000000000005afe')
-const module: Address = '0xAA46724893dedD72658219405185Fb0Fc91e091C'
-const usdc: Address = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
-const merchant: Address = '0x2222222222222222222222222222222222222222'
-const now = 1_800_000_000n
+import { base, hot, intent, merchant, module, safe, uint, usdc } from './evm-fixture.js'
 
 const abis = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
   'function executeAllowanceTransfer(address safe, address token, address to, uint96 amount, address paymentToken, uint96 payment, address delegate, bytes signature)',
 ])
-const uint = (value: bigint) => encodeAbiParameters([{ type: 'uint256' }], [value])
 
-let node: ReturnType<typeof fakeNode>
+let node: ReturnType<typeof base>['node']
 let adapter: ChainAdapter
 
 beforeEach(() => {
-  node = fakeNode(account)
-  adapter = evmAdapter({
-    chain: CHAINS.baseSepolia,
-    client: node.client,
-    wallet: node.wallet,
-    safe,
-    usdc,
-    module,
-    now: () => now,
-  })
-})
-
-const intent = (overrides: Partial<PayIntent> = {}): PayIntent => ({
-  id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-  agentId: 'agent-1',
-  kind: 'transfer',
-  chain: CHAINS.baseSepolia,
-  token: usdc,
-  amount: '1500000',
-  recipient: merchant,
-  reason: 'test',
-  status: 'approved',
-  rejectReasons: [],
-  createdAt: '2026-11-04T00:00:00.000Z',
-  expiresAt: '2026-11-04T00:10:00.000Z',
-  ...overrides,
+  ;({ node, adapter } = base())
 })
 
 describe('reads', () => {
@@ -118,71 +82,6 @@ describe('writes', () => {
       status: '0x0',
     })
     await expect(adapter.send(intent())).rejects.toThrow('transaction_failed')
-  })
-})
-
-describe('simulate', () => {
-  function balances(
-    hotBefore: bigint,
-    toBefore: bigint,
-    hotAfter: bigint,
-    toAfter: bigint,
-    ok = true,
-  ) {
-    const call = (returnData: Hex) => ({
-      status: ok ? '0x1' : '0x0',
-      returnData,
-      gasUsed: '0x0',
-      logs: [],
-    })
-    node.handlers['eth_simulateV1'] = () => [
-      {
-        number: '0x11',
-        hash: `0x${'00'.repeat(32)}`,
-        timestamp: '0x0',
-        gasLimit: '0x0',
-        gasUsed: '0x0',
-        baseFeePerGas: '0x1',
-        calls: [
-          call(uint(hotBefore)),
-          call(uint(toBefore)),
-          call(uint(1n)),
-          call(uint(hotAfter)),
-          call(uint(toAfter)),
-        ],
-      },
-    ]
-  }
-
-  it('passes a transfer that moves exactly the amount', async () => {
-    balances(10_000_000n, 5n, 8_500_000n, 1_500_005n)
-    const outcome = await adapter.simulate(intent())
-    expect(outcome.rejectReasons).toEqual([])
-    expect(outcome.simulation.balanceChanges).toEqual([{ token: usdc, delta: '-1500000' }])
-  })
-
-  it.each([
-    ['the hot wallet losing more', [10_000_000n, 0n, 8_499_999n, 1_500_000n]],
-    ['the recipient getting less', [10_000_000n, 0n, 8_500_000n, 1_499_999n]],
-  ])('refuses %s', async (_case, [a, b, c, d]) => {
-    balances(a!, b!, c!, d!)
-    expect((await adapter.simulate(intent())).rejectReasons).toEqual(['SIM_UNEXPECTED_EFFECT'])
-  })
-
-  it('fails a transfer the chain would revert', async () => {
-    balances(0n, 0n, 0n, 0n, false)
-    expect((await adapter.simulate(intent())).rejectReasons).toEqual(['SIM_FAILED'])
-  })
-
-  it.each([['0'], ['1.5'], ['-1']])('refuses the amount %j', async (amount) => {
-    expect((await adapter.simulate(intent({ amount }))).rejectReasons).toEqual(['SIM_FAILED'])
-  })
-
-  it('refuses a recipient that is not an EVM address', async () => {
-    const outcome = await adapter.simulate(
-      intent({ recipient: '9BbWVUudkPut7n1bUbn5kYQCmzVmrk88xJJ9e3EPc12J' }),
-    )
-    expect(outcome.rejectReasons).toEqual(['SIM_FAILED'])
   })
 })
 
