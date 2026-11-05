@@ -853,13 +853,14 @@ marketing possa tocar no que tu assinas.
 2. Nome do projeto: `agentguard-sign`. Em **Root Directory** escolhe `packages/onchain/web`. Deixa o
    resto como está — o `vercel.json` da pasta já define a instalação, o build e os cabeçalhos de
    segurança. Carrega em **Deploy**.
-3. Depois do primeiro deploy, em **Settings → Git**, confirma que o **Production Branch** é `main`.
-   Na mesma página, em **Ignored Build Step**, escolhe **Custom** e cola isto, para que só o `main`
-   seja publicado:
+3. Depois do primeiro deploy, confirma duas coisas:
+   - em **Settings → Git**, o **Production Branch** é `main` (a regra de só publicar o `main` já vem
+     no `vercel.json`);
+   - em **Settings → Build and Deployment**, **Include files outside the Root Directory** está ligado
+     (vem ligado por defeito).
 
-   ```bash
-   [ "$VERCEL_GIT_COMMIT_REF" != "main" ]
-   ```
+   No log do deploy tem de aparecer o `pnpm install --frozen-lockfile` e depois o `pnpm build:web`.
+   Se o deploy falhar na instalação, cola-me as últimas linhas do log.
 
 4. Diz-me o endereço que o Vercel te deu (algo como `agentguard-sign.vercel.app`). É público.
 
