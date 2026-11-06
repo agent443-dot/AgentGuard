@@ -142,6 +142,25 @@ fresh Phantom account:
 - **A spoofed link in Telegram** opens a page on another domain. Phantom shows that domain, and step 1
   above is how the owner catches it.
 
+### One measured exception: `'unsafe-eval'` (2026-11-06, HUMAN-15)
+
+The first live run on devnet failed at `connect()`, with nothing signed. Phantom injects its provider
+into the page's own JavaScript world, where the page's CSP applies to it, and that provider compiles
+zod schemas with `new Function`. Under `script-src 'self'` Chrome refuses that, and Phantom's connect
+fails with "Internal JSON-RPC error". Nonces, hashes and `'wasm-unsafe-eval'` do not cover
+`new Function`, so the page's `script-src` is now `'self' 'unsafe-eval'`.
+
+The exception is limited to that:
+
+- Every other directive is unchanged: `default-src 'none'`, `connect-src` set to the build's RPC
+  endpoints only, no other origin for scripts, `frame-ancestors 'none'`.
+- `'unsafe-eval'` lets code that already runs turn a string into code. It does not let a script from
+  anywhere else run. The page's own code has no such sink, and it writes only `textContent`. An
+  attacker still needs a script served from our origin, which is the trust root above in any case.
+- The browser tests use a stand-in Phantom that calls `new Function` the same way. A unit test pins
+  the whole policy, directive by directive. Removing the exception, or widening the policy any
+  further, fails CI.
+
 ## Decision proposed
 
 - **Kill:** option 2, the static page reached through the Phantom universal link from the bot's alert.

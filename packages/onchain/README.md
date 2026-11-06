@@ -229,7 +229,9 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   - `MAX_DAILY_CAP`, in base units, 50 USDC unless set (D1).
 
   The CSP allows scripts and styles from the page's own origin and connections to those endpoints
-  only.
+  only. Its one relaxation is `'unsafe-eval'` in `script-src`: Phantom's injected provider compiles
+  with `new Function` under the page's policy, and connect fails without it. ADR 003 records the
+  exception, and a test pins the whole policy.
 
 ```bash
 pnpm build:web   # web/dist, ready for any static host

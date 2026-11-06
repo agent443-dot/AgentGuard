@@ -23,6 +23,19 @@ describe('the signing page build', () => {
   it('lets the page connect to its RPC endpoints and nothing else', () => {
     const policy = csp({ devnet: 'https://api.devnet.solana.com/', x: 'https://rpc.example/key' })
     expect(policy).toContain('connect-src https://api.devnet.solana.com https://rpc.example;')
-    expect(policy).toMatch(/^default-src 'none'; script-src 'self';/)
+    expect(policy).toMatch(/^default-src 'none'; script-src 'self' 'unsafe-eval';/)
+  })
+
+  it("relaxes only script-src, and only by 'unsafe-eval', which Phantom's provider needs", () => {
+    const directives = csp({ devnet: 'https://api.devnet.solana.com' }).split('; ')
+    expect(directives).toEqual([
+      "default-src 'none'",
+      "script-src 'self' 'unsafe-eval'",
+      "style-src 'self'",
+      'connect-src https://api.devnet.solana.com',
+      "img-src 'self'",
+      "base-uri 'none'",
+      "form-action 'none'",
+    ])
   })
 })
