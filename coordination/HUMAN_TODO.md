@@ -28,9 +28,12 @@ Criados em 2026-11-03. Tudo público.
 
 | O quê                       | Endereço                                       |
 | --------------------------- | ---------------------------------------------- |
-| Multisig Squads             | `3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu` |
-| Cofre do multisig           | `EnvU6vPvQaKqFZ8cEGN1WhvAk6NZ7J4YJEfG84XgDhjJ` |
-| Owner (membro, threshold 1) | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
+| Multisig Squads (Phantom)   | `4jJeVFvhnvbYFpHJNWWHCXpNzQArP6qSggkjLp5HACfX` |
+| Cofre do multisig (Phantom) | `EaE8QqBH3GXP8R5iGkqPm3a44zadgwD1fyQwd4aNswXy` |
+| Owner Phantom (config auth) | `BDg2wSX5TLz76gmPBXyg5wvpkEVhLSYVQg262WFwWG31` |
+| Multisig antigo (reformado) | `3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu` |
+| Cofre antigo (reformado)    | `EnvU6vPvQaKqFZ8cEGN1WhvAk6NZ7J4YJEfG84XgDhjJ` |
+| Owner antiga (ficheiro)     | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
 | Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
 
 **O dinheiro vive no cofre, não na owner.** A owner é quem manda; o cofre é onde está o USDC que o
