@@ -839,7 +839,12 @@ passo a passo na sessão dele; aqui fica só o resumo para saberes onde estás:
 
 ---
 
-## ⏳ HUMAN-14 — Alojar a página de assinatura da Phantom
+## ✅ HUMAN-14 — Alojar a página de assinatura da Phantom
+
+**Feito em 2026-11-06.** A página está em `https://agentguard-onchain.vercel.app`, no projeto Vercel
+`agentguard-onchain`, construída a partir de `packages/onchain/web`. Aberta sem parâmetros responde
+"This link is not valid", que é o comportamento certo. No `.env` do bot,
+`SIGN_PAGE_URL=https://agentguard-onchain.vercel.app`. O texto abaixo fica como registo.
 
 Desbloqueia: o kill a um toque a partir do Telegram, e a seguir a corrida em devnet com a Phantom
 (D4, ADR 003). A página está no `main` em `packages/onchain/web`. Não tem servidor nem segredos: só
