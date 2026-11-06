@@ -68,7 +68,10 @@ export function csp(rpc: Record<string, string>): string {
   const origins = [...new Set(Object.values(rpc).map((url) => new URL(url).origin))]
   return [
     "default-src 'none'",
-    "script-src 'self'",
+    // 'unsafe-eval' is for Phantom, not for us: its provider runs in this page's world and compiles
+    // zod schemas with new Function, so without it connect fails (ADR 003). Scripts still load
+    // from this origin only, and the page has no string-to-code sink of its own.
+    "script-src 'self' 'unsafe-eval'",
     "style-src 'self'",
     `connect-src ${origins.join(' ')}`,
     "img-src 'self'",

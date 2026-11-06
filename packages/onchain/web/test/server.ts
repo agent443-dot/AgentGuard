@@ -110,7 +110,11 @@ export function mockPhantom(publicKey: string, rejects = false): string {
   return `
     window.phantom = { solana: {
       isPhantom: true,
-      connect: async () => ({ publicKey: { toString: () => ${JSON.stringify(publicKey)} } }),
+      // Phantom's real provider compiles zod schemas with new Function in the page's own world, so
+      // the stand-in does too: a CSP without 'unsafe-eval' breaks connect, as it did live.
+      connect: async () => ({
+        publicKey: { toString: new Function('return ' + ${JSON.stringify(JSON.stringify(publicKey))}) },
+      }),
       signAndSendTransaction: async (tx) => {
         if (${String(rejects)}) throw new Error('User rejected the request.')
         let raw = ''
