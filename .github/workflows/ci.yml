@@ -86,6 +86,30 @@ jobs:
       - name: test:web
         run: pnpm --filter @agentguard/onchain test:web
 
+  # The deployable images, built from the repo root as `fly deploy` builds them. Decoy secrets are
+  # planted first: if any reaches an image, the root .dockerignore has a hole.
+  images:
+    name: docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plant decoy secrets
+        run: |
+          for f in .env packages/telegram-bot/.env packages/guard-core/.env.local e2e/.env; do
+            echo DECOY_SECRET > "$f"
+          done
+          echo '[1,2,3]' > packages/guard-core/hot-keypair.json
+
+      - name: Build the bot image
+        run: docker build -f packages/telegram-bot/Dockerfile -t agentguard-bot .
+
+      - name: No decoy in the image
+        run: |
+          found=$(docker run --rm --entrypoint sh agentguard-bot -c \
+            'grep -rl DECOY_SECRET / --exclude-dir=proc --exclude-dir=sys --exclude-dir=dev 2>/dev/null; find / -name "*keypair*.json" -not -path "/proc/*" 2>/dev/null' || true)
+          if [ -n "$found" ]; then echo "secret files in the image:"; echo "$found"; exit 1; fi
+
   foundry:
     name: forge test (onchain)
     runs-on: ubuntu-latest
