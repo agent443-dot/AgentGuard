@@ -2,7 +2,7 @@ import { createEvmAdapter, createSvmAdapter, type ChainAdapter } from '@agentgua
 import type { ChainId } from '@agentguard/shared'
 import { CHAINS, getAddress, requireAddress } from '@agentguard/shared'
 import { checkEnvContracts } from './adapters/evm-check.js'
-import { readKeypairFile } from './adapters/keypair.js'
+import { readEvmKeyFile, readKeypairFile } from './adapters/keypair.js'
 import { StubChain } from './adapters/stub.js'
 import type { Config } from './config.js'
 
@@ -45,7 +45,7 @@ export async function buildChains(
     const values = required({
       BASE_RPC_URL: config.BASE_RPC_URL,
       SAFE_ADDRESS: config.SAFE_ADDRESS,
-      HOT_WALLET_PRIVATE_KEY: config.HOT_WALLET_PRIVATE_KEY,
+      BASE_HOT_WALLET_KEY_FILE: config.BASE_HOT_WALLET_KEY_FILE,
       BASE_USDC: usdcFor(config, chain),
       BASE_ALLOWANCE_MODULE: getAddress(chain, 'allowanceModule') ?? config.BASE_ALLOWANCE_MODULE,
     })
@@ -67,8 +67,7 @@ export async function buildChains(
       createEvmAdapter({
         chain: chain === CHAINS.base ? '8453' : '84532',
         rpcUrl: values.BASE_RPC_URL,
-        // The config schema has already checked it is 0x and 64 hex digits.
-        hotWalletKey: values.HOT_WALLET_PRIVATE_KEY as `0x${string}`,
+        hotWalletKey: await readEvmKeyFile(values.BASE_HOT_WALLET_KEY_FILE),
         safe: values.SAFE_ADDRESS,
         usdc: values.BASE_USDC,
         module: values.BASE_ALLOWANCE_MODULE,
