@@ -184,10 +184,16 @@ The exception is limited to that:
 
 ## Checks this draft depends on
 
-| #   | Check on devnet                                                                            | If it fails                                                       |
-| --- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| 1   | The Squads app can set a config authority at creation                                      | Option 1 is out for setup                                         |
-| 2   | The Squads app can add a limit whose drawer is not a voting member                         | Option 1 is out for setup                                         |
-| 3   | Phantom signs and sends a transaction the page has already partly signed (the `createKey`) | Create needs another path; add and kill are unaffected            |
-| 4   | What Phantom shows for `multisigRemoveSpendingLimit`: origin, simulation, any decoding     | Rewrite the security section with what it really shows            |
-| 5   | The universal link opens the page inside Phantom on iOS and Android, from Telegram         | Fall back to the plain page URL, opened in a browser with Phantom |
+Run on Solana devnet on 2026-11-07 (HUMAN-15), with a fresh Phantom account in testnet mode: owner
+`BDg2wSX5TLz76gmPBXyg5wvpkEVhLSYVQg262WFwWG31`, multisig `4jJeVFvhnvbYFpHJNWWHCXpNzQArP6qSggkjLp5HACfX`.
+
+| #   | Check on devnet                                                                            | Result                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | The Squads app can set a config authority at creation                                      | Not run. Only decides the setup fallback, and the page covers setup                                                                                                                                                                                                                                                                              |
+| 2   | The Squads app can add a limit whose drawer is not a voting member                         | Not run, for the same reason                                                                                                                                                                                                                                                                                                                     |
+| 3   | Phantom signs and sends a transaction the page has already partly signed (the `createKey`) | **Passed** (desktop extension). The page's read-back found the multisig controlled by the owner alone                                                                                                                                                                                                                                            |
+| 4   | What Phantom shows for `multisigRemoveSpendingLimit`: origin, simulation, any decoding     | **Passed.** The origin `agentguard-onchain.vercel.app`; a SOL credit only (the limit's rent returning), no token leaving; no warning; no decoding of the Squads instruction. For `multisigAddSpendingLimit`: the same origin, −0.001681 SOL (rent) plus a 0.00008 SOL fee, no warning, only the generic "confirm only if you trust this website" |
+| 5   | The universal link opens the page inside Phantom on iOS and Android, from Telegram         | **Passed on iOS.** `/kill`, then "Open kill in Phantom", opened the page inside Phantom mobile (opened from Telegram), signed and "Killed"; `status` then printed `spending limit: none`. **Android not run**                                                                                                                                    |
+
+One thing the run found: the Circle faucet never delivers to a Squads vault, a PDA off the curve. The
+vault is funded with `pnpm fund-vault` from a wallet that holds the token.
