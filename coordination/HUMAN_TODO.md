@@ -998,6 +998,32 @@ A ordem:
 
 ---
 
+## ⏳ HUMAN-18 — Confirmar os endereços da Robinhood Chain
+
+Desbloqueia: o adaptador da Robinhood Chain (D6: Solana → Robinhood Chain → Base). A pesquisa da Sessão
+1 (`packages/onchain/docs/robinhood-research.md`) mostrou que nada bloqueia: a Safe e o Allowance
+Module oficiais existem lá, e o dólar da rede, o **USDG da Paxos**, aceita a assinatura que o x402 usa.
+As sessões na nuvem não conseguem abrir estes sites, por isso a confirmação é tua — como fizeste com a
+Circle. Não tens de escrever nada nem de assinar nada; só ler e comparar.
+
+1. **USDG de testnet** — abre
+   [docs.paxos.com/guides/stablecoin/usdg/testnet](https://docs.paxos.com/guides/stablecoin/usdg/testnet),
+   procura a linha **Robinhood Chain** e confirma que o endereço é exatamente
+   `0x7E955252E15c84f5768B83c41a71F9eba181802F`.
+2. **USDG de mainnet** — abre
+   [docs.paxos.com/guides/stablecoin/usdg/mainnet](https://docs.paxos.com/guides/stablecoin/usdg/mainnet)
+   e confirma `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`.
+3. **Cópias falsas de "USDC"** — abre
+   [robinhoodchain.blockscout.com/tokens?q=USDC](https://robinhoodchain.blockscout.com/tokens?q=USDC)
+   e diz-me os endereços que aparecem. Vão para uma lista de bloqueio, para o bot te avisar pelo nome
+   se um pagamento tentar usá-los.
+4. Diz-me "1 bate, 2 bate" (ou o que não bate) e a lista do passo 3.
+
+Depois disso trago-te a `CR-007` para aprovares: o código passa a falar de "o dólar da rede" (USDC na
+Solana e na Base, USDG na Robinhood Chain) em vez de só USDC.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
