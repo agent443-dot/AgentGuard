@@ -104,11 +104,18 @@ jobs:
       - name: Build the bot image
         run: docker build -f packages/telegram-bot/Dockerfile -t agentguard-bot .
 
+      # The shell exits non-zero on a find, and docker run itself fails if the image cannot start, so a
+      # broken check cannot pass by accident.
       - name: No decoy in the image
         run: |
-          found=$(docker run --rm --entrypoint sh agentguard-bot -c \
-            'grep -rl DECOY_SECRET / --exclude-dir=proc --exclude-dir=sys --exclude-dir=dev 2>/dev/null; find / -name "*keypair*.json" -not -path "/proc/*" 2>/dev/null' || true)
-          if [ -n "$found" ]; then echo "secret files in the image:"; echo "$found"; exit 1; fi
+          docker run --rm --entrypoint sh agentguard-bot -c '
+            if grep -rlq DECOY_SECRET / --exclude-dir=proc --exclude-dir=sys --exclude-dir=dev 2>/dev/null; then
+              echo "a planted .env reached the image"; exit 1
+            fi
+            if find / -name "*keypair*.json" -not -path "/proc/*" 2>/dev/null | grep -q .; then
+              echo "a planted keypair reached the image"; exit 1
+            fi
+            echo "no decoy in the image"'
 
   foundry:
     name: forge test (onchain)
