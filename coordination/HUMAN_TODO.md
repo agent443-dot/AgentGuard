@@ -898,7 +898,23 @@ desta página.
 
 ---
 
-## ⬜ HUMAN-15 — Ensaio em devnet com a Phantom como owner
+## ✅ HUMAN-15 — Ensaio em devnet com a Phantom como owner
+
+**Feito em 2026-11-07.** Tudo o que é da owner foi assinado na Phantom:
+
+| Passo                                    | Resultado                                                                                     |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Criar o multisig                         | ✅ `4jJe…ACfX`, controlado só pela Phantom `BDg2…WG31`                                        |
+| Teto de 50 USDC por dia                  | ✅ só a hot wallet `H5fc…jw` levanta, e só para ela                                           |
+| Pagamento x402 de 0,5 USDC, hot vazia    | ✅ `3DPWzUit3XaqcmXYzfQhmZcNREcQhPVPWw3aEZRdGcsrVLKruRupkeA79fwF1hSe8T7LfniM2rF422gfouciJUEs` |
+| Kill pelo botão do Telegram, no iPhone   | ✅ abriu dentro da Phantom; `status` deu `spending limit: none`                               |
+| Repor (`/resume agent-1` + teto de novo) | ✅                                                                                            |
+
+O que a Phantom mostrou antes de assinar: o nosso domínio, só SOL a mexer (renda e taxa), nenhum
+aviso. Verificações da ADR 003: #3, #4 e #5 (iOS) passaram; Android por testar; #1 e #2 eram opcionais.
+
+Falta só uma confirmação tua: `pnpm --filter @agentguard/onchain status` tem de mostrar o teto de volta
+com `50000000`.
 
 Depois da `HUMAN-14`. É o ensaio geral da mainnet com a decisão D4. **O multisig com a Phantom como
 owner passa a ser o setup de devnet daqui em diante**; o antigo (`3UUS…cVu`) fica reformado, com os
