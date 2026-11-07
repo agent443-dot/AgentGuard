@@ -86,6 +86,46 @@ jobs:
       - name: test:web
         run: pnpm --filter @agentguard/onchain test:web
 
+  # The deployable images, built from the repo root as `fly deploy` builds them. Two checks: the
+  # build context of every Dockerfile, which is what gets uploaded to a remote builder, holds none of
+  # the planted decoys; and the images build. A Dockerfile-specific .dockerignore would replace the
+  # root one under BuildKit, so none is allowed.
+  images:
+    name: docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Only the root .dockerignore
+        run: |
+          extra=$(git ls-files '*.dockerignore' | grep -v '^.dockerignore$' || true)
+          if [ -n "$extra" ]; then echo "replaces the root .dockerignore under BuildKit: $extra"; exit 1; fi
+
+      - name: Plant a decoy for every pattern in the root .dockerignore
+        run: |
+          for f in .env .env.production packages/telegram-bot/.env packages/guard-core/.env.local \
+            e2e/.env packages/guard-core/hot-keypair.json id.json packages/a.pem packages/b.key \
+            packages/guard-core/data/guard.db x.db-journal y.sqlite z.sqlite3 backups/old.db app.log; do
+            mkdir -p "$(dirname "$f")"
+            echo DECOY_SECRET > "$f"
+          done
+
+      - name: No decoy in any build context
+        run: |
+          for dockerfile in $(git ls-files '**/Dockerfile' 'Dockerfile'); do
+            cp "$dockerfile" /tmp/real
+            printf 'FROM scratch\nCOPY . /ctx\n' > "$dockerfile"
+            rm -rf /tmp/ctx
+            docker build -q -f "$dockerfile" --output type=local,dest=/tmp/ctx .
+            cp /tmp/real "$dockerfile"
+            leaked=$(grep -rl DECOY_SECRET /tmp/ctx --exclude-dir=.github || true)
+            if [ -n "$leaked" ]; then echo "$dockerfile context holds:"; echo "$leaked"; exit 1; fi
+            echo "$dockerfile: no decoy in the context"
+          done
+
+      - name: Build the bot image
+        run: docker build -f packages/telegram-bot/Dockerfile -t agentguard-bot .
+
   foundry:
     name: forge test (onchain)
     runs-on: ubuntu-latest
