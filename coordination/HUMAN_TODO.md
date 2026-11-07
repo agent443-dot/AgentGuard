@@ -20,6 +20,15 @@ os `.env`.
 
 Estado: ✅ feito · ⏳ a aguardar-te · ⬜ ainda não é preciso
 
+**Antes de qualquer corrida ao vivo**, atualiza e reinicia, senão o sistema corre com código antigo
+sem te avisar (foi assim que o botão da Phantom não apareceu da primeira vez):
+
+```bash
+cd ~/AgentGuard && git checkout main && git pull && pnpm install
+```
+
+Depois para o `pnpm dev:all` (`Ctrl+C`) e volta a arrancá-lo.
+
 ---
 
 ## Endereços onchain (Solana devnet)
