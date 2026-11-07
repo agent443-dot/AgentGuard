@@ -341,3 +341,34 @@ integrator before any session writes code, since every package imports those typ
   refusing would take the agent's tools away. It reads `chains` as optional, so it keeps working
   against a guard-core without the field. It also lists the allowed chains in `get_budget`, so the
   model can pick a valid chain before it pays.
+
+### CR-007 — Robinhood Chain as the next chain after Solana
+
+- **From:** integrator, at the owner's request (2026-11-07). The owner made it top priority, ahead of
+  Base (D6 changed).
+- **Date:** 2026-11-07
+- **Status:** proposed. Items 1 and 2 need the owner's approval. Item 3 is research the sessions do
+  first, and its findings can change items 1 and 2.
+- **What:**
+  1. **Chains.** `CHAINS.robinhood = 'eip155:4663'` and `CHAINS.robinhoodTestnet = 'eip155:46630'`
+     in shared, added to SPEC's chain identifiers. The EVM adapter, signing gate, simulation and kill
+     are reused, the same contracts as on Base.
+  2. **The dollar is not USDC there.** Robinhood Chain has no Circle USDC. Its USD stablecoin is
+     Paxos' USDG, 6 decimals, and a token named "USDC" there is reported to be a copy. Today
+     `ChainAddresses.usdc`, the bot's dollar display and mcp's `usdcFor` all assume USDC. Proposal:
+     a per-chain `usd: { address, symbol }`, with `symbol` "USDC" or "USDG", replacing `usdc`. Every
+     amount stays 6-decimal base units, so the policy, the caps and the math do not change. The
+     sessions may propose a narrower change if they find one.
+  3. **Prerequisites, each verified from an official source or onchain, on testnet first:**
+     - Safe 1.4.1 and the Allowance Module on 46630 and 4663. Third-party sources disagree on
+       whether Safe has an official deployment. If it does not, we deploy them ourselves and prove
+       the runtime code hash equals the official mainnet code, as CR-005 did for Base Sepolia;
+     - USDG's address from Paxos, its decimals, and that it implements EIP-3009
+       `transferWithAuthorization`, which the x402 `exact` scheme and our signing gate require;
+     - that the chain's RPC serves `eth_simulateV1`, which guard-core's simulation needs;
+     - that `@x402/evm` accepts `eip155:4663`. It may list its networks, and community facilitators
+       report x402 on the chain in USDG.
+- **Why:** owner priority (D6 now: Solana, then Robinhood Chain, then Base).
+- **Blast radius:** shared (`CHAINS`, `ChainAddresses`), onchain (EVM config for the two chain
+  ids, the scripts), guard-core (`buildChains` for a second EVM chain), bot and mcp (the dollar
+  symbol, chain names, explorer links). No change to the policy engine or to the amounts.
