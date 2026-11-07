@@ -117,6 +117,16 @@ contract RobinhoodProbe {
         } catch (bytes memory reason) {
             log(string.concat("eth_simulateV1: NOT supported: ", string(reason)));
         }
+        // The control: a method no node serves must fail the same way, or "supported" proves nothing.
+        try this.call("eth_agentguardNoSuchMethod") {
+            log("control: an unknown method did NOT fail, so the line above is not evidence");
+        } catch {
+            log("control: an unknown method fails, as it should");
+        }
+    }
+
+    function call(string calldata method) external {
+        vm.rpc(method, "[]");
     }
 
     /// External so a revert of the RPC call can be caught.
