@@ -941,6 +941,20 @@ O integrator guia-te ao vivo, com o endereço real da página; aqui fica o resum
 
 ---
 
+## ⏳ HUMAN-16 — Passar a chave da hot wallet da Base para um ficheiro
+
+Desde o PR #81 o guard-core **recusa arrancar** se o `.env` tiver `HOT_WALLET_PRIVATE_KEY`: uma
+chave escrita num `.env` acaba copiada para onde não devia. Ela passa a viver num ficheiro só teu, com
+permissões fechadas, e o `.env` só aponta para ele. O integrator guia-te; o resumo:
+
+1. Mover a chave da Base do `packages/guard-core/.env` para `~/.agentguard/base-hot.key`, com
+   `chmod 600`, sem a imprimir no terminal.
+2. Apagar a linha `HOT_WALLET_PRIVATE_KEY=` desse `.env` e pôr no lugar
+   `BASE_HOT_WALLET_KEY_FILE=/home/joaod/.agentguard/base-hot.key`.
+3. Reiniciar o `pnpm dev:all` e confirmar que o guard-core arranca.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
