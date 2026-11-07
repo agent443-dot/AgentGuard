@@ -347,8 +347,8 @@ integrator before any session writes code, since every package imports those typ
 - **From:** integrator, at the owner's request (2026-11-07). The owner made it top priority, ahead of
   Base (D6 changed).
 - **Date:** 2026-11-07
-- **Status:** proposed. Items 1 and 2 need the owner's approval. Item 3 is research the sessions do
-  first, and its findings can change items 1 and 2.
+- **Status:** proposed. Item 3's research is done (RH-1) and keeps items 1 and 2 as written. Items
+  1, 2 and 4 need the owner's approval, after HUMAN-18.
 - **What:**
   1. **Chains.** `CHAINS.robinhood = 'eip155:4663'` and `CHAINS.robinhoodTestnet = 'eip155:46630'`
      in shared, added to SPEC's chain identifiers. The EVM adapter, signing gate, simulation and kill
@@ -368,6 +368,26 @@ integrator before any session writes code, since every package imports those typ
      - that the chain's RPC serves `eth_simulateV1`, which guard-core's simulation needs;
      - that `@x402/evm` accepts `eip155:4663`. It may list its networks, and community facilitators
        report x402 on the chain in USDG.
+  4. **USDG is not USDC, and the adapter must account for it** (RH-1 findings):
+     - the EIP-712 domain is ("Global Dollar", "1") and the token has no `version()` getter. The
+       signing gate checks both values against the chain's `usd` entry, never against
+       `requirements.extra` alone;
+     - it is a rewards token. `balanceOf` excludes unclaimed rewards, and rewards arrive only on an
+       explicit claim, so `simulate()`'s exact balance deltas should hold. That is to be tested on
+       testnet, including a claim landing between two reads;
+     - Paxos can freeze an address. A transfer to or from a frozen one reverts with
+       `AddressFrozen`. A frozen Safe or hot wallet stops payments, and the kill still lands
+       because it is a Safe module call, not a token transfer. The adapter maps the revert to a
+       clear `SIM_FAILED` reason, and the bot tells the owner it is a freeze, not an attack;
+     - a reused authorization nonce does not revert: the token emits `AuthorizationAlreadyUsed`
+       and returns. Our signer never reuses a nonce, but nothing may treat a successful
+       `transferWithAuthorization` call as proof of payment without the `Transfer` event;
+     - any token at an address other than Paxos's two is refused, whatever its symbol.
+- **Research:** done in RH-1 (PR #91), `packages/onchain/docs/robinhood-research.md`. Safe 1.4.1
+  and the Allowance Module 0.1.1 are canonical on both chains, with code hashes checked in CI. USDG
+  has 6 decimals and EIP-3009. Both public RPCs serve `eth_simulateV1` (logged by the probe, not
+  asserted). `@x402/evm` 2.29.0 takes both ids. Open with the owner (HUMAN-18): confirm the two
+  USDG addresses on Paxos's pages and list the "USDC" copies.
 - **Why:** owner priority (D6 now: Solana, then Robinhood Chain, then Base).
 - **Blast radius:** shared (`CHAINS`, `ChainAddresses`), onchain (EVM config for the two chain
   ids, the scripts), guard-core (`buildChains` for a second EVM chain), bot and mcp (the dollar
