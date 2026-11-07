@@ -7,6 +7,7 @@ set -eu
 
 dir="${AGENTGUARD_KEY_DIR:-/run/agentguard}"
 user="${AGENTGUARD_USER:-node}"
+data="${AGENTGUARD_DATA_DIR:-/data}"
 uid="$(id -u "$user")"
 gid="$(id -g "$user")"
 
@@ -31,5 +32,10 @@ if [ -n "${BASE_HOT_WALLET_KEY:-}" ]; then
   export BASE_HOT_WALLET_KEY_FILE="$dir/base-hot"
 fi
 unset SOLANA_HOT_WALLET_KEYPAIR_JSON BASE_HOT_WALLET_KEY
+
+# Fly mounts the database volume owned by root.
+if [ -d "$data" ]; then
+  chown "$uid:$gid" "$data"
+fi
 
 exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --no-new-privs -- "$@"

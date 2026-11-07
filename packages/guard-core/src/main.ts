@@ -2,7 +2,7 @@ import { buildChains } from './chains.js'
 import { loadConfig } from './config.js'
 import { migrateDb, openDb } from './db/client.js'
 import { requirePersistentDb } from './db/placement.js'
-import { buildServer } from './http/server.js'
+import { buildServers } from './http/server.js'
 
 const config = loadConfig()
 
@@ -13,7 +13,11 @@ migrateDb(db)
 
 const chains = await buildChains(config)
 
-const app = await buildServer({ db, config, chains, sweepMs: config.EXPIRY_SWEEP_MS })
+const split = config.PUBLIC_PORT !== undefined
+const [app, publicApp] = await buildServers(
+  { db, config, chains, sweepMs: config.EXPIRY_SWEEP_MS },
+  split ? (['private', 'public'] as const) : (['all'] as const),
+)
 
 if (config.GUARD_STUB_CHAINS === 'true') {
   app.log.warn('stub chains: nothing is signed and no money moves')
@@ -25,8 +29,11 @@ if (config.GUARD_STUB_CHAINS === 'true') {
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
-    void app.close()
+    void Promise.all([app.close(), publicApp?.close()])
   })
 }
 
 await app.listen({ port: config.PORT, host: config.HOST })
+if (publicApp !== undefined) {
+  await publicApp.listen({ port: config.PUBLIC_PORT, host: config.PUBLIC_HOST })
+}

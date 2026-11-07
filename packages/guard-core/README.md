@@ -21,7 +21,8 @@ A new agent's policy is empty, so it can pay nothing until the owner sets one wi
 `pnpm --filter @agentguard/guard-core revoke-agent my-agent` revokes an agent's token. It stops
 working on its next request, on every agent route. The agent's intents and audit history stay.
 
-The API listens on `127.0.0.1` unless `HOST` is set (for example `0.0.0.0` in a deployment).
+The API listens on `127.0.0.1` unless `HOST` is set. `PUBLIC_PORT` splits it into a public listener
+for the agent routes and a private one for the admin and bot routes (see Deploy on Fly.io).
 
 For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
@@ -136,6 +137,7 @@ without its payload.
 | `src/http/`     | Fastify routes per role, zod schemas, bearer auth, rate limits             |
 | `src/db/`       | Drizzle + SQLite schema, migrations, queries                               |
 | `src/main.ts`   | Startup: config, migrations, adapters, the expiry sweep timer              |
+| `deploy/`       | The container entrypoint that moves Fly secrets to tmpfs                   |
 
 ## Security
 
@@ -166,3 +168,58 @@ online backup API. It is safe while guard-core is running and never overwrites a
 With no destination, the copy goes to `backups/guard-<time>.db` next to the database.
 
 Env vars are documented in [`.env.example`](./.env.example).
+
+## Deploy on Fly.io
+
+`Dockerfile` and `fly.toml` run guard-core as one machine, `agentguard-guard-core`, in the same org
+and region (`gru`) as the bot (`agentguard-bot`, see its README):
+
+- **Two listeners** (GC-22), each with only its own routes registered:
+  - **public**, `0.0.0.0:8080` behind Fly's TLS (`force_https`): `/v1/agent/*` and `/health`,
+    nothing else. Agents call `https://agentguard-guard-core.fly.dev/v1/agent/...`. The per-IP
+    limit keys on `Fly-Client-IP`, the real client, believed on this listener only.
+  - **private**, `fly-local-6pn:8787`: `/v1/admin/*`, `/v1/bot/*` and `/health`. No Fly service
+    exposes it. The bot reaches it at `http://agentguard-guard-core.internal:8787`, and guard-core
+    calls the bot at `http://agentguard-bot.internal:8788` (`BOT_URL` in `fly.toml`).
+
+  Both listeners share one set of deps, so the per-agent lock covers an agent's request and the
+  owner's approval alike. Without `PUBLIC_PORT`, as in a local run, one listener on `HOST:PORT`
+  serves every route.
+
+- **One machine.** The database is SQLite on the `guard_data` volume at `/data`, and a volume
+  belongs to one machine. Hence `--ha=false`.
+- **The image holds no secret.** The build copies only `package.json` and `src` of shared, onchain
+  and guard-core, then runs `pnpm deploy --prod`. The root `.dockerignore` keeps every `.env`, key
+  and database out of the build context. The container starts as root only so
+  `deploy/entrypoint.sh` can mount tmpfs for the hot keys, then runs node as `node`.
+
+Owner commands, run in bash on your own machine from `~/AgentGuard`, after the bot's steps 1 and 2
+(flyctl installed and logged in). No secret is typed or printed: each one is piped from a file.
+
+```bash
+# 1. Create the app and its database volume, in the bot's org and region. Once only.
+fly apps create agentguard-guard-core --org <your-fly-org>
+fly volumes create guard_data --app agentguard-guard-core --region gru --size 1
+
+# 2. Settings, read from guard-core's .env. The three tokens must equal the bot's GUARD_ADMIN_TOKEN,
+#    GUARD_BOT_TOKEN and BOT_WEBHOOK_SECRET, as they already do for the local runs. SOLANA_CHAIN
+#    must be in the .env for mainnet: without it guard-core runs on devnet.
+cd ~/AgentGuard && grep -E '^(ADMIN_TOKEN|BOT_TOKEN|BOT_WEBHOOK_SECRET|SOLANA_CHAIN|SOLANA_RPC_URL|SQUADS_MULTISIG)=.' packages/guard-core/.env | fly secrets import --app agentguard-guard-core --stage
+
+# 3. The hot wallet key, piped from the keypair file that SOLANA_HOT_WALLET_KEYPAIR names (a full
+#    path, no ~). On mainnet it must be a new key, never used on devnet.
+cd ~/AgentGuard && key="$(grep '^SOLANA_HOT_WALLET_KEYPAIR=' packages/guard-core/.env | cut -d= -f2-)" && { printf 'SOLANA_HOT_WALLET_KEYPAIR_JSON='; tr -d ' \n' < "$key"; echo; } | fly secrets import --app agentguard-guard-core --stage
+
+# 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
+cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/guard-core/fly.toml --dockerfile packages/guard-core/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
+
+# 5. Check: one machine, its health check passing, and no config error in the log. Then the public
+#    side: /health answers, and an admin route is not there at all (404).
+fly status --app agentguard-guard-core && fly checks list --app agentguard-guard-core && fly logs --app agentguard-guard-core --no-tail
+curl -s https://agentguard-guard-core.fly.dev/health && curl -s -o /dev/null -w '%{http_code}\n' https://agentguard-guard-core.fly.dev/v1/admin/chains
+```
+
+To change a setting or a key later, repeat step 2 or 3 without `--stage`: Fly restarts the machine,
+and the entrypoint writes the new key on the way up. Base, once D6 allows it, follows step 3 with
+`BASE_HOT_WALLET_KEY` and the key file's contents, and step 2 with its `BASE_*` and `SAFE_ADDRESS`
+settings.

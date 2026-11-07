@@ -14,6 +14,13 @@ export const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8787),
   /** Loopback unless set: a deployment opts in to listening beyond this machine. */
   HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('127.0.0.1'),
+  /**
+   * Set in a deployment to split the routes over two listeners: the agent routes alone on
+   * PUBLIC_HOST:PUBLIC_PORT, behind Fly's TLS, and the admin and bot routes on HOST:PORT, on the
+   * private network. Unset, one listener on HOST:PORT serves everything, as in a local run.
+   */
+  PUBLIC_PORT: optional(z.coerce.number().int().positive()),
+  PUBLIC_HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.string().min(1).default('file:./data/guard.db'),
 
