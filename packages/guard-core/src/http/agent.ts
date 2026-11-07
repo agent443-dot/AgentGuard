@@ -9,7 +9,10 @@ import { HttpError } from './errors.js'
 import { windowLimiter } from './limiter.js'
 import { agentIdParam, intentIdParam, transferRequest, x402FetchRequest } from './schemas.js'
 
-export function agentRoutes(deps: X402Deps, limits: { perIp: number; perAgent: number }) {
+export function agentRoutes(
+  deps: X402Deps,
+  limits: { perIp: number; perAgent: number; ipOf: (request: FastifyRequest) => string },
+) {
   const { db } = deps
   const perIp = windowLimiter(limits.perIp, 60_000)
   const perAgent = windowLimiter(limits.perAgent, 60_000)
@@ -41,7 +44,7 @@ export function agentRoutes(deps: X402Deps, limits: { perIp: number; perAgent: n
     // gets one budget. The token is keyed by its digest, so the limiter never holds a usable token.
     app.addHook('onRequest', async (request, reply) => {
       const token = hashToken(parseBearer(request.headers.authorization) ?? '')
-      for (const result of [perIp(`ip:${request.ip}`), perAgent(`agent:${token}`)]) {
+      for (const result of [perIp(`ip:${limits.ipOf(request)}`), perAgent(`agent:${token}`)]) {
         if (!result.allowed) {
           return reply
             .code(429)

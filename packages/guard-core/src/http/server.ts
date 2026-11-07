@@ -2,11 +2,13 @@ import type { ChainAdapter } from '@agentguard/onchain'
 import type { ChainId } from '@agentguard/shared'
 import rateLimit from '@fastify/rate-limit'
 import Fastify, {
+  type FastifyBaseLogger,
   type FastifyError,
   type FastifyInstance,
   type FastifyReply,
   type FastifyRequest,
 } from 'fastify'
+import { isIP } from 'node:net'
 import { z } from 'zod'
 import { httpBotNotifier, type BotNotifier } from '../adapters/bot.js'
 import type { Config } from '../config.js'
@@ -37,36 +39,98 @@ export interface ServerDeps {
   sweepMs?: number
 }
 
-export async function buildServer(options: ServerDeps) {
-  const { db, config } = options
-  const app = Fastify({
-    logger: {
-      level: config.LOG_LEVEL,
-      // A bearer token in a log file is the same as a bearer token in a repository.
-      redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
-    },
-  })
+/**
+ * Which routes a listener serves. `all` is the one listener of a local run. A deployment splits
+ * them: `public` faces the internet behind Fly's TLS and serves only the agent routes, `private`
+ * sits on Fly's private network and serves the admin and bot routes to the bot.
+ */
+export type Surface = 'all' | 'public' | 'private'
 
+/** Every route on one listener, as a local run and the tests use it. */
+export async function buildServer(options: ServerDeps): Promise<Server> {
+  const [app] = await buildServers(options, ['all'])
+  return app
+}
+
+/**
+ * One app per surface over one set of deps. They must share them: the bot's approval on the
+ * private listener and the agent's request on the public one take the same per-agent lock.
+ */
+export async function buildServers(
+  options: ServerDeps,
+  surfaces: readonly [Surface, ...Surface[]],
+): Promise<[Server, ...Server[]]> {
+  const { config } = options
+  const apps: Server[] = surfaces.map(() =>
+    Fastify({
+      logger: {
+        level: config.LOG_LEVEL,
+        // A bearer token in a log file is the same as a bearer token in a repository.
+        redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
+      },
+    }),
+  )
+  const [first] = apps as [Server, ...Server[]]
+  const deps = paymentDeps(options, first.log)
+  for (const [i, surface] of surfaces.entries()) {
+    await serve(apps[i] as Server, surface, deps, config)
+  }
+
+  if (options.sweepMs !== undefined) {
+    const timer = setInterval(() => {
+      const expired = sweep(deps)
+      if (expired > 0) {
+        first.log.info({ expired }, 'expired pending intents')
+      }
+    }, options.sweepMs)
+    first.addHook('onClose', async () => clearInterval(timer))
+  }
+  return apps as [Server, ...Server[]]
+}
+
+function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
   const chains = options.chains ?? new Map<ChainId, ChainAdapter>()
   const usdc = new Map<ChainId, string>()
   for (const chain of chains.keys()) {
-    const address = usdcFor(config, chain)
+    const address = usdcFor(options.config, chain)
     if (address !== undefined) {
       usdc.set(chain, address)
     }
   }
-  const deps: X402Deps = {
-    db,
+  return {
+    db: options.db,
     chains,
     usdc,
-    bot: options.bot ?? httpBotNotifier(config),
+    bot: options.bot ?? httpBotNotifier(options.config),
     fetch: options.fetch ?? fetch,
     now: options.now ?? (() => new Date()),
     serial: serial(),
-    log: app.log,
+    log,
   }
+}
 
-  await app.register(rateLimit, { max: config.RATE_LIMIT_PER_IP, timeWindow: '1 minute' })
+/**
+ * Behind Fly's proxy every request comes from the proxy, so the per-IP limit would be one limit
+ * for the whole internet. Fly sets Fly-Client-IP to the real address. Only the public listener
+ * sits behind that proxy, so only there is the header believed.
+ */
+function clientIp(surface: Surface): (request: FastifyRequest) => string {
+  if (surface !== 'public') {
+    return (request) => request.ip
+  }
+  return (request) => {
+    const header = request.headers['fly-client-ip']
+    return typeof header === 'string' && isIP(header) !== 0 ? header : request.ip
+  }
+}
+
+async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, config: Config) {
+  const ipOf = clientIp(surface)
+  await app.register(rateLimit, {
+    max: config.RATE_LIMIT_PER_IP,
+    timeWindow: '1 minute',
+    keyGenerator: ipOf,
+  })
 
   app.setErrorHandler((error: FastifyError | z.ZodError, request, reply) => {
     if (error instanceof z.ZodError) {
@@ -88,38 +152,34 @@ export async function buildServer(options: ServerDeps) {
     }
   }
 
-  app.register(
-    agentRoutes(deps, { perIp: config.RATE_LIMIT_PER_IP, perAgent: config.RATE_LIMIT_PER_AGENT }),
-    { prefix: '/v1/agent' },
-  )
-  app.register(
-    async (admin) => {
-      admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
-      await admin.register(adminRoutes(deps))
-    },
-    { prefix: '/v1/admin' },
-  )
-  app.register(
-    async (bot) => {
-      bot.addHook('preHandler', requireToken(config.BOT_TOKEN))
-      await bot.register(botRoutes(deps))
-    },
-    { prefix: '/v1/bot' },
-  )
-
-  app.get('/health', async () => ({ status: 'ok' }))
-
-  if (options.sweepMs !== undefined) {
-    const timer = setInterval(() => {
-      const expired = sweep(deps)
-      if (expired > 0) {
-        app.log.info({ expired }, 'expired pending intents')
-      }
-    }, options.sweepMs)
-    app.addHook('onClose', async () => clearInterval(timer))
+  if (surface !== 'private') {
+    app.register(
+      agentRoutes(deps, {
+        perIp: config.RATE_LIMIT_PER_IP,
+        perAgent: config.RATE_LIMIT_PER_AGENT,
+        ipOf,
+      }),
+      { prefix: '/v1/agent' },
+    )
+  }
+  if (surface !== 'public') {
+    app.register(
+      async (admin) => {
+        admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
+        await admin.register(adminRoutes(deps))
+      },
+      { prefix: '/v1/admin' },
+    )
+    app.register(
+      async (bot) => {
+        bot.addHook('preHandler', requireToken(config.BOT_TOKEN))
+        await bot.register(botRoutes(deps))
+      },
+      { prefix: '/v1/bot' },
+    )
   }
 
-  return app
+  app.get('/health', async () => ({ status: 'ok' }))
 }
 
 function issuesOf(error: z.ZodError): { path: string; message: string }[] {

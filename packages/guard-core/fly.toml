@@ -1,5 +1,7 @@
-# guard-core on Fly.io (D3). There is no public service on purpose: the only way in is
-# agentguard-guard-core.internal over Fly's private network, from the bot in the same organization.
+# guard-core on Fly.io (D3, GC-22). Two listeners:
+#   public,  0.0.0.0:8080 behind Fly's TLS: the agent routes /v1/agent/* and /health, nothing else.
+#   private, the 6PN address :8787: the admin and bot routes, for the bot over
+#            agentguard-guard-core.internal. No Fly service exposes it.
 # Deploy from the repository root with --dockerfile; the commands are in this package's README.
 app = "agentguard-guard-core"
 primary_region = "gru"
@@ -8,9 +10,10 @@ primary_region = "gru"
   dockerfile = "Dockerfile"
 
 [env]
-  # Fly's private network is IPv6.
-  HOST = "::"
+  HOST = "fly-local-6pn"
   PORT = "8787"
+  PUBLIC_HOST = "0.0.0.0"
+  PUBLIC_PORT = "8080"
   DATABASE_URL = "file:/data/guard.db"
   BOT_URL = "http://agentguard-bot.internal:8788"
   LOG_LEVEL = "info"
@@ -20,16 +23,21 @@ primary_region = "gru"
   source = "guard_data"
   destination = "/data"
 
-[[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Never stopped: the expiry sweep, the bot's approvals and the day's spend need it running.
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
 
-[checks]
-  [checks.health]
-    type = "http"
-    port = 8787
+  [[http_service.checks]]
+    method = "GET"
     path = "/health"
-    method = "get"
     interval = "15s"
     timeout = "5s"
     grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -21,7 +21,8 @@ A new agent's policy is empty, so it can pay nothing until the owner sets one wi
 `pnpm --filter @agentguard/guard-core revoke-agent my-agent` revokes an agent's token. It stops
 working on its next request, on every agent route. The agent's intents and audit history stay.
 
-The API listens on `127.0.0.1` unless `HOST` is set (for example `0.0.0.0` in a deployment).
+The API listens on `127.0.0.1` unless `HOST` is set. `PUBLIC_PORT` splits it into a public listener
+for the agent routes and a private one for the admin and bot routes (see Deploy on Fly.io).
 
 For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
@@ -173,9 +174,18 @@ Env vars are documented in [`.env.example`](./.env.example).
 `Dockerfile` and `fly.toml` run guard-core as one machine, `agentguard-guard-core`, in the same org
 and region (`gru`) as the bot (`agentguard-bot`, see its README):
 
-- **Private only.** There is no `[http_service]` or `[[services]]`. The bot reaches guard-core at
-  `http://agentguard-guard-core.internal:8787` over Fly's private network, and guard-core calls
-  the bot at `http://agentguard-bot.internal:8788` (`BOT_URL` in `fly.toml`). Fly checks `/health`.
+- **Two listeners** (GC-22), each with only its own routes registered:
+  - **public**, `0.0.0.0:8080` behind Fly's TLS (`force_https`): `/v1/agent/*` and `/health`,
+    nothing else. Agents call `https://agentguard-guard-core.fly.dev/v1/agent/...`. The per-IP
+    limit keys on `Fly-Client-IP`, the real client, believed on this listener only.
+  - **private**, `fly-local-6pn:8787`: `/v1/admin/*`, `/v1/bot/*` and `/health`. No Fly service
+    exposes it. The bot reaches it at `http://agentguard-guard-core.internal:8787`, and guard-core
+    calls the bot at `http://agentguard-bot.internal:8788` (`BOT_URL` in `fly.toml`).
+
+  Both listeners share one set of deps, so the per-agent lock covers an agent's request and the
+  owner's approval alike. Without `PUBLIC_PORT`, as in a local run, one listener on `HOST:PORT`
+  serves every route.
+
 - **One machine.** The database is SQLite on the `guard_data` volume at `/data`, and a volume
   belongs to one machine. Hence `--ha=false`.
 - **The image holds no secret.** The build copies only `package.json` and `src` of shared, onchain
@@ -203,8 +213,10 @@ cd ~/AgentGuard && key="$(grep '^SOLANA_HOT_WALLET_KEYPAIR=' packages/guard-core
 # 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
 cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/guard-core/fly.toml --dockerfile packages/guard-core/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
 
-# 5. Check: one machine, its health check passing, and no config error in the log.
+# 5. Check: one machine, its health check passing, and no config error in the log. Then the public
+#    side: /health answers, and an admin route is not there at all (404).
 fly status --app agentguard-guard-core && fly checks list --app agentguard-guard-core && fly logs --app agentguard-guard-core --no-tail
+curl -s https://agentguard-guard-core.fly.dev/health && curl -s -o /dev/null -w '%{http_code}\n' https://agentguard-guard-core.fly.dev/v1/admin/chains
 ```
 
 To change a setting or a key later, repeat step 2 or 3 without `--stage`: Fly restarts the machine,
