@@ -385,8 +385,8 @@ integrator before any session writes code, since every package imports those typ
      - any token at an address other than Paxos's two is refused, whatever its symbol.
 - **Research:** done in RH-1 (PR #91), `packages/onchain/docs/robinhood-research.md`. Safe 1.4.1
   and the Allowance Module 0.1.1 are canonical on both chains, with code hashes checked in CI. USDG
-  has 6 decimals and EIP-3009. Both public RPCs serve `eth_simulateV1` (logged by the probe, not
-  asserted). `@x402/evm` 2.29.0 takes both ids. Open with the owner (HUMAN-18): confirm the two
+  has 6 decimals and EIP-3009. Both public RPCs serve `eth_simulateV1` (asserted by the probe since #93: a
+  simulated 0.5 ETH transfer must read back exactly). `@x402/evm` 2.29.0 takes both ids. Open with the owner (HUMAN-18): confirm the two
   USDG addresses on Paxos's pages and list the "USDC" copies.
 - **Why:** owner priority (D6 now: Solana, then Robinhood Chain, then Base).
 - **Blast radius:** shared (`CHAINS`, `ChainAddresses`), onchain (EVM config for the two chain
