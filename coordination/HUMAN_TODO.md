@@ -986,9 +986,15 @@ A ordem:
 4. **guard-core**: passos 2 a 5 do README dele — os segredos, a chave da hot wallet, o deploy e a
    verificação. No fim, `/health` responde e uma rota de admin dá `404` do lado público.
 5. **Bot**: passos 3 a 5 do README dele.
-6. **Primeiro agente no servidor**: a base de dados no Fly começa vazia, por isso o agente e a sua
-   política criam-se lá. O integrator dá-te os comandos.
-7. **Um pagamento x402 de 0,5 USDC** através do guard-core alojado, e um `/kill` pelo Telegram.
+6. **Primeiro agente no servidor**: a base de dados no Fly começa vazia, por isso o agente cria-se
+   lá, por `fly ssh console`, e o token vai direto para o `.env` do servidor MCP sem aparecer no ecrã.
+   A política aplica-se pela porta privada, aberta só no teu computador com `fly proxy 8787` enquanto
+   for precisa.
+7. **O servidor de pagamentos de teste fica acessível ao guard-core alojado**: corre no teu computador
+   como antes, e um túnel temporário da Cloudflare (`cloudflared`, sem conta) dá-lhe um endereço
+   `https://….trycloudflare.com`. Esse endereço exato vai para `allowedDomains`. Fecha-se no fim.
+8. **Um pagamento x402 de 0,5 USDC** através do guard-core alojado, e um `/kill` pelo Telegram e pela
+   Phantom, como na `HUMAN-15`.
 
 ---
 
