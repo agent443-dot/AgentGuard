@@ -12,7 +12,7 @@ Made by the owner on 2026-11-05, in the integrator session. None of these can be
 | --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | D1  | **Mainnet daily cap** (`DAILY_CAP`, USDC atomic units)                                   | **50 USDC a day** (`DAILY_CAP=50000000`), with the hot wallet holding at most 20 USDC. Max daily loss: about 70 USDC. Raised only after some weeks without incidents.                                                                                                                                               | **decided**                |
 | D2  | **Per-agent policy for launch**: `perTxMax`, `dailyMax`, `approvalThreshold`, allowlists | Each new agent: **5 USDC per payment, 25 a day, Telegram approval above 1 USDC**, deny-all to start, and only domains the owner adds.                                                                                                                                                                               | **decided**                |
-| D3  | **Deploy host** (HUMAN-7)                                                                | **Fly.io**, one region, a persistent volume for the database, guard-core on the private network only. Only the bot's webhook is public, behind TLS.                                                                                                                                                                 | **decided**                |
+| D3  | **Deploy host** (HUMAN-7)                                                                | **Fly.io**, region `gru`, a persistent volume for the database. guard-core's agent routes are public behind TLS at `https://agentguard-guard-core.fly.dev`, and its admin and bot routes stay on Fly's private network. The bot has no public URL (long polling).                                                   | **decided**                |
 | D4  | **Owner key custody**                                                                    | **Phantom**, a software wallet: the owner's choice, against the recommendation of a hardware wallet. The owner key can move the whole vault, so it stays in Phantom and is **never exported to a file**. The owner signs its operations through Phantom, not through this repo's scripts. See the D4 blocker in §2. | **decided, risk accepted** |
 | D5  | **Hot wallet key storage**                                                               | **Fly.io secrets**, written to an in-memory file at startup, delivered as `SOLANA_HOT_WALLET_KEYPAIR`. KMS later, when the cap rises.                                                                                                                                                                               | **decided**                |
 | D6  | **Solana only, or wait for Base**                                                        | **Solana only first.** Base follows once Solana has run for some weeks without incidents and the Base owner path is settled. Base ran live on Sepolia on 2026-11-05 (HUMAN-13); its any-recipient allowance (below) is the reason to wait.                                                                          | **decided**                |
@@ -184,21 +184,36 @@ Each line can be checked by someone other than its author.
 
 ## 3. Deployment shape
 
-Fill this in once D3 and D5 are answered.
+From `packages/guard-core/fly.toml` and `packages/telegram-bot/fly.toml` (#83, #86). Two Fly apps in
+one org, region `gru`, built from the repo root with the root `.dockerignore`. CI checks that no
+secret pattern reaches either build context.
 
-- **guard-core**: the only process holding the hot wallet key. Reachable by the bot and by MCP
-  clients. It never needs to be public to the internet unless remote agents call it, which decides
-  TLS and what fronts it.
-- **telegram-bot**: uses long polling, so it needs no public URL. Only guard-core calls its hooks, so
-  they stay private. It keeps pending approval messages in memory. On restart they are forgotten, and
-  guard-core's expiry sweep closes the intents with `APPROVAL_TIMEOUT`. Fail-safe, but the owner sees
-  no buttons for anything pending at the time.
-- **mcp-server**: usually started by the agent's client over stdio, next to the agent. HTTP mode needs
-  `MCP_HTTP_TOKEN`.
-- **Secrets**, each in the secrets manager, never in the repo or an image:
-  - guard-core: `ADMIN_TOKEN`, `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, the hot wallet keypair;
-  - bot: `TELEGRAM_BOT_TOKEN`, `GUARD_BOT_TOKEN`, `GUARD_ADMIN_TOKEN`, `BOT_WEBHOOK_SECRET`;
-  - mcp-server: `AGENT_TOKEN`, `MCP_HTTP_TOKEN`.
+| App                     | Listens on                                                  | Reached by                                                      | Public?                               |
+| ----------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------- |
+| `agentguard-guard-core` | `0.0.0.0:8080`: `/v1/agent/*`, `/health`                    | agents' MCP servers, at `https://agentguard-guard-core.fly.dev` | **yes**, Fly TLS, `force_https`       |
+|                         | `fly-local-6pn:8787`: `/v1/admin/*`, `/v1/bot/*`, `/health` | the bot, at `http://agentguard-guard-core.internal:8787`        | no, 6PN only                          |
+| `agentguard-bot`        | `fly-local-6pn:8788`: `/hooks/*`                            | guard-core, at `http://agentguard-bot.internal:8788`            | no; talks to Telegram by long polling |
+
+- **guard-core** is the only process holding the hot wallet key. It runs one machine, never
+  auto-stopped: the expiry sweep, the approvals and the day's spend need it up. The database is
+  `/data/guard.db` on the `guard_data` volume. The entrypoint mounts tmpfs at `/run/agentguard`,
+  writes the hot keys there at mode 0600 from Fly secrets, unsets the secrets, and runs node as
+  `node` (GC-20). The public listener trusts `Fly-Client-IP` for rate limits. The private one
+  ignores it.
+- **telegram-bot** needs no public URL. It keeps pending approval messages in memory. On restart they
+  are forgotten, and guard-core's expiry sweep closes the intents with `APPROVAL_TIMEOUT`. That is
+  fail-safe, but the owner sees no buttons for anything pending at the time.
+- **mcp-server** is not deployed by us. It runs next to each agent, on stdio, with
+  `GUARD_URL=https://agentguard-guard-core.fly.dev` (https is required for a remote guard-core,
+  MCP-12), and the agent token only in its environment.
+- **The signing page** is its own Vercel project, `agentguard-onchain`, deployed from `main` only
+  (ADR 003).
+- **Secrets**, as Fly secrets, never in the repo, `fly.toml` or an image:
+  - guard-core: `ADMIN_TOKEN`, `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SOLANA_RPC_URL`,
+    `SOLANA_HOT_WALLET_KEYPAIR_JSON` (and `BASE_HOT_WALLET_KEY` once Base launches);
+  - bot: `TELEGRAM_BOT_TOKEN`, `GUARD_BOT_TOKEN`, `GUARD_ADMIN_TOKEN`, `BOT_WEBHOOK_SECRET`,
+    `OWNER_TELEGRAM_IDS`;
+  - each agent's host: `AGENT_TOKEN`.
 
 ## 4. Incident runbook
 

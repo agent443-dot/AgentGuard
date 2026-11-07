@@ -126,6 +126,17 @@ jobs:
       - name: Build the bot image
         run: docker build -f packages/telegram-bot/Dockerfile -t agentguard-bot .
 
+      - name: Build the guard-core image
+        run: docker build -f packages/guard-core/Dockerfile -t agentguard-guard-core .
+
+      # The image installs with --ignore-scripts, so prove the native SQLite binding loads, and that
+      # the entrypoint's tools are there: it mounts tmpfs and drops to the node user with setpriv.
+      - name: guard-core image smoke test
+        run: |
+          docker run --rm --entrypoint node agentguard-guard-core -e \
+            "new (require('better-sqlite3'))(':memory:').prepare('select 1').get(); console.log('sqlite ok')"
+          docker run --rm --entrypoint sh agentguard-guard-core -c 'command -v mount && command -v setpriv'
+
   foundry:
     name: forge test (onchain)
     runs-on: ubuntu-latest
