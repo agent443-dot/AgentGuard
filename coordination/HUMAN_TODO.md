@@ -941,7 +941,10 @@ O integrator guia-te ao vivo, com o endereço real da página; aqui fica o resum
 
 ---
 
-## ⏳ HUMAN-16 — Passar a chave da hot wallet da Base para um ficheiro
+## ✅ HUMAN-16 — Passar a chave da hot wallet da Base para um ficheiro
+
+**Feito em 2026-11-07.** A chave está em `~/.agentguard/base-hot.key` (`0600`), o `.env` só aponta
+para ela, e o guard-core arrancou com a Base ligada. O texto abaixo fica como registo.
 
 Desde o PR #81 o guard-core **recusa arrancar** se o `.env` tiver `HOT_WALLET_PRIVATE_KEY`: uma
 chave escrita num `.env` acaba copiada para onde não devia. Ela passa a viver num ficheiro só teu, com
