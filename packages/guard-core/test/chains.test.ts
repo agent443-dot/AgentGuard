@@ -1,9 +1,19 @@
 import { CHAINS } from '@agentguard/shared'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { buildChains } from '../src/chains.js'
 import { loadConfig } from '../src/config.js'
 
 const KEY = `0x${'1'.repeat(64)}`
+const dir = mkdtempSync(join(tmpdir(), 'guard-keys-'))
+const keyFile = (name: string, contents: string) => {
+  const path = join(dir, name)
+  writeFileSync(path, contents, { mode: 0o600 })
+  return path
+}
+const KEY_FILE = keyFile('base-hot', `${KEY}\n`)
 const base = {
   ADMIN_TOKEN: 'a'.repeat(64),
   BOT_TOKEN: 'b'.repeat(64),
@@ -14,7 +24,7 @@ const baseChain = {
   BASE_CHAIN: CHAINS.baseSepolia,
   BASE_RPC_URL: 'https://sepolia.base.org',
   SAFE_ADDRESS: `0x${'a'.repeat(40)}`,
-  HOT_WALLET_PRIVATE_KEY: KEY,
+  BASE_HOT_WALLET_KEY_FILE: KEY_FILE,
   BASE_USDC: `0x${'b'.repeat(40)}`,
   BASE_ALLOWANCE_MODULE: `0x${'c'.repeat(40)}`,
 }
@@ -50,8 +60,8 @@ describe('buildChains', () => {
     expect((await build({})).size).toBe(0)
   })
 
-  it('leaves Base off without BASE_CHAIN, even with the hot wallet key in the file', async () => {
-    const chains = await build({ HOT_WALLET_PRIVATE_KEY: KEY, SAFE_ADDRESS: '' })
+  it('leaves Base off without BASE_CHAIN, even with the hot wallet key file set', async () => {
+    const chains = await build({ BASE_HOT_WALLET_KEY_FILE: KEY_FILE, SAFE_ADDRESS: '' })
     expect([...chains.keys()]).toEqual([])
   })
 
@@ -62,7 +72,7 @@ describe('buildChains', () => {
     expect(typeof adapter?.x402Scheme).toBe('function')
   })
 
-  it.each(['BASE_RPC_URL', 'SAFE_ADDRESS', 'HOT_WALLET_PRIVATE_KEY', 'BASE_USDC'])(
+  it.each(['BASE_RPC_URL', 'SAFE_ADDRESS', 'BASE_HOT_WALLET_KEY_FILE', 'BASE_USDC'])(
     'refuses to start Base without %s, naming it and never the key',
     async (name) => {
       const error = await build({ ...mainnet, [name]: '' }).catch((e: unknown) => e)
@@ -72,8 +82,16 @@ describe('buildChains', () => {
     },
   )
 
-  it('refuses a malformed key by name only', () => {
-    expect(() => loadConfig({ ...base, ...baseChain, HOT_WALLET_PRIVATE_KEY: '0x12' })).toThrow(
+  it('refuses a malformed key file by its path only', async () => {
+    const path = keyFile('bad', `${KEY.slice(0, -2)}zz`)
+    const error = await build({ ...baseChain, BASE_HOT_WALLET_KEY_FILE: path }).catch(
+      (e: unknown) => e,
+    )
+    expect((error as Error).message).toBe(`invalid key file: ${path}`)
+  })
+
+  it('refuses the retired raw key in the env by name only', () => {
+    expect(() => loadConfig({ ...base, ...baseChain, HOT_WALLET_PRIVATE_KEY: KEY })).toThrow(
       /^invalid configuration: HOT_WALLET_PRIVATE_KEY$/,
     )
   })

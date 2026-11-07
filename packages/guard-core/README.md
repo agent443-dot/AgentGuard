@@ -25,7 +25,7 @@ The API listens on `127.0.0.1` unless `HOST` is set (for example `0.0.0.0` in a 
 
 For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTISIG`; guard-core
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
-`BASE_RPC_URL`, `SAFE_ADDRESS`, `HOT_WALLET_PRIVATE_KEY` and, until `shared/addresses.ts` has
+`BASE_RPC_URL`, `SAFE_ADDRESS`, `BASE_HOT_WALLET_KEY_FILE` and, until `shared/addresses.ts` has
 verified values, `BASE_USDC` and `BASE_ALLOWANCE_MODULE`. A chain switched on with a value missing
 stops the start, naming the missing variables and never their values. Before trusting `SAFE_ADDRESS`
 and any address that came from the env rather than `shared/addresses.ts`, guard-core asks the chain:
@@ -139,9 +139,16 @@ without its payload.
 
 ## Security
 
-- The hot wallet key is read from `SOLANA_HOT_WALLET_KEYPAIR` and lives only in this process (later:
-  KMS). Never logged, never returned by any endpoint. Logs redact `authorization` and
-  `x-guard-signature`.
+- The hot wallet keys are read from files, `SOLANA_HOT_WALLET_KEYPAIR` (a Solana CLI keypair) and
+  `BASE_HOT_WALLET_KEY_FILE` (0x and 64 hex digits), and live only in this process (later: KMS).
+  Never logged, never returned by any endpoint. Logs redact `authorization` and
+  `x-guard-signature`. The old raw `HOT_WALLET_PRIVATE_KEY` is refused at startup: move the key to
+  a file, `chmod 600`, outside the repository.
+- In a deployment the keys arrive as Fly secrets, `SOLANA_HOT_WALLET_KEYPAIR_JSON` (the keypair
+  file's contents) and `BASE_HOT_WALLET_KEY`. `deploy/entrypoint.sh` runs as root, mounts tmpfs at
+  `/run/agentguard`, writes each key there with mode 600 for the `node` user, points the two path
+  variables at the files, unsets the secrets and only then starts guard-core as `node`. It refuses
+  to start if tmpfs cannot be mounted, so a key never lands on disk.
 - Agent tokens are stored only as SHA-256 hashes and compared in constant time.
 - Amounts are `bigint` internally. No floats for money.
 - Agent-provided text (`reason`, URLs, headers, API responses) is untrusted and never affects a
