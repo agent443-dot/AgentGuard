@@ -21,9 +21,8 @@ Nothing blocks a Robinhood Chain adapter on our current design:
 - USDG implements EIP-3009 with the domain ("Global Dollar", "1"), so x402 `exact` works;
 - the public RPCs serve `eth_simulateV1`.
 
-The owner confirmed both USDG addresses on Paxos's pages (HUMAN-18, 2026-11-07). One question remains
-open, asked by the integrator: whether `docs.robinhood.com/chain/contracts` lists any official or
-bridged USDC.
+The owner confirmed both USDG addresses on Paxos's pages, and read Robinhood's contract list, which
+has no USDC (HUMAN-18, 2026-11-07). No research question is left open.
 
 ## (a) Chain ids, RPC, explorer
 
@@ -112,9 +111,12 @@ Sources:
   A list of copies cannot keep up with that. **The rule is exactly one token per chain: Paxos's USDG
   at the address above.** Anything else is refused, whatever its name or symbol, as `refuse()` already
   does for Base. The bot warns by name when a refused token's symbol is USDC or USDG, because those
-  are the ones an agent or a merchant could mistake for ours. No official USDC on Robinhood Chain was
-  found. The search showed none in Circle's list, and `docs.robinhood.com/chain/contracts` is the one
-  page still open (see "Blocked hosts").
+  are the ones an agent or a merchant could mistake for ours. **Robinhood Chain has no official USDC.** The owner
+  read `docs.robinhood.com/chain/contracts` for mainnet (official). It lists WETH
+  `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73`, USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` (the
+  address above) and Robinhood Stock Tokens. It lists no USDC, official or bridged, and says a token
+  with a matching name at another address is not canonical. That is the allowlist rule, stated by
+  the chain itself.
 
 ## (d) eth_simulateV1
 
@@ -150,8 +152,8 @@ The cloud sessions cannot reach these hosts, so the owner reads them:
   - `https://robinhoodchain.blockscout.com/tokens?q=USDC` and
     `https://explorer.testnet.chain.robinhood.com/tokens?q=USDC`: the copies are too many to list,
     hence the allowlist.
-- **Open:** `https://docs.robinhood.com/chain/contracts`: any official or bridged USDC. The
-  integrator asked the owner. With `https://docs.robinhood.com/chain/connecting`, it also confirms the
-  chain values.
+  - `https://docs.robinhood.com/chain/contracts`: no USDC, official or bridged; USDG at the address
+    above.
+- **Open:** nothing.
 - **Not needed now:** `https://developers.circle.com/stablecoins/usdc-contract-addresses`. With the
   allowlist, a Circle USDC would only matter if we chose to accept it, and that would be its own CR.
