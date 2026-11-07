@@ -10,6 +10,7 @@ interface ProbeVm {
     function addr(uint256 privateKey) external pure returns (address);
     function toString(bytes32 value) external pure returns (string memory);
     function toString(uint256 value) external pure returns (string memory);
+    function rpc(string calldata method, string calldata params) external returns (bytes memory);
 }
 
 interface IUsdg {
@@ -108,6 +109,22 @@ contract RobinhoodProbe {
         token.transferWithAuthorization(from, address(0xdead), 0, 0, validBefore, nonce, v, r, s);
         require(token.authorizationState(from, nonce), "transferWithAuthorization did not use the nonce");
         log("USDG: EIP-3009 transferWithAuthorization accepted a signature over (Global Dollar, 1)");
+
+        // simulate() needs eth_simulateV1 from the RPC. The answer is logged, not asserted: a missing
+        // method is a finding for RH-1, not a broken build.
+        try this.simulateV1() {
+            log("eth_simulateV1: supported");
+        } catch (bytes memory reason) {
+            log(string.concat("eth_simulateV1: NOT supported: ", string(reason)));
+        }
+    }
+
+    /// External so a revert of the RPC call can be caught.
+    function simulateV1() external {
+        vm.rpc(
+            "eth_simulateV1",
+            '[{"blockStateCalls":[{"calls":[{"to":"0x0000000000000000000000000000000000000001","data":"0x"}]}]},"latest"]'
+        );
     }
 
     function same(string memory label, address at, bytes32 expected) private view {
