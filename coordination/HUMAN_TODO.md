@@ -955,6 +955,43 @@ permissões fechadas, e o `.env` só aponta para ele. O integrator guia-te; o re
 
 ---
 
+## ⏳ HUMAN-17 — Pôr o guard-core e o bot no Fly.io (devnet)
+
+Depois da `HUMAN-16`. Decisões D3 e D5. É o primeiro deploy, ainda em devnet com o multisig da Phantom:
+o mesmo sistema que corres em casa, agora num servidor. O integrator guia-te ao vivo e corre a seguir
+a revisão de segurança do sistema alojado (`INT-7`). Os comandos completos estão nos READMEs, na
+secção **Deploy on Fly.io** de `packages/guard-core` e de `packages/telegram-bot`. Nenhum segredo é
+escrito no terminal: cada um vai por um ficheiro, com `fly secrets import`.
+
+A ordem:
+
+1. **Conta no Fly.io** em `fly.io` (pede um cartão, mesmo no plano grátis). Depois, no Ubuntu:
+
+   ```bash
+   curl -L https://fly.io/install.sh | sh && fly auth login
+   ```
+
+2. **Parar o sistema local**: `Ctrl+C` no `pnpm dev:all`. Dois bots com o mesmo token fazem o
+   Telegram recusar os dois.
+3. **Criar as duas apps e o volume da base de dados**, na tua organização pessoal do Fly:
+
+   ```bash
+   fly apps create agentguard-guard-core --org personal && fly apps create agentguard-bot --org personal
+   ```
+
+   ```bash
+   fly volumes create guard_data --app agentguard-guard-core --region gru --size 1
+   ```
+
+4. **guard-core**: passos 2 a 5 do README dele — os segredos, a chave da hot wallet, o deploy e a
+   verificação. No fim, `/health` responde e uma rota de admin dá `404` do lado público.
+5. **Bot**: passos 3 a 5 do README dele.
+6. **Primeiro agente no servidor**: a base de dados no Fly começa vazia, por isso o agente e a sua
+   política criam-se lá. O integrator dá-te os comandos.
+7. **Um pagamento x402 de 0,5 USDC** através do guard-core alojado, e um `/kill` pelo Telegram.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
