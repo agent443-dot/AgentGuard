@@ -13,14 +13,6 @@ const config = loadConfig()
 // stdout carries the MCP protocol in stdio mode, so logs always go to stderr.
 const log = pino({ level: config.LOG_LEVEL }, destination(2))
 
-const guardUrl = new URL(config.GUARD_URL)
-if (
-  guardUrl.protocol === 'http:' &&
-  !['localhost', '127.0.0.1', '[::1]'].includes(guardUrl.hostname)
-) {
-  log.warn('GUARD_URL uses plain http to a remote host: the agent token travels unencrypted')
-}
-
 const deps = {
   guard: httpGuard({
     baseUrl: config.GUARD_URL,

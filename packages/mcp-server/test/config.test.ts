@@ -64,6 +64,31 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, MCP_HTTP_RATE_LIMIT: '0' })).toThrow('MCP_HTTP_RATE_LIMIT')
   })
 
+  it.each([
+    'http://guard.fly.dev',
+    'http://guard.example.com:8787',
+    'http://10.0.0.5:8787',
+    'http://0.0.0.0:8787',
+  ])('refuses plain http to a host off this machine (%s)', (url) => {
+    expect(() => loadConfig({ ...base, GUARD_URL: url })).toThrow(/GUARD_URL \(expected https:\/\//)
+  })
+
+  it('refuses credentials in GUARD_URL, and does not echo them', () => {
+    const url = 'https://agent:s3cret-token@guard.fly.dev'
+    expect(() => loadConfig({ ...base, GUARD_URL: url })).toThrow(/no credentials/)
+    expect(() => loadConfig({ ...base, GUARD_URL: url })).not.toThrow(/s3cret-token/)
+  })
+
+  it.each([
+    'https://guard.fly.dev',
+    'https://guard.example.com:8443/',
+    'http://localhost:8787',
+    'http://127.0.0.1:8787',
+    'http://[::1]:8787',
+  ])('accepts %s', (url) => {
+    expect(loadConfig({ ...base, GUARD_URL: url }).GUARD_URL).toBe(url)
+  })
+
   it('never puts the token in the error', () => {
     expect(() => loadConfig({ ...base, GUARD_URL: 'bad' })).not.toThrow(base.AGENT_TOKEN)
   })

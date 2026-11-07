@@ -125,6 +125,61 @@ curl http://127.0.0.1:8789/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_budget","arguments":{}}}'
 ```
 
+### Connecting to a hosted guard-core
+
+When guard-core runs on a server (for example on Fly.io), its public listener serves only the agent
+routes, `/v1/agent/*`, over HTTPS. The MCP server still runs on the agent's machine over stdio; only
+`GUARD_URL` changes.
+
+- **`GUARD_URL` must be `https://`.** Plain `http://` is accepted only for `localhost`, `127.0.0.1`
+  and `[::1]`; anything else stops the server at startup. The agent token rides on every request, so
+  it must never cross a network in clear text.
+- **The token goes in the environment only:** `AGENT_TOKEN` in the client config's `env` block, or
+  a variable your shell or secret manager sets. Never put it in the URL; a `GUARD_URL` with
+  credentials in it (`https://user:token@…`) is refused. Never put it in `args` either, where any
+  process listing shows it. The server reads it only from `AGENT_TOKEN`.
+
+**Claude Desktop.** The token is stored in this file, so keep it readable by your user only:
+
+```json
+{
+  "mcpServers": {
+    "agentguard": {
+      "command": "/path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx",
+      "args": ["/path/to/AgentGuard/packages/mcp-server/src/main.ts"],
+      "env": {
+        "GUARD_URL": "https://<guard-core public host>",
+        "AGENT_ID": "my-agent",
+        "AGENT_TOKEN": "<agent token>"
+      }
+    }
+  }
+}
+```
+
+**Claude Code.** Use a `.mcp.json` that reads the token from your environment, so the file can be
+committed without it:
+
+```json
+{
+  "mcpServers": {
+    "agentguard": {
+      "command": "/path/to/AgentGuard/packages/mcp-server/node_modules/.bin/tsx",
+      "args": ["/path/to/AgentGuard/packages/mcp-server/src/main.ts"],
+      "env": {
+        "GUARD_URL": "https://<guard-core public host>",
+        "AGENT_ID": "my-agent",
+        "AGENT_TOKEN": "${AGENTGUARD_AGENT_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Then set `AGENTGUARD_AGENT_TOKEN` in the shell that starts Claude Code, from your secret manager
+rather than typed on the command line. `claude mcp add … -e AGENT_TOKEN=<token>` also works, but it
+leaves the token in your shell history.
+
 ### The tools
 
 | Tool           | Input                                              | What it does                                   |
@@ -212,7 +267,7 @@ worth retrying unchanged.
 
 | Variable                | Required    | Default                | Notes                                                                                        |
 | ----------------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `GUARD_URL`             | yes         |                        | guard-core base URL, e.g. `http://localhost:8787`                                            |
+| `GUARD_URL`             | yes         |                        | guard-core base URL: `https://`, or `http://` to localhost only                              |
 | `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                |
 | `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                         |
 | `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                  |
