@@ -1,0 +1,11 @@
+# Read by BuildKit for this Dockerfile only. Secrets never enter the build context.
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/coverage
+.git
+packages/onchain/forge
+packages/onchain/out
+packages/onchain/cache
