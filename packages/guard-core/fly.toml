@@ -1,0 +1,35 @@
+# guard-core on Fly.io (D3). There is no public service on purpose: the only way in is
+# agentguard-guard-core.internal over Fly's private network, from the bot in the same organization.
+# Deploy from the repository root with --dockerfile; the commands are in this package's README.
+app = "agentguard-guard-core"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Fly's private network is IPv6.
+  HOST = "::"
+  PORT = "8787"
+  DATABASE_URL = "file:/data/guard.db"
+  BOT_URL = "http://agentguard-bot.internal:8788"
+  LOG_LEVEL = "info"
+  # Tokens, the RPC URL, SOLANA_CHAIN and the hot key come from `fly secrets import`.
+
+[mounts]
+  source = "guard_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8787
+    path = "/health"
+    method = "get"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, statSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -15,6 +15,8 @@ const root = process.platform === 'linux' && process.getuid?.() === 0
 const parent = mkdtempSync(join(tmpdir(), 'guard-entry-'))
 chmodSync(parent, 0o755)
 const dir = join(parent, 'run')
+const data = join(parent, 'data')
+mkdirSync(data)
 
 describe.skipIf(!root)('deploy/entrypoint.sh', () => {
   afterAll(() => {
@@ -28,6 +30,7 @@ describe.skipIf(!root)('deploy/entrypoint.sh', () => {
         PATH: process.env['PATH'],
         AGENTGUARD_KEY_DIR: dir,
         AGENTGUARD_USER: 'nobody',
+        AGENTGUARD_DATA_DIR: data,
         SOLANA_HOT_WALLET_KEYPAIR_JSON: SOLANA_KEY,
         BASE_HOT_WALLET_KEY: BASE_KEY,
       },
@@ -45,6 +48,7 @@ describe.skipIf(!root)('deploy/entrypoint.sh', () => {
   it('runs the command as the app user, the only one who can read the files', () => {
     const nobody = execFileSync('id', ['-u', 'nobody'], { encoding: 'utf8' }).trim()
     expect(run('id -u').trim()).toBe(nobody)
+    expect(String(statSync(data).uid)).toBe(nobody)
     for (const file of ['hot.json', 'base-hot']) {
       const stat = statSync(join(dir, file))
       expect(stat.mode & 0o777).toBe(0o600)
