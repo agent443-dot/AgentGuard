@@ -1,0 +1,20 @@
+# Fly.io app for the Telegram bot. Deploy from the repository root with --dockerfile (see README,
+# "Deploy on Fly.io"): the image needs packages/shared and the workspace lockfile.
+# The org and region must match guard-core's app: the two talk over Fly's private network only.
+app = "agentguard-bot"
+primary_region = "gru"
+
+# Non-secret settings only. Tokens, the webhook secret and owner ids come from `fly secrets import`.
+[env]
+  # The 6PN address: reachable from guard-core over <app>.internal, never from the internet.
+  HOST = "fly-local-6pn"
+  PORT = "8788"
+  GUARD_URL = "http://agentguard-guard-core.internal:8787"
+  LOG_LEVEL = "info"
+
+# No [http_service] and no [[services]]: the bot needs no public port. It reaches Telegram by long
+# polling, and only guard-core calls its hooks.
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

@@ -125,6 +125,48 @@ loop and each rejection would otherwise be a message. The first alert for an age
 at once; repeats in the next 5 minutes are counted, and one "Attack alerts held back" message with
 the count is sent when that window closes. Large-payment alerts are never throttled.
 
+## Deploy on Fly.io
+
+The bot runs as one Fly machine, `agentguard-bot`, in the same org and region as guard-core
+(`agentguard-guard-core`). The two talk only over Fly's private network:
+
+- The bot's hooks listen on `fly-local-6pn:8788`, and guard-core calls them at
+  `http://agentguard-bot.internal:8788` (its `BOT_URL`). The app has no `[http_service]`, so nothing
+  is public. Telegram is reached by long polling, outbound only.
+- The bot calls guard-core at `http://agentguard-guard-core.internal:8787` (`GUARD_URL` in
+  `fly.toml`).
+- **Exactly one machine.** Two bots polling the same token make Telegram refuse both, and pending
+  approvals live in memory. Hence `--ha=false`. Stop any local `pnpm dev` of the bot, for the same
+  reason.
+
+The image (`Dockerfile`) is multi-stage on `node:22-slim`. It runs `pnpm deploy --prod` of this
+package only, runs as the `node` user, and starts with `node --import tsx src/main.ts`, because
+`packages/shared` ships TypeScript sources. It holds `src`, the production dependencies and nothing
+else: no `.env`, no tests.
+
+Owner commands, run on your own machine from `~/AgentGuard`. Steps 1 and 2 are once only.
+
+```bash
+# 1. Install flyctl and log in (opens the browser).
+curl -L https://fly.io/install.sh | sh && fly auth login
+
+# 2. Create the app, in the same org as guard-core.
+fly apps create agentguard-bot --org <your-fly-org>
+
+# 3. Secrets: read from the bot's .env and piped straight in, never typed or printed.
+#    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
+cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
+
+# 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
+cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
+
+# 5. Check: one machine started, and the log shows the hooks listening with no config error.
+fly status --app agentguard-bot && fly logs --app agentguard-bot --no-tail
+```
+
+To change a secret later, edit the `.env` and repeat step 3 without `--stage`: Fly restarts the
+machine with the new values.
+
 ## Layout
 
 ```
