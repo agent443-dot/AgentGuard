@@ -901,7 +901,9 @@ O integrator guia-te ao vivo, com o endereço real da página; aqui fica o resum
    Settings → Testnet Mode → Solana Devnet). Uns 0,1 SOL de devnet de `faucet.solana.com`.
 2. **Criar o multisig** na página de assinatura, aberta no navegador dentro da Phantom. Anotar o
    multisig, o cofre e a transação.
-3. **Pôr USDC no cofre novo**, em `faucet.circle.com`, rede Solana devnet.
+3. **Pôr USDC no cofre novo** com `pnpm fund-vault`, a partir de uma carteira que já tenha USDC.
+   **Não uses o faucet da Circle para o cofre**: o cofre é um endereço especial (fora da curva) e o
+   USDC do faucet nunca lá chega.
 4. **Pôr o teto de 50 USDC** na mesma página. Anotar a transação.
 5. **Trocar o sistema para o multisig novo**: `SQUADS_MULTISIG` nos três `.env` (guard-core, onchain,
    bot), e no do bot também `SIGN_PAGE_URL` e `SOLANA_HOT_WALLET_PUBKEY`. Reiniciar o `pnpm dev:all`.
