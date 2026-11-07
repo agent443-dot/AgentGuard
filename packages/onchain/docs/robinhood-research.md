@@ -1,6 +1,6 @@
 # RH-1 — Robinhood Chain research (CR-007)
 
-- **Date:** 2026-11-07
+- **Date:** 2026-11-07, updated the same day with the owner's HUMAN-18 reads
 - **For:** the manager and the integrator, before any Robinhood adapter code
 - **Evidence on-chain:** `forge/RobinhoodProbe.t.sol`. CI's forge job forks both chains through their
   public RPCs and fails on any difference from the values below. It passed on PR #91.
@@ -21,8 +21,9 @@ Nothing blocks a Robinhood Chain adapter on our current design:
 - USDG implements EIP-3009 with the domain ("Global Dollar", "1"), so x402 `exact` works;
 - the public RPCs serve `eth_simulateV1`.
 
-Two items remain for the owner: the "USDC" copies to deny, and reading the two Paxos and Robinhood
-pages directly (see "Blocked hosts").
+The owner confirmed both USDG addresses on Paxos's pages (HUMAN-18, 2026-11-07). One question remains
+open, asked by the integrator: whether `docs.robinhood.com/chain/contracts` lists any official or
+bridged USDC.
 
 ## (a) Chain ids, RPC, explorer
 
@@ -70,11 +71,13 @@ Sources:
 | Testnet | `0x7E955252E15c84f5768B83c41a71F9eba181802F` | `0x4549bb98c667aAb626627C118102c28065E8f54C` |
 | Mainnet | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` | `0xdf5FfF9cb88B3cAb50572FAE73E2EB08599D25D4` |
 
-- **Addresses**: from Paxos's "USDG on Test Networks" and "USDG on Main Networks" pages (official, via
-  search). The mainnet page also lists an OFT contract, `0x0d54755f5106BfdB43f7a35f5D49a23F940628d1`.
-  **The owner should read both pages directly before these go into `shared/addresses.ts`.** The
-  on-chain checks below prove these contracts behave as Paxos's code says. They do not prove that
-  Paxos deployed them.
+- **Addresses**: from Paxos's "USDG on Test Networks" and "USDG on Main Networks" pages (official).
+  The owner read both pages and confirmed both addresses (HUMAN-18, 2026-11-07). The on-chain checks
+  below prove these contracts behave as Paxos's code says.
+- **Not the token: the OFT `0x0d54755f5106BfdB43f7a35f5D49a23F940628d1`.** Paxos's mainnet page also
+  lists it, and the owner confirmed it there. It is the contract Paxos lists as USDG's OFT (LayerZero's cross-chain token
+  standard), not the token. We never pay in it, it never goes into `shared/addresses.ts` as the token, and a payment
+  naming it as the asset is refused like any other non-USDG address.
 - **Decimals 6**: from `USDG.sol` in `paxosglobal/paxos-token-contracts` (official, commit `674ac10`),
   and on-chain on both chains.
 - **EIP-3009: yes.**
@@ -99,11 +102,19 @@ Sources:
     returns, unlike USDC. This matters to a facilitator, not to our signer.
   - **EIP-1271 signatures are accepted** (`SignatureChecker`). That does not change our signer, which
     signs as an EOA.
-- **"USDC" copies (deny note): not found.** The search results found no official USDC on Robinhood
-  Chain. Circle's list showed none in the snippet. One third-party source reports a token reusing the
-  **USDG** symbol at a different address. So any token, whatever its symbol, at an address other than
-  the two above is refused, as `refuse()` already does for Base. The owner should list the copies from
-  the explorer and Circle (see "Blocked hosts") so that the bot can warn by name.
+- **"USDC" and "USDG" copies: an allowlist, not a deny list.** The owner read Blockscout (HUMAN-18).
+  - About 45 tokens named "USDC" appear on the first mainnet page alone, some with 50,000 to 70,000
+    holders.
+  - On testnet, a "USDC" at `0xbf44…275F` (address shortened as the owner read it) has about 170,000
+    holders.
+  - A third-party source also reports a token reusing the **USDG** symbol at another address.
+
+  A list of copies cannot keep up with that. **The rule is exactly one token per chain: Paxos's USDG
+  at the address above.** Anything else is refused, whatever its name or symbol, as `refuse()` already
+  does for Base. The bot warns by name when a refused token's symbol is USDC or USDG, because those
+  are the ones an agent or a merchant could mistake for ours. No official USDC on Robinhood Chain was
+  found. The search showed none in Circle's list, and `docs.robinhood.com/chain/contracts` is the one
+  page still open (see "Blocked hosts").
 
 ## (d) eth_simulateV1
 
@@ -130,13 +141,17 @@ adapter work, for after this research.
 
 ## Blocked hosts
 
-These need the owner to read them, or to allow the hosts:
+The cloud sessions cannot reach these hosts, so the owner reads them:
 
-- `https://docs.paxos.com/guides/stablecoin/usdg/testnet` and
-  `https://docs.paxos.com/guides/stablecoin/usdg/mainnet`: confirm the two USDG addresses above.
-- `https://docs.robinhood.com/chain/connecting` and `https://docs.robinhood.com/chain/contracts`:
-  confirm the chain values, and list any official USDC or bridged USDC.
-- `https://robinhoodchain.blockscout.com/tokens?q=USDC` and
-  `https://explorer.testnet.chain.robinhood.com/tokens?q=USDC`: the "USDC" copies, for the deny note.
-- `https://developers.circle.com/stablecoins/usdc-contract-addresses`: whether Circle lists Robinhood
-  Chain at all.
+- **Done (HUMAN-18):**
+  - `https://docs.paxos.com/guides/stablecoin/usdg/testnet` and
+    `https://docs.paxos.com/guides/stablecoin/usdg/mainnet`: both USDG addresses and the OFT address
+    confirmed.
+  - `https://robinhoodchain.blockscout.com/tokens?q=USDC` and
+    `https://explorer.testnet.chain.robinhood.com/tokens?q=USDC`: the copies are too many to list,
+    hence the allowlist.
+- **Open:** `https://docs.robinhood.com/chain/contracts`: any official or bridged USDC. The
+  integrator asked the owner. With `https://docs.robinhood.com/chain/connecting`, it also confirms the
+  chain values.
+- **Not needed now:** `https://developers.circle.com/stablecoins/usdc-contract-addresses`. With the
+  allowlist, a Circle USDC would only matter if we chose to accept it, and that would be its own CR.
