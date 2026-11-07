@@ -10,6 +10,7 @@ interface ProbeVm {
     function addr(uint256 privateKey) external pure returns (address);
     function toString(bytes32 value) external pure returns (string memory);
     function toString(uint256 value) external pure returns (string memory);
+    function toString(bytes calldata value) external pure returns (string memory);
     function rpc(string calldata method, string calldata params) external returns (bytes memory);
 }
 
@@ -59,6 +60,10 @@ contract RobinhoodProbe {
     // EIP3009Definitions.sol); the domain is name() with version "1" (ClaimableRewardsBase.sol).
     bytes32 private constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    string private constant SIMULATE = '[{"blockStateCalls":[{"stateOverrides":{"0x000000000000000000000000000000000000a11c":{"balance":"0xde0b6b3a7640000"}},"calls":[{"from":"0x000000000000000000000000000000000000a11c","to":"0x00000000000000000000000000000000000b0b1d","value":"0x6f05b59d3b20000"},{"to":"0xca11bde05977b3631167028862be2a173976ca11","data":"0x4d2301cc00000000000000000000000000000000000000000000000000000000000b0b1d"}]}]},"latest"]';
+    // getEthBalance's return value for 0.5 ETH, as hex in the JSON result.
+    string private constant HALF_ETH_HEX = "00000000000000000000000000000000000000000000000006f05b59d3b20000";
+
     bytes32 private constant TRANSFER_TYPEHASH = keccak256(
         "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
     );
@@ -110,31 +115,32 @@ contract RobinhoodProbe {
         require(token.authorizationState(from, nonce), "transferWithAuthorization did not use the nonce");
         log("USDG: EIP-3009 transferWithAuthorization accepted a signature over (Global Dollar, 1)");
 
-        // simulate() needs eth_simulateV1 from the RPC. The answer is logged, not asserted: a missing
-        // method is a finding for RH-1, not a broken build.
-        try this.simulateV1() {
-            log("eth_simulateV1: supported");
-        } catch (bytes memory reason) {
-            log(string.concat("eth_simulateV1: NOT supported: ", string(reason)));
-        }
-        // The control: a method no node serves must fail the same way, or "supported" proves nothing.
-        try this.call("eth_agentguardNoSuchMethod") {
-            log("control: an unknown method did NOT fail, so the line above is not evidence");
-        } catch {
-            log("control: an unknown method fails, as it should");
-        }
-    }
-
-    function call(string calldata method) external {
-        vm.rpc(method, "[]");
-    }
-
-    /// External so a revert of the RPC call can be caught.
-    function simulateV1() external {
-        vm.rpc(
-            "eth_simulateV1",
-            '[{"blockStateCalls":[{"calls":[{"to":"0x0000000000000000000000000000000000000001","data":"0x"}]}]},"latest"]'
+        // simulate() needs eth_simulateV1 from the RPC. One simulated block gives a sender 1 ETH by
+        // state override, sends 0.5 ETH to a fresh address, then reads that address's balance through
+        // Multicall3. Unless the result carries exactly 0.5 ETH, the build fails: a provider that drops
+        // the method, or answers it wrongly, turns CI red.
+        bytes memory result = vm.rpc("eth_simulateV1", SIMULATE);
+        log(string.concat("eth_simulateV1 result: ", vm.toString(result)));
+        require(result.length > 0, "eth_simulateV1 returned an empty result");
+        // vm.rpc may hand back the JSON text or the decoded value, so both forms are accepted.
+        require(
+            contains(result, bytes(HALF_ETH_HEX)) || contains(result, abi.encode(uint256(0.5 ether))),
+            "eth_simulateV1 did not show the simulated 0.5 ETH"
         );
+        log("eth_simulateV1: the simulated block moved exactly 0.5 ETH");
+    }
+
+    function contains(bytes memory haystack, bytes memory needle) private pure returns (bool) {
+        for (uint256 i = 0; i + needle.length <= haystack.length; i++) {
+            bool found = true;
+            for (uint256 j = 0; j < needle.length && found; j++) {
+                found = haystack[i + j] == needle[j];
+            }
+            if (found) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function same(string memory label, address at, bytes32 expected) private view {
