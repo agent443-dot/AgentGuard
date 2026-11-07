@@ -2,18 +2,26 @@ import { CHAINS } from '@agentguard/shared'
 import { z } from 'zod'
 import { isLoopback } from './domain/loopback.js'
 
-const httpUrl = z.string().refine((value) => {
+/**
+ * The agent token rides on every request, so plain http is allowed only where it never leaves the
+ * machine. One refine that cannot throw: zod runs a chained refine even after the first one failed.
+ */
+const guardUrl = z.string().refine((value) => {
   try {
-    const { protocol } = new URL(value)
-    return protocol === 'http:' || protocol === 'https:'
+    const { protocol, hostname, username, password } = new URL(value)
+    // A token in the URL ends up in logs and process listings; it belongs in AGENT_TOKEN.
+    if (username !== '' || password !== '') {
+      return false
+    }
+    return protocol === 'https:' || (protocol === 'http:' && isLoopback(hostname))
   } catch {
     return false
   }
-}, 'expected an http(s) url')
+}, 'expected https://, or http:// to localhost, 127.0.0.1 or [::1], with no credentials in it')
 
 export const configSchema = z
   .object({
-    GUARD_URL: httpUrl,
+    GUARD_URL: guardUrl,
     AGENT_ID: z.string().min(1).max(64),
     AGENT_TOKEN: z.string().min(1),
     DEFAULT_CHAIN: z.enum(Object.values(CHAINS)).default(CHAINS.solanaDevnet),
