@@ -115,8 +115,9 @@ Each line can be checked by someone other than its author.
       PR branch's preview would be an unreviewed signing page on a public URL; it has a strict
       Content-Security-Policy, no third-party scripts at runtime, and pinned dependencies; and
       `status` fails on any limit or member other than the expected ones.
-- [ ] **ADR 003's five devnet checks, run with a fresh Phantom account,** each with its result written
-      into the ADR:
+- [x] **ADR 003's devnet checks, run with a fresh Phantom account (HUMAN-15, 2026-11-07).** Results in
+      the ADR: 3 and 4 passed, 5 passed on iOS, and 1 and 2 were skipped as optional. **Left:** check 5
+      on Android, if the owner will ever kill from an Android phone. The checks were:
   1. whether the Squads app can set a config authority at creation;
   2. whether it can add a limit for a hot wallet that is not a voting member. Checks 1 and 2 only
      decide whether the app can be a setup fallback;

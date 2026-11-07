@@ -117,9 +117,60 @@ from a keypair file. In env, the key is visible to anything that can read the pr
 (`/proc/<pid>/environ`, crash reporters, a `printenv` in a debug shell). It should come from a file,
 as on Solana and as D5 assumes. guard-core holds it until the owner decides D5, at the owner's request.
 
+## Deployment review (planned, D3 Fly.io and D5 Fly secrets)
+
+To run once GC-16/20/21/22 and BOT-12 are merged, against the deployed apps, not only the config.
+Each line records what was checked and how.
+
+**Network shape**
+
+- guard-core's private listener (`/v1/admin/*`, `/v1/bot/*`) is reachable only over 6PN
+  (`.internal`). From outside, it is checked with `curl` against the public hostname and the
+  app's IPs, and must refuse or 404.
+- The public listener serves only `/v1/agent/*` (GC-22). Admin and bot paths must 404 there, and
+  agent paths must 404 on the private listener. This is checked live as well as by the tests.
+- The bot's only public route is the Telegram webhook, behind TLS. `/hooks/*` (guard-core → bot)
+  is private.
+- No service binds a public port it does not need: check `fly.toml` `[[services]]` and
+  `fly ips list` for every app.
+
+**The public agent surface (GC-22)**
+
+- TLS only. Plain HTTP is redirected or refused, and the certificate is valid for the hostname.
+- Every request without a valid agent token gets a 401, before any work.
+- Rate limits hold per IP and per token, behind Fly's proxy. Requests are keyed on `Fly-Client-IP`
+  on this listener only, and a client-sent `Fly-Client-IP` or `X-Forwarded-For` cannot change the
+  key: send a flood with forged headers and confirm a 429.
+- No admin or bot capability is reachable with an agent token, and one agent cannot read another
+  agent's intents (the e2e checks, rerun against the deployment).
+- Error bodies leak no stack, path or config.
+- A revoked token is refused on its next request.
+
+**Secrets (D5)**
+
+- The hot wallet key comes from a Fly secret, written by the entrypoint to a tmpfs file (GC-20),
+  never to the volume. Check `mount`, file mode 0400, owner, and that the file is not in any image
+  layer (`docker history`, and the image filesystem).
+- No secret appears in `fly logs` across a full payment, approval and kill; and none in the image's
+  environment (`fly ssh console` → `env` shows only names expected from `fly secrets list`).
+- ADMIN, BOT and webhook tokens are distinct, at least 32 chars, and set as secrets, not in
+  `fly.toml`.
+
+**Data**
+
+- The database is on the volume, and guard-core refuses an unsafe location (#35). A redeploy keeps
+  the day's spend: make a payment, redeploy, and check `spentToday`.
+- `pnpm db:backup` works against the deployed volume, and a restore is rehearsed once.
+
+**Operations**
+
+- The kill runbook works against the deployed stack: `/kill` → "Open kill in Phantom" → `status`
+  shows no limit, and the agent is paused in guard-core.
+- Deploys come only from protected `main` for both the Fly apps and the signing page.
+
 ## Left for INT-7
 
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).
-- Close the Base hot key finding above once D5 is decided.
-- A deployment review once HUMAN-7 picks a host: TLS, what fronts each service, and secrets in a
-  manager rather than files.
+- The Base hot key finding above: D5 is now decided (a Fly secret written to a file), so the Base
+  key must be read from a file like Solana's before Base launches. D6 puts Base after Solana.
+- Run the deployment review above once the deploy PRs are merged.

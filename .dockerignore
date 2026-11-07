@@ -1,0 +1,42 @@
+# `fly deploy` and `docker build` from the repo root upload this whole tree as the build context.
+# Nothing secret or local may ride along: an image layer keeps whatever was copied into it.
+
+# secrets: every .env, at any depth, except the examples
+**/.env
+**/.env.*
+!**/.env.example
+
+# key material that might sit in a checkout by mistake
+**/*keypair*.json
+**/id.json
+**/*.pem
+**/*.key
+
+# local databases, logs and backups
+**/*.db
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
+**/data/
+**/backups/
+**/*.log
+
+# installed and built output: the image installs and builds its own
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/coverage
+.pnpm-store
+
+# repository and tooling
+.git
+.github
+.vscode
+.idea
+**/.DS_Store
+
+# foundry output and libraries, not used by any service image
+packages/onchain/out
+packages/onchain/cache
+packages/onchain/lib
+packages/onchain/broadcast
