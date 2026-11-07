@@ -1001,7 +1001,12 @@ A ordem:
 
 ---
 
-## ⏳ HUMAN-18 — Confirmar os endereços da Robinhood Chain
+## ✅ HUMAN-18 — Confirmar os endereços da Robinhood Chain
+
+**Feito em 2026-11-07.** Os dois endereços do USDG batem com as páginas da Paxos. No explorador há
+dezenas de tokens chamados "USDC" (alguns com dezenas de milhares de detentores) — por isso a regra é
+aceitar **só** o endereço exato do USDG, e o bot avisa sobre qualquer outro token com nome USDC ou
+USDG. O texto abaixo fica como registo.
 
 Desbloqueia: o adaptador da Robinhood Chain (D6: Solana → Robinhood Chain → Base). A pesquisa da Sessão
 1 (`packages/onchain/docs/robinhood-research.md`) mostrou que nada bloqueia: a Safe e o Allowance
