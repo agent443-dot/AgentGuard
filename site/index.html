@@ -1308,7 +1308,7 @@
       /* Chains */
       .chains {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 20px;
       }
       .chain {
@@ -1339,6 +1339,20 @@
       }
       .chain.evm::before {
         background: #14f195;
+      }
+      .chain.soon::before {
+        background: #43b4ca;
+      }
+      .chain.soon {
+        border-style: dashed;
+      }
+      .chain.soon .kv dd {
+        color: var(--dim);
+      }
+      .order.soon-tag {
+        color: #7fd4e3;
+        border-color: rgba(67, 180, 202, 0.4);
+        background: rgba(67, 180, 202, 0.1);
       }
       .chain-head {
         display: flex;
@@ -1383,7 +1397,7 @@
         font-size: 12.5px;
         color: var(--muted);
       }
-      @media (max-width: 900px) {
+      @media (max-width: 920px) {
         .chains {
           grid-template-columns: 1fr;
         }
@@ -2340,7 +2354,8 @@
             <h2 class="h2">Solana first. <span class="grad-text">Base right behind.</span></h2>
             <p class="lede">
               The same protection everywhere: the same limits, the same test run before signing, and
-              the same kill switch, whether your agent pays on Solana or Base.
+              the same kill switch, whether your agent pays on Solana or Base. More chains are on
+              the way.
             </p>
           </div>
           <div class="chains">
@@ -2400,6 +2415,34 @@
                 </div>
               </dl>
             </article>
+            <article class="chain soon">
+              <div class="chain-head">
+                <h3>Robinhood Chain</h3>
+                <span class="order soon-tag">Coming soon</span>
+              </div>
+              <dl class="kv">
+                <div>
+                  <dt>Vault wallet</dt>
+                  <dd>In development</dd>
+                </div>
+                <div>
+                  <dt>Spend limit</dt>
+                  <dd>Daily cap, same model</dd>
+                </div>
+                <div>
+                  <dt>Payments</dt>
+                  <dd>x402 pay-per-use, in USDC</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>Adapter in progress</dd>
+                </div>
+                <div>
+                  <dt>Network ID</dt>
+                  <dd class="mono">TBA</dd>
+                </div>
+              </dl>
+            </article>
           </div>
         </div>
       </section>
@@ -2442,10 +2485,11 @@
             </div>
             <div class="phase next">
               <span class="phase-tag">Next</span>
-              <h3>Mainnet beta</h3>
+              <h3>More chains</h3>
               <ul>
                 <li>Solana mainnet-beta</li>
                 <li>Base mainnet</li>
+                <li>Robinhood Chain support</li>
                 <li>Bug bounty</li>
               </ul>
             </div>
