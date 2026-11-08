@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { CHAINS, getAddress, type ChainId } from '@agentguard/shared'
+import { CHAINS, getAddress, usdSymbol, type ChainId } from '@agentguard/shared'
 import { build } from 'esbuild'
 import { isAddress } from 'viem'
 import { isPublicKey } from './src/plan.js'
@@ -42,6 +42,7 @@ export function evmChains(env: NodeJS.ProcessEnv = process.env) {
       chainId: Number(id.split(':')[1]),
       module: getAddress(id, 'allowanceModule')!,
       usd: getAddress(id, 'usd')!,
+      symbol: usdSymbol(id)!,
       ...(hot ? { hot } : {}),
     }
   }

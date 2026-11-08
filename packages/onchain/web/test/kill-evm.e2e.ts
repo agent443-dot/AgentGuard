@@ -82,7 +82,7 @@ describe('the kill page on an EVM chain', () => {
     s.state.refuses = true
     const page = await open()
     await settled(page, 'Nothing to sign')
-    expect((await lines(page)).join(' ')).toContain('The Safe would refuse this transaction')
+    expect((await lines(page)).join(' ')).toContain('The chain would refuse this transaction')
     expect(s.sent).toEqual([])
   })
 

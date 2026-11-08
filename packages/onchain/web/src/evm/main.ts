@@ -10,6 +10,8 @@ import { z } from 'zod'
 import { EXPIRED, expired, issued, problems } from '../link.js'
 import { openInPhantom } from '../wallet.js'
 import { button, link, show, waitFor } from '../view.js'
+import { prepareEvmCreate } from './create.js'
+import { prepareEvmEnable } from './enable.js'
 import { prepareEvmKill } from './kill.js'
 import type { EvmPlan } from './plan.js'
 import { onChain, phantomEvm, type Eip1193 } from './wallet.js'
@@ -21,45 +23,43 @@ export interface EvmChain {
   rpc: string
   module: Address
   usd: Address
+  symbol: string
   hot?: Address
 }
+
+declare const MAX_DAILY_CAP: string
 
 const address = z
   .string()
   .refine((value) => isAddress(value), 'not an EVM address')
   .transform((value) => getAddress(value))
 // `hot` is optional, and only ever checked against the hot wallet the page was built for.
-const evmLink = z.object({
-  action: z.literal('kill'),
-  safe: address,
-  hot: address.optional(),
-  issued,
-})
+const hot = address.optional()
+const evmLink = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('kill'), safe: address, hot, issued }),
+  z.object({ action: z.literal('create') }),
+  z.object({
+    action: z.literal('enable'),
+    safe: address,
+    hot,
+    amount: z
+      .string()
+      .regex(/^[1-9]\d{0,19}$/, 'a positive whole number of base units')
+      .transform(BigInt)
+      .refine(
+        (amount) => amount <= BigInt(MAX_DAILY_CAP),
+        `above this page's maximum daily cap of ${MAX_DAILY_CAP} base units`,
+      ),
+  }),
+])
+type EvmLink = z.infer<typeof evmLink>
+
+const refuse = (reason: string): EvmPlan => ({ kind: 'refused', reason })
 
 export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   const parsed = evmLink.safeParse(query)
   if (!parsed.success) {
     show('This link is not valid', [problems(parsed.error)], 'stop')
-    return
-  }
-  if (expired(parsed.data.issued)) {
-    show('Nothing to sign', [EXPIRED], 'stop')
-    return
-  }
-  const hot = chain.hot && getAddress(chain.hot)
-  if (!hot) {
-    show('Nothing to sign', [`This page knows no hot wallet for ${chain.name}.`], 'stop')
-    return
-  }
-  if (parsed.data.hot && parsed.data.hot !== hot) {
-    show(
-      'Nothing to sign',
-      [
-        `The link names ${parsed.data.hot} as the hot wallet, but this page only kills ${hot}. ` +
-          'Do not sign anything from this link.',
-      ],
-      'stop',
-    )
     return
   }
   const wallet = phantomEvm()
@@ -78,20 +78,43 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
     .min(1)
     .parse(await wallet.request({ method: 'eth_requestAccounts' }))
   if (!(await onChain(wallet, chain.chainId))) {
-    show(
-      'Nothing to sign',
-      [`Phantom did not switch to ${chain.name} (chain ${chain.chainId}).`],
-      'stop',
-    )
+    const reason = `Phantom did not switch to ${chain.name} (chain ${chain.chainId}).`
+    show('Nothing to sign', [reason], 'stop')
     return
   }
   show('Checking the chain…', [])
-  const plan = await prepareEvmKill(
-    client,
-    { safe: parsed.data.safe, hot, cluster: chain.name, module: chain.module, usd: chain.usd },
-    account!,
-  )
-  await run(client, wallet, account!, plan)
+  await run(client, wallet, account!, await prepare(client, chain, parsed.data, account!))
+}
+
+function prepare(
+  client: PublicClient,
+  chain: EvmChain,
+  request: EvmLink,
+  owner: Address,
+): Promise<EvmPlan> {
+  if (request.action === 'create') {
+    return prepareEvmCreate(client, chain.name, owner)
+  }
+  if (request.action === 'kill' && expired(request.issued)) {
+    return Promise.resolve(refuse(EXPIRED))
+  }
+  const hot = chain.hot && getAddress(chain.hot)
+  if (!hot) {
+    return Promise.resolve(refuse(`This page knows no hot wallet for ${chain.name}.`))
+  }
+  if (request.hot && request.hot !== hot) {
+    return Promise.resolve(
+      refuse(
+        `The link names ${request.hot} as the hot wallet, but this page only acts for ${hot}. ` +
+          'Do not sign anything from this link.',
+      ),
+    )
+  }
+  const { module, usd, symbol } = chain
+  const known = { cluster: chain.name, safe: request.safe, hot, module, usd }
+  return request.action === 'kill'
+    ? prepareEvmKill(client, known, owner)
+    : prepareEvmEnable(client, { ...known, symbol, amount: request.amount }, owner)
 }
 
 async function run(client: PublicClient, wallet: Eip1193, owner: Address, plan: EvmPlan) {
@@ -103,19 +126,19 @@ async function run(client: PublicClient, wallet: Eip1193, owner: Address, plan: 
     show(plan.title, plan.summary, 'done')
     return
   }
-  // The Safe takes the owner's approval only from the owner, so this is the exact call Phantom sends.
+  // The exact call Phantom will send, from the owner: the Safe takes its approval only from them.
   try {
-    await client.call({ account: owner, to: plan.safe, data: plan.data })
+    await client.call({ account: owner, to: plan.to, data: plan.data })
   } catch (error) {
     const reason = error instanceof Error ? error.message.split('\n')[0] : String(error)
-    show('Nothing to sign', [`The Safe would refuse this transaction: ${reason}`], 'stop')
+    show('Nothing to sign', [`The chain would refuse this transaction: ${reason}`], 'stop')
     return
   }
   show(plan.title, plan.summary)
   try {
     await wallet.request({
       method: 'eth_sendTransaction',
-      params: [{ from: owner, to: plan.safe, data: plan.data, value: '0x0' }],
+      params: [{ from: owner, to: plan.to, data: plan.data, value: '0x0' }],
     })
   } catch (error) {
     show(plan.title, [...plan.summary, `Not sent: ${String(error)}`], 'stop')

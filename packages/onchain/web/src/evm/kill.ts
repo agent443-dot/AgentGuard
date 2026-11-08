@@ -40,7 +40,7 @@ export async function prepareEvmKill(
   return {
     kind: 'sign',
     title: 'Kill the hot wallet',
-    safe,
+    to: safe,
     data: killData(owner, module, hot),
     after: 'Killed',
     summary: [
