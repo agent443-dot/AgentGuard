@@ -1042,9 +1042,9 @@ Solana e na Base, USDG na Robinhood Chain) em vez de só USDC.
 
 ---
 
-## ⬜ HUMAN-19 — Atualizar o bot no Fly (botões de kill com prazo)
+## ⏳ HUMAN-19 — Atualizar o bot no Fly (botões de kill com prazo)
 
-Depois de o PR #99 entrar no `main` — eu aviso-te. O bot passa a mostrar o botão da Phantom só depois
+**Já podes fazer:** o PR #99 entrou no `main`. O bot passa a mostrar o botão da Phantom só depois
 de o guard-core confirmar a pausa, e cada link de kill passa a levar a hora em que foi criado, para a
 página recusar links velhos. **A ordem importa**: primeiro o bot, depois a página (PR #100) — ao
 contrário, os botões de kill deixavam de funcionar entretanto. O integrator guia-te; são uns 3 minutos:
