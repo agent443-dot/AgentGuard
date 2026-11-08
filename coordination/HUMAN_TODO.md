@@ -45,6 +45,12 @@ Criados em 2026-11-03. Tudo público.
 | Owner antiga (ficheiro)     | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
 | Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
 
+**Robinhood Chain testnet (46630)**
+
+| O quê                  | Endereço                                     |
+| ---------------------- | -------------------------------------------- |
+| Hot wallet (Robinhood) | `0x30E7E36153ee1Ee4eF7d865afE522f09b72f01Ec` |
+
 **O dinheiro vive no cofre, não na owner.** A owner é quem manda; o cofre é onde está o USDC que o
 agente vai gastar sob o teto diário.
 
