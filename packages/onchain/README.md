@@ -216,6 +216,17 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   button left in an old message cannot remove the limit out of step with guard-core. After a kill,
   the page tells the owner to confirm in Telegram that guard-core is paused.
 
+  **If the bot is down,** build the kill link by hand. Its values are public: the multisig and the
+  hot wallet from guard-core's `.env`, and the page's own URL. It is good for 15 minutes:
+
+  ```bash
+  issued=$(date +%s)
+  echo "https://<signing page>/?action=kill&cluster=mainnet-beta&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>&issued=$issued"
+  ```
+
+  Open it in a browser with the Phantom extension. On a phone, open it inside Phantom through
+  `https://phantom.app/ul/browse/<the link, URL-encoded>`.
+
 - **It checks the chain before asking Phantom.** The multisig must belong to the Squads program and
   have the connected wallet as its config authority. Add-limit refuses when a limit already exists:
   changing the cap means a kill, then a new limit. A kill still removes a limit with unexpected
