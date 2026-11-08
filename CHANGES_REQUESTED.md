@@ -392,3 +392,38 @@ integrator before any session writes code, since every package imports those typ
 - **Blast radius:** shared (`CHAINS`, `ChainAddresses`), onchain (EVM config for the two chain
   ids, the scripts), guard-core (`buildChains` for a second EVM chain), bot and mcp (the dollar
   symbol, chain names, explorer links). No change to the policy engine or to the amounts.
+
+### CR-008 — An allowance that does not exist is a state, not a read failure
+
+- **From:** integrator, from the first Fly.io run (HUMAN-17), with the shape proposed by the manager
+- **Date:** 2026-11-07
+- **Status:** proposed. Needs the owner's approval.
+- **Found:** after a kill, the Squads `SpendingLimit` account no longer exists. The Solana adapter's
+  `getAllowanceState()` then throws "Unable to find SpendingLimit account", so `GET /v1/admin/chains`
+  reports `allowance: null` and the bot says "onchain allowance could not be read". That reads like an
+  outage, but it is the state a kill is meant to leave. Base has the opposite problem:
+  `getTokenAllowance` on a removed delegate returns zeros, which reads as an active limit of 0 and
+  hides the kill.
+- **What:**
+  1. `AllowanceState` in SPEC and shared becomes a union:
+     ```ts
+     type AllowanceState =
+       | { status: 'active'; cap: Amount; spent: Amount; resetsAt: string; delegate: Address }
+       | { status: 'none'; delegate: Address }
+     ```
+  2. `getAllowanceState()` returns `{ status: 'none' }` only when the chain shows that no limit
+     exists for the hot wallet:
+     - Solana: the `SpendingLimit` account at the address derived from the hot wallet is absent;
+     - EVM: the hot wallet is not among the Safe's delegates in the Allowance Module, or its
+       allowance for the token was deleted with it.
+
+     Any other failure, such as an RPC error or an account that will not decode, still throws.
+
+  3. `GET /v1/admin/chains` keeps `allowance: null` for a thrown read, and passes `none` through.
+  4. The bot shows "no onchain limit (killed)" for `none`, and "could not be read" only for `null`.
+- **Never:** collapse `none` into an active limit with a zero cap. A zero cap looks like a working
+  setup that has been spent. A missing limit means a kill happened, and the owner must see that.
+- **Why:** the owner must be able to tell a kill from an outage from Telegram alone.
+- **Blast radius:** shared (`AllowanceState`), SPEC (the type and the admin chains route), onchain
+  (both adapters' `getAllowanceState`, the stub), guard-core (the stub chain), bot (the chains
+  line). The policy engine, the amounts and the agent API do not change.
