@@ -202,6 +202,27 @@ export interface SpendingLimitState {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * The limit, or null when its account does not exist: the kill closes it, and before the owner adds
+ * one there is none. An account that exists but is not a Squads spending limit is an error, not "no
+ * limit", and so is any failure to read it.
+ */
+export async function findSpendingLimit(
+  connection: Connection,
+  spendingLimit: PublicKey,
+): Promise<SpendingLimitState | null> {
+  const info = await connection.getAccountInfo(spendingLimit)
+  if (info === null) {
+    return null
+  }
+  if (!info.owner.equals(multisig.PROGRAM_ID)) {
+    throw new Error(
+      `not_a_spending_limit: ${spendingLimit.toBase58()} is owned by ${info.owner.toBase58()}`,
+    )
+  }
+  return spendingLimitState(multisig.accounts.SpendingLimit.fromAccountInfo(info)[0])
+}
+
 export async function readSpendingLimit(
   connection: Connection,
   spendingLimit: PublicKey,
@@ -210,6 +231,10 @@ export async function readSpendingLimit(
     connection,
     spendingLimit,
   )
+  return spendingLimitState(account)
+}
+
+function spendingLimitState(account: multisig.accounts.SpendingLimit): SpendingLimitState {
   const cap = BigInt(account.amount.toString())
   const remaining = BigInt(account.remainingAmount.toString())
   const lastReset = Number(account.lastReset.toString()) * 1000

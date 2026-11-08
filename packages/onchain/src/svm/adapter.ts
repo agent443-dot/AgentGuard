@@ -31,7 +31,7 @@ import {
 } from '../ChainAdapter.js'
 import { inspectTransfer } from './inspect.js'
 import { simulateMessage, topUpFor } from './simulate.js'
-import { confirm, connect, readSpendingLimit, spendingLimitPda } from './squads.js'
+import { confirm, connect, findSpendingLimit, spendingLimitPda } from './squads.js'
 import { useSpendingLimit } from './draw.js'
 import { expectedTransfer, transferInstructions, type Payment } from './transfer.js'
 import { gatedScheme } from './x402.js'
@@ -135,8 +135,13 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
     chain,
 
     async getAllowanceState(): Promise<AllowanceState> {
-      const { cap, spent, resetsAt } = await readSpendingLimit(connection, limit)
-      return { status: 'active', cap, spent, resetsAt, delegate: hotWallet.publicKey.toBase58() }
+      const delegate = hotWallet.publicKey.toBase58()
+      const state = await findSpendingLimit(connection, limit)
+      if (!state) {
+        return { status: 'none', delegate }
+      }
+      const { cap, spent, resetsAt } = state
+      return { status: 'active', cap, spent, resetsAt, delegate }
     },
 
     async getHotWalletBalance(token: Address): Promise<Amount> {

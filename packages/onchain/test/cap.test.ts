@@ -110,6 +110,15 @@ describe('the Squads spending limit', () => {
     expect(c.balance(c.hotWallet.publicKey)).toBe(2n * CAP)
   })
 
+  it('reports the limit active, then none once the kill has closed it', async () => {
+    expect((await limited.getAllowanceState()).status).toBe('active')
+    await removeLimit()
+    expect(await limited.getAllowanceState()).toEqual({
+      status: 'none',
+      delegate: c.hotWallet.publicKey.toBase58(),
+    })
+  })
+
   it('refuses everything after the kill', async () => {
     await removeLimit()
     await expect(draw(1n)).rejects.toThrow(GONE)
