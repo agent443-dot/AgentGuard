@@ -55,7 +55,7 @@ export const configSchema = z
 
     NOTIFY_ABOVE_AMOUNT: z
       .string()
-      .regex(/^(0|[1-9]\d*)$/, 'expected USDC atomic units')
+      .regex(/^(0|[1-9]\d*)$/, 'expected dollar atomic units')
       .default('1000000')
       .transform(BigInt),
 

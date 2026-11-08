@@ -201,6 +201,9 @@ describe('explorerUrl', () => {
     [CHAINS.base, 'tx', '0xab', 'https://basescan.org/tx/0xab'],
     [CHAINS.base, 'address', '0xab', 'https://basescan.org/address/0xab'],
     [CHAINS.baseSepolia, 'tx', '0xab', 'https://sepolia.basescan.org/tx/0xab'],
+    [CHAINS.robinhood, 'tx', '0xab', 'https://robinhoodchain.blockscout.com/tx/0xab'],
+    [CHAINS.robinhood, 'address', '0xab', 'https://robinhoodchain.blockscout.com/address/0xab'],
+    [CHAINS.robinhoodTestnet, 'tx', '0xab', 'https://explorer.testnet.chain.robinhood.com/tx/0xab'],
   ] as const)('%s %s', (chain, target, id, url) => {
     expect(explorerUrl(chain, target, id)).toBe(url)
   })
@@ -224,9 +227,35 @@ describe('amounts', () => {
     expect(amountText(intent())).toBe('<b>$12.50</b> USDC')
     const other = amountText(intent({ token: 'FakeUsdc111111111111111111111111111111111111' }))
     expect(other).toContain('<b>12500000</b> base units of <code>FakeUsdc')
-    expect(other).toContain('not a known USDC')
+    expect(other).toContain('not the USDC of this chain')
     // Devnet USDC presented as a mainnet payment is not USDC on that chain.
     expect(amountText(intent({ chain: CHAINS.solanaMainnet }))).toContain('base units')
+  })
+
+  it('labels the Robinhood dollar USDG, and warns on a look-alike at another address', () => {
+    const usdg = {
+      chain: CHAINS.robinhoodTestnet,
+      token: '0x7E955252E15c84f5768B83c41a71F9eba181802F',
+    }
+    expect(amountText(intent(usdg))).toBe('<b>$12.50</b> USDG')
+    // Base Sepolia USDC at the same position on Robinhood is not its dollar.
+    const fake = amountText(
+      intent({ ...usdg, token: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }),
+    )
+    expect(fake).toContain('base units of <code>0x036CbD')
+    expect(fake).toContain(
+      "not the USDG of this chain: any token named USDC or USDG at another address is someone else's",
+    )
+    // Mainnet USDG offered as a testnet payment is not the testnet's dollar either.
+    expect(amountText(intent({ chain: CHAINS.robinhood, token: usdg.token }))).toContain(
+      'not the USDG of this chain',
+    )
+  })
+
+  it('says so when the chain has no verified dollar', () => {
+    expect(amountText(intent({ chain: CHAINS.base, token: '0xab' }))).toContain(
+      'this chain has no verified dollar',
+    )
   })
 })
 
