@@ -26,6 +26,20 @@ checks never see that draw. The Safe owner signs on a Ledger since EVM-9 (#41): 
 `enable-allowance` and `kill:base`, and the scripts refuse Base mainnet with a raw key. It is proven
 against a fake device only; the real-hardware run is below.
 
+**Robinhood Chain mainnet pilot (owner decision, 2026-11-08).** The testnet faucets blocked the
+HUMAN-20 run: no USDG faucet was confirmed on 46630, and the hot wallet could not be funded. So the
+owner chose to skip the testnet and run Robinhood Chain on mainnet (4663) with real money. These are
+the limits he chose when the risk was put to him:
+
+- a daily cap of **5 USDG**, with the Safe holding about 10 USDG and about $5 of ETH for gas;
+- a **new Phantom wallet with its own recovery phrase** as the only owner of the Safe;
+- a new hot wallet key, generated for mainnet.
+
+**Risk accepted by the owner:** the EVM signing pages (create, enable, kill) and the USDG x402 path
+have run only against forks and fakes, never live. A bug costs at most the day's cap plus what the
+hot wallet holds. The Allowance Module's any-recipient risk (Base, above) applies here too. This is
+a pilot at a pilot's cap. It does not lift D1, and it does not clear the launch blockers in §2.
+
 **Key rule, not a decision:** mainnet uses **new keys only**, owner and hot wallet both, generated for
 mainnet and never used on devnet. A devnet seed phrase has been exposed, so no devnet key, and nothing
 derived from its seed, may control mainnet funds.
