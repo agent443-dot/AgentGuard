@@ -45,6 +45,15 @@ Criados em 2026-11-03. Tudo público.
 | Owner antiga (ficheiro)     | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
 | Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
 
+**Robinhood Chain mainnet (4663) — piloto com dinheiro real (HUMAN-21)**
+
+| O quê                       | Endereço                                     |
+| --------------------------- | -------------------------------------------- |
+| Safe                        | `0xB460E05685c613EF726Fd74b91B24f4B4e989d8a` |
+| Owner Phantom (só ela, 1/1) | `0x2cfBE309A0D2a3cc81D16fdD82F09e2f484f48Ba` |
+| Hot wallet (delegate)       | `0x46F51787ccE5fD8582A5de0a79d9460148Bf2204` |
+| Teto                        | 5 USDG por dia                               |
+
 **Robinhood Chain testnet (46630)**
 
 | O quê                  | Endereço                                     |
