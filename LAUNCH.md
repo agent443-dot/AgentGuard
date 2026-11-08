@@ -255,6 +255,17 @@ agent stayed unpaused until `/kill` was confirmed. BOT-13 makes old buttons expi
    to remove. Then `/status` shows the chain without a limit. Until CR-008 lands, it reads
    "onchain allowance could not be read".
 
+   The button expires 15 minutes after the kill result is posted, and the page refuses an older
+   link (BOT-13). If the bot itself is down, build the link by hand. Every value in it is public,
+   and it is good for 15 minutes:
+
+   ```bash
+   issued=$(date +%s) && m=$(grep '^SQUADS_MULTISIG=' packages/guard-core/.env | cut -d= -f2-) && h=$(grep '^SOLANA_HOT_WALLET_PUBKEY=' packages/telegram-bot/.env | cut -d= -f2-) && echo "https://agentguard-onchain.vercel.app/?action=kill&cluster=mainnet-beta&multisig=$m&hot=$h&issued=$issued"
+   ```
+
+   Open it in a browser with Phantom, or on a phone inside Phantom through
+   `https://phantom.app/ul/browse/<the link, URL-encoded>`. Use `cluster=devnet` on devnet.
+
    With the owner key on a Ledger, if D4 changes:
    1. Plug the Ledger in, unlock it, and open the Solana app.
    2. Turn **Blind signing** on (Solana app, Settings). The app cannot display Squads instructions.
