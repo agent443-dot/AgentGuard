@@ -1,5 +1,5 @@
 import type { ChainAdapter, KillTx, SimulationOutcome } from '@agentguard/onchain'
-import type { Amount, ChainId, PayIntent } from '@agentguard/shared'
+import type { AllowanceState, Amount, ChainId, PayIntent } from '@agentguard/shared'
 import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
 
 /**
@@ -18,8 +18,14 @@ export class StubChain implements ChainAdapter {
     this.balance = balance
   }
 
-  async getAllowanceState() {
-    return { cap: '100000000', spent: '0', resetsAt: '1970-01-01T00:00:00.000Z', delegate: 'stub' }
+  async getAllowanceState(): Promise<AllowanceState> {
+    return {
+      status: 'active',
+      cap: '100000000',
+      spent: '0',
+      resetsAt: '1970-01-01T00:00:00.000Z',
+      delegate: 'stub',
+    }
   }
 
   async getHotWalletBalance(): Promise<Amount> {

@@ -12,6 +12,9 @@ export const CHAINS = {
   solanaDevnet: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
   base: 'eip155:8453',
   baseSepolia: 'eip155:84532',
+  // CR-007. Chain ids read from the chains themselves in RH-1 (forge/RobinhoodProbe.t.sol).
+  robinhood: 'eip155:4663',
+  robinhoodTestnet: 'eip155:46630',
 } as const satisfies Record<string, ChainId>
 
 export type SupportedChain = (typeof CHAINS)[keyof typeof CHAINS]
@@ -24,7 +27,7 @@ export function isSvm(chain: ChainId): boolean {
   return chain.startsWith('solana:')
 }
 
-/** USDC is the only token in v0.1, and has 6 decimals on both chains. */
+/** Each chain's dollar (USDC, or USDG on Robinhood Chain) has 6 decimals. */
 export const USDC_DECIMALS = 6
 
 export const GUARD_PORT = 8787

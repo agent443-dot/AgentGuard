@@ -46,7 +46,7 @@ const network = CHAINS.solanaDevnet
 const requirements: PaymentRequirements = {
   scheme: 'exact',
   network,
-  asset: requireAddress(network, 'usdc'),
+  asset: requireAddress(network, 'usd'),
   amount: config.PAYWALL_AMOUNT,
   payTo: config.PAYWALL_PAY_TO,
   maxTimeoutSeconds: 60,

@@ -31,6 +31,7 @@ describe('owner commands', () => {
       {
         chain: CHAINS.solanaDevnet,
         allowance: {
+          status: 'active',
           cap: '100000000',
           spent: '3000000',
           resetsAt: '2026-11-05T00:00:00Z',
@@ -38,10 +39,12 @@ describe('owner commands', () => {
         },
       },
       { chain: CHAINS.baseSepolia, allowance: null },
+      { chain: CHAINS.robinhoodTestnet, allowance: { status: 'none', delegate: 'D' } },
     ])
     const { bot, calls } = setup({ guard: fakeGuard({ chains }) })
     await bot.handleUpdate(command(OWNER, '/status'))
     const text = lastReply(calls)
+    expect(text).toContain('• Robinhood Chain testnet: <b>no onchain limit (killed)</b>')
     expect(text).toContain(
       '• Solana devnet: $3.00 of $100.00 onchain today, resets 2026-11-05 00:00:00 UTC',
     )

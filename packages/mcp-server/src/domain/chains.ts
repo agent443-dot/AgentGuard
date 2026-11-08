@@ -5,6 +5,8 @@ export const CHAIN_NAMES: Record<string, string> = {
   [CHAINS.solanaDevnet]: 'Solana devnet',
   [CHAINS.base]: 'Base mainnet',
   [CHAINS.baseSepolia]: 'Base Sepolia',
+  [CHAINS.robinhood]: 'Robinhood Chain',
+  [CHAINS.robinhoodTestnet]: 'Robinhood Chain testnet',
 }
 
 export function chainName(chain: string): string {
@@ -17,5 +19,5 @@ export function chainName(chain: string): string {
  * guard-core checks the token against the policy.
  */
 export function usdcFor(chain: string, baseUsdc: string | undefined): string | undefined {
-  return getAddress(chain, 'usdc') ?? (isEvm(chain) ? baseUsdc : undefined)
+  return getAddress(chain, 'usd') ?? (isEvm(chain) ? baseUsdc : undefined)
 }

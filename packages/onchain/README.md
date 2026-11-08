@@ -200,18 +200,32 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
 - **The link carries the action and public addresses only.** Each action builds its instruction
   with the same builder as the script it replaces:
 
-  | Link                                                                      | Instruction                   | Builder                          |
-  | ------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
-  | `/?action=create&cluster=<cluster>`                                       | `multisigCreateV2`            | `createMultisigInstruction`      |
-  | `/?action=add-limit&cluster=<cluster>&multisig=<pda>&amount=<base units>` | `multisigAddSpendingLimit`    | `addSpendingLimitInstruction`    |
-  | `/?action=kill&cluster=<cluster>&multisig=<pda>&hot=<pubkey>`             | `multisigRemoveSpendingLimit` | `removeSpendingLimitInstruction` |
+  | Link                                                                                | Instruction                   | Builder                          |
+  | ----------------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
+  | `/?action=create&cluster=<cluster>`                                                 | `multisigCreateV2`            | `createMultisigInstruction`      |
+  | `/?action=add-limit&cluster=<cluster>&multisig=<pda>&amount=<base units>`           | `multisigAddSpendingLimit`    | `addSpendingLimitInstruction`    |
+  | `/?action=kill&cluster=<cluster>&multisig=<pda>&hot=<pubkey>&issued=<unix seconds>` | `multisigRemoveSpendingLimit` | `removeSpendingLimitInstruction` |
 
   The limit's address is derived from the hot wallet, so the page adds and removes the limit the
   adapter draws on and nothing else. The USDC mint comes from `shared/addresses.ts` at build time,
   never from the link. So does the hot wallet that add-limit grants: a link naming any other key is
   refused, since a crafted one could otherwise let an attacker's key draw the full cap. Rotating the
   hot wallet is a redeploy from `main`. The amount must not exceed `MAX_DAILY_CAP`. Create makes its one-time create key in the browser; the key signs before
-  Phantom does.
+  Phantom does. A kill link carries `issued`, when the bot made it, and the page refuses it once it
+  is more than 15 minutes old ("This link expired. Use /kill in Telegram for a fresh one"), so a
+  button left in an old message cannot remove the limit out of step with guard-core. After a kill,
+  the page tells the owner to confirm in Telegram that guard-core is paused.
+
+  **If the bot is down,** build the kill link by hand. Its values are public: the multisig and the
+  hot wallet from guard-core's `.env`, and the page's own URL. It is good for 15 minutes:
+
+  ```bash
+  issued=$(date +%s)
+  echo "https://<signing page>/?action=kill&cluster=mainnet-beta&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>&issued=$issued"
+  ```
+
+  Open it in a browser with the Phantom extension. On a phone, open it inside Phantom through
+  `https://phantom.app/ul/browse/<the link, URL-encoded>`.
 
 - **It checks the chain before asking Phantom.** The multisig must belong to the Squads program and
   have the connected wallet as its config authority. Add-limit refuses when a limit already exists:

@@ -8,7 +8,9 @@ import { BASE_USDC, fakeGuard } from './support.js'
 
 describe('usdcFor', () => {
   it('prefers the verified address in shared', () => {
-    expect(usdcFor(CHAINS.solanaDevnet, BASE_USDC)).toBe(ADDRESSES[CHAINS.solanaDevnet]?.usdc)
+    expect(usdcFor(CHAINS.solanaDevnet, BASE_USDC)).toBe(
+      ADDRESSES[CHAINS.solanaDevnet]?.usd?.address,
+    )
   })
 
   it('prefers the verified Base Sepolia USDC in shared over BASE_USDC', () => {

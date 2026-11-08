@@ -111,6 +111,22 @@ describe('httpGuardClient', () => {
     expect(await guard.chains()).toBeUndefined()
   })
 
+  it('reads a killed chain as no limit, and an allowance without status as active', async () => {
+    const active = { cap: '1', spent: '0', resetsAt: '2026-11-08T00:00:00Z', delegate: 'D' }
+    const { guard } = client(
+      json(200, {
+        chains: [
+          { chain: 'eip155:46630', allowance: { status: 'none', delegate: 'D' } },
+          { chain: 'eip155:84532', allowance: active },
+        ],
+      }),
+    )
+    expect(await guard.chains()).toEqual([
+      { chain: 'eip155:46630', allowance: { status: 'none', delegate: 'D' } },
+      { chain: 'eip155:84532', allowance: { status: 'active', ...active } },
+    ])
+  })
+
   it('reports health without throwing', async () => {
     const { fetch, guard } = client(json(200, { status: 'ok' }))
     expect(await guard.healthy()).toBe(true)

@@ -23,6 +23,9 @@ function chainLine({ chain, allowance }: ChainStatus): string {
   if (allowance === null) {
     return `• ${chainName(chain)}: <b>onchain allowance could not be read</b>`
   }
+  if (allowance.status === 'none') {
+    return `• ${chainName(chain)}: <b>no onchain limit (killed)</b>`
+  }
   return (
     `• ${chainName(chain)}: ${formatUsd(allowance.spent)} of ${formatUsd(allowance.cap)} ` +
     `onchain today, resets ${utcTime(allowance.resetsAt)}`
