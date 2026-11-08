@@ -1,4 +1,4 @@
-import { type Bot, type Context, InlineKeyboard } from 'grammy'
+import { type Bot, type CallbackQueryContext, type Context, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { GuardClient } from '../adapters/guard.js'
 import {
@@ -9,7 +9,14 @@ import {
   ownerTransactionText,
   statusText,
 } from '../domain/text.js'
-import { chainsText, KILL_OFFER_EXPIRED, killWarning } from '../domain/chains.js'
+import {
+  chainsText,
+  KILL_FAILED,
+  KILL_FAILED_ONCHAIN,
+  KILL_OFFER_EXPIRED,
+  killWarning,
+  PHANTOM_ANYWAY,
+} from '../domain/chains.js'
 import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
 import type { Desk } from './desk.js'
 
@@ -120,41 +127,45 @@ export function registerCommands(
     await ctx.editMessageText('Kill cancelled. Nothing changed.')
   })
 
+  /**
+   * Edits the kill message to text and, when the signing page is configured, a Phantom button with
+   * label. The button becomes the only live one: older ones are retired, and it expires on its own.
+   */
+  async function offerKill(ctx: CallbackQueryContext<Context>, text: string, label: string) {
+    const message = ctx.callbackQuery.message
+    if (phantomKill === undefined || message === undefined) {
+      await ctx.editMessageText(text, HTML)
+      return
+    }
+    await ctx.editMessageText(text, {
+      ...HTML,
+      reply_markup: new InlineKeyboard().url(label, phantomKill),
+    })
+    const offer = {
+      chatId: message.chat.id,
+      messageId: message.message_id,
+      text,
+      at: now().getTime(),
+    }
+    await retire(offers.offer(offer))
+  }
+
   bot.callbackQuery('kill:confirm', async (ctx) => {
     await ctx.answerCallbackQuery({ text: 'Killing…' })
     log.warn({ owner: ctx.from.id }, 'kill switch pressed')
+    let result: Awaited<ReturnType<GuardClient['kill']>>
     try {
-      const { pausedAgents, ownerTransactions } = await guard.kill()
-      const built = ownerTransactions.filter(isBuilt).length
-      const text = killedText(pausedAgents, built, phantom)
-      await ctx.editMessageText(text, {
-        ...HTML,
-        // Only here, once guard-core has answered: the onchain half is never offered on its own.
-        reply_markup:
-          phantomKill === undefined
-            ? undefined
-            : new InlineKeyboard().url('Open kill in Phantom', phantomKill),
-      })
-      const message = ctx.callbackQuery.message
-      if (phantom && message !== undefined) {
-        const offer = {
-          chatId: message.chat.id,
-          messageId: message.message_id,
-          text,
-          at: now().getTime(),
-        }
-        await retire(offers.offer(offer))
-      }
-      for (const tx of ownerTransactions) {
-        await ctx.reply(ownerTransactionText(tx), HTML)
-      }
+      result = await guard.kill()
     } catch (err) {
       log.error({ err }, 'kill failed')
-      // No Phantom button here: removing the onchain limit while the guard still runs is half a kill.
-      await ctx.editMessageText(
-        '<b>Kill failed</b>: guard-core did not confirm. Assume nothing is paused and run /kill again.',
-        HTML,
-      )
+      // guard-core may be down, so the onchain limit is the only brake left; the label says so.
+      await offerKill(ctx, phantom ? KILL_FAILED_ONCHAIN : KILL_FAILED, PHANTOM_ANYWAY)
+      return
+    }
+    const built = result.ownerTransactions.filter(isBuilt).length
+    await offerKill(ctx, killedText(result.pausedAgents, built, phantom), 'Open kill in Phantom')
+    for (const tx of result.ownerTransactions) {
+      await ctx.reply(ownerTransactionText(tx), HTML)
     }
   })
 

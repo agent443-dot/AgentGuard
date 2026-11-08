@@ -88,17 +88,21 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 The owner's Solana key is in Phantom (ADR 003), so the bot cannot remove the onchain spending limit
 itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, the result of a
-`/kill` → **Kill everything** that guard-core confirmed carries an **Open kill in Phantom** button.
-Pressing it opens the signing page from `packages/onchain/web` inside Phantom:
+`/kill` → **Kill everything** carries an **Open kill in Phantom** button, labelled differently when
+guard-core did not confirm (below). Pressing it opens the signing page from `packages/onchain/web`
+inside Phantom:
 
 ```
 https://phantom.app/ul/browse/<encodeURIComponent(link)>?ref=<encodeURIComponent(origin)>
 link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>
 ```
 
-- **A kill is never left half done.** The onchain half on its own leaves guard-core running with no
-  limit to stop at, so the button never appears before **Kill everything**, nor when guard-core did
-  not confirm it. It appears only on the result of a kill that paused the agents.
+- **The onchain half is never offered as if it were the kill.** The button never appears before
+  **Kill everything**. On a kill guard-core confirmed, it reads **Open kill in Phantom**. If guard-core
+  did not confirm, the message says "guard-core did **NOT** confirm a pause", and the button reads
+  **Remove onchain limit anyway (Phantom)**. With guard-core down, the onchain limit is the only brake
+  left, so the button stays, but the message says it stops refills only: guard-core can still spend
+  what the hot wallet holds.
 - **Only the newest button is live.** When a newer kill result is posted, in any owner's chat, every
   older one is edited: its button is removed and it says "This Phantom button has expired. Use /kill
   for a fresh one." A button nobody pressed expires the same way after 15 minutes, on the bot's

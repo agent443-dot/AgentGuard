@@ -147,13 +147,44 @@ describe('/kill with the signing page configured', () => {
     expect(phantomButtons(done)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
   })
 
-  it('offers nothing onchain when guard-core did not confirm, so a kill is never half done', async () => {
+  it('keeps the onchain brake when guard-core did not confirm, and says plainly it is only half', async () => {
+    let now = NOW
     const kill = vi.fn().mockRejectedValue(new Error('down'))
-    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKill: PHANTOM })
-    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    const { bot, commands, calls } = setup({
+      guard: fakeGuard({ kill }),
+      phantomKill: PHANTOM,
+      now: () => now,
+    })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
     const failed = sent(calls, 'editMessageText')[0]
-    expect(offerText(failed)).toContain('Kill failed')
-    expect(phantomButtons(failed)).toEqual([])
+    expect(offerText(failed)).toContain('guard-core did <b>NOT</b> confirm a pause')
+    expect(offerText(failed)).toContain('only the onchain half of the kill')
+    expect(phantomButtons(failed)).toEqual([
+      { text: 'Remove onchain limit anyway (Phantom)', url: PHANTOM },
+    ])
+
+    // Same rules as any other button: it expires after 15 minutes.
+    now = new Date(NOW.getTime() + 15 * 60_000)
+    await commands.expireKillOffers()
+    const retired = sent(calls, 'editMessageText')[1]
+    expect(retired?.payload['message_id']).toBe(11)
+    expect(offerText(retired)).toContain('This Phantom button has expired')
+    expect(phantomButtons(retired)).toEqual([])
+  })
+
+  it('retires the "anyway" button when a later kill succeeds', async () => {
+    const kill = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce({ pausedAgents: 1, ownerTransactions: [] })
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKill: PHANTOM })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
+    const edits = sent(calls, 'editMessageText')
+    expect(edits.map((call) => call.payload['message_id'])).toEqual([11, 12, 11])
+    expect(offerText(edits[2])).toContain('guard-core did <b>NOT</b> confirm a pause')
+    expect(phantomButtons(edits[2])).toEqual([])
+    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
   })
 
   it('retires the older button when a newer kill result is posted, in any owner chat', async () => {
@@ -193,10 +224,17 @@ describe('/kill with the signing page configured', () => {
   })
 
   it('shows no Phantom button at all without the signing page', async () => {
-    const { bot, commands, calls } = setup()
+    const kill = vi
+      .fn()
+      .mockResolvedValueOnce({ pausedAgents: 1, ownerTransactions: [] })
+      .mockRejectedValueOnce(new Error('down'))
+    const { bot, commands, calls } = setup({ guard: fakeGuard({ kill }) })
     await bot.handleUpdate(command(OWNER, '/kill'))
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    expect(offerText(sent(calls, 'editMessageText')[1])).toContain(
+      'guard-core did not confirm. Assume nothing is paused',
+    )
     await commands.expireKillOffers()
     expect(phantomButtons(sent(calls, 'sendMessage')[0])).toEqual([])
     expect(sent(calls, 'editMessageText').flatMap(phantomButtons)).toEqual([])
