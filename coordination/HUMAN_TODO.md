@@ -1093,7 +1093,9 @@ com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
    transferência normal — primeiro um valor pequeno — e confirma com
    `pnpm --filter @agentguard/onchain status:robinhood`.
 5. **Ligar o Allowance Module com o teto de 50 USDG**, na mesma página.
-6. **Pôr os segredos da Robinhood no Fly** e fazer redeploy do guard-core.
+6. **Pôr os segredos da Robinhood no Fly**: no guard-core, a chave da hot wallet e o `ROBINHOOD_*`;
+   no bot, o `ROBINHOOD_CHAIN` e o `ROBINHOOD_SAFE_ADDRESS` (públicos), para o `kill` ter também o
+   botão da Robinhood Chain. Redeploy dos dois.
 7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
    prepara-o), com a hot wallet a começar vazia.
 8. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Phantom para remover o teto.
