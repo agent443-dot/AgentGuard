@@ -114,7 +114,7 @@ describe('owner commands', () => {
   })
 })
 
-const PHANTOM = 'https://phantom.app/ul/browse/https%3A%2F%2Fsign.example%2F%3Faction%3Dkill?ref=x'
+const PHANTOM = (issued: Date) => `https://phantom.app/ul/browse/kill?issued=${issued.getTime()}`
 
 function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
   const markup = call?.payload['reply_markup'] as
@@ -144,7 +144,7 @@ describe('/kill with the signing page configured', () => {
     expect(offerText(done)).toContain('guard-core has paused 2 agents and signs no more payments')
     expect(offerText(done)).toContain('The Solana spending limit is still live onchain')
     expect(offerText(done)).toContain('expires in 15 minutes')
-    expect(phantomButtons(done)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
+    expect(phantomButtons(done)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
   })
 
   it('keeps the onchain brake when guard-core did not confirm, and says plainly it is only half', async () => {
@@ -160,7 +160,7 @@ describe('/kill with the signing page configured', () => {
     expect(offerText(failed)).toContain('guard-core did <b>NOT</b> confirm a pause')
     expect(offerText(failed)).toContain('only the onchain half of the kill')
     expect(phantomButtons(failed)).toEqual([
-      { text: 'Remove onchain limit anyway (Phantom)', url: PHANTOM },
+      { text: 'Remove onchain limit anyway (Phantom)', url: PHANTOM(NOW) },
     ])
 
     // Same rules as any other button: it expires after 15 minutes.
@@ -184,7 +184,7 @@ describe('/kill with the signing page configured', () => {
     expect(edits.map((call) => call.payload['message_id'])).toEqual([11, 12, 11])
     expect(offerText(edits[2])).toContain('guard-core did <b>NOT</b> confirm a pause')
     expect(phantomButtons(edits[2])).toEqual([])
-    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
+    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
   })
 
   it('retires the older button when a newer kill result is posted, in any owner chat', async () => {
@@ -201,6 +201,17 @@ describe('/kill with the signing page configured', () => {
     )
     expect(phantomButtons(retired)).toEqual([])
     expect(phantomButtons(edits[1])).toHaveLength(1)
+  })
+
+  it('issues each button its own link, stamped when the kill result is posted', async () => {
+    let now = NOW
+    const { bot, calls } = setup({ phantomKill: PHANTOM, now: () => now })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    now = new Date(NOW.getTime() + 60_000)
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
+    const edits = sent(calls, 'editMessageText')
+    expect(phantomButtons(edits[0])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
+    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(now) }])
   })
 
   it('retires a button after 15 minutes, and not before', async () => {

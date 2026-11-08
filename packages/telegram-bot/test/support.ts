@@ -114,7 +114,7 @@ export function setup(
     guard?: GuardClient
     now?: () => Date
     fail?: (call: ApiCall) => boolean
-    phantomKill?: string
+    phantomKill?: (issued: Date) => string
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()

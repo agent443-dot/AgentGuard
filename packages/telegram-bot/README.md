@@ -106,8 +106,9 @@ link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUA
 - **Only the newest button is live.** When a newer kill result is posted, in any owner's chat, every
   older one is edited: its button is removed and it says "This Phantom button has expired. Use /kill
   for a fresh one." A button nobody pressed expires the same way after 15 minutes, on the bot's
-  15-second sweep. Buttons live in memory: after a restart, older messages keep theirs until a new
-  kill result replaces them.
+  15-second sweep. Each link also carries `issued` (unix seconds, set when the result is posted),
+  and the signing page refuses a link older than 15 minutes. So a button the bot forgot about on a
+  restart still stops working on time, even though its message is not edited.
 - **Kill everything** itself is unchanged: guard-core pauses every agent and signs nothing more.
 - Every value in the link is public, and all of them come from the bot's config. The cluster is
   derived from `SOLANA_CHAIN`, never from anything a user sends.

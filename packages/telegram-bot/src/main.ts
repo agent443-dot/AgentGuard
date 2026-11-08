@@ -23,12 +23,16 @@ const { SIGN_PAGE_URL, SQUADS_MULTISIG, SOLANA_HOT_WALLET_PUBKEY } = config
 // loadConfig refuses SIGN_PAGE_URL without both keys, so this is undefined only when it is unset.
 const phantomKill =
   SIGN_PAGE_URL && SQUADS_MULTISIG && SOLANA_HOT_WALLET_PUBKEY
-    ? phantomKillUrl({
-        signPage: SIGN_PAGE_URL,
-        chain: config.SOLANA_CHAIN,
-        multisig: SQUADS_MULTISIG,
-        hot: SOLANA_HOT_WALLET_PUBKEY,
-      })
+    ? (issued: Date) =>
+        phantomKillUrl(
+          {
+            signPage: SIGN_PAGE_URL,
+            chain: config.SOLANA_CHAIN,
+            multisig: SQUADS_MULTISIG,
+            hot: SOLANA_HOT_WALLET_PUBKEY,
+          },
+          issued,
+        )
     : undefined
 
 const { bot, desk, commands } = createBot({

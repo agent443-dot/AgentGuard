@@ -24,8 +24,8 @@ export interface CommandDeps {
   guard: GuardClient
   desk: Desk
   log: Logger
-  /** The onchain kill on the signing page, when SIGN_PAGE_URL is configured. */
-  phantomKill?: string
+  /** Builds the onchain kill link on the signing page, when SIGN_PAGE_URL is configured. */
+  phantomKill?: (issued: Date) => string
   now?: () => Date
 }
 
@@ -137,15 +137,16 @@ export function registerCommands(
       await ctx.editMessageText(text, HTML)
       return
     }
+    const at = now()
     await ctx.editMessageText(text, {
       ...HTML,
-      reply_markup: new InlineKeyboard().url(label, phantomKill),
+      reply_markup: new InlineKeyboard().url(label, phantomKill(at)),
     })
     const offer = {
       chatId: message.chat.id,
       messageId: message.message_id,
       text,
-      at: now().getTime(),
+      at: at.getTime(),
     }
     await retire(offers.offer(offer))
   }
