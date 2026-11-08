@@ -958,7 +958,17 @@ permissões fechadas, e o `.env` só aponta para ele. O integrator guia-te; o re
 
 ---
 
-## ⏳ HUMAN-17 — Pôr o guard-core e o bot no Fly.io (devnet)
+## ✅ HUMAN-17 — Pôr o guard-core e o bot no Fly.io (devnet)
+
+**Feito em 2026-11-08.** O guard-core está em `https://agentguard-guard-core.fly.dev` e o bot no Fly,
+os dois em São Paulo. Um pagamento x402 de 0,5 USDC passou pelo guard-core alojado (o teto mostrou
+$0,50 de $50), e o `/kill` → **Confirm** parou o agente e removeu o teto na chain. A revisão de
+segurança do sistema alojado (`INT-7`) passou. Estado atual: agente `fly-agent` em pausa, teto de
+devnet removido.
+
+**Regra que esta corrida ensinou:** um kill começa **sempre** por `/kill` → **Confirm** no Telegram.
+O botão **Open kill in Phantom** de uma mensagem antiga só remove o teto na chain — não pára o
+agente no guard-core. O texto abaixo fica como registo.
 
 Depois da `HUMAN-16`. Decisões D3 e D5. É o primeiro deploy, ainda em devnet com o multisig da Phantom:
 o mesmo sistema que corres em casa, agora num servidor. O integrator guia-te ao vivo e corre a seguir
