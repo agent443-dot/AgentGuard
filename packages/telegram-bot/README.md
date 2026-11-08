@@ -89,34 +89,42 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 ## Onchain kill in Phantom
 
-The owner's Solana key is in Phantom (ADR 003), so the bot cannot remove the onchain spending limit
-itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, the result of a
-`/kill` → **Kill everything** carries an **Open kill in Phantom** button, labelled differently when
-guard-core did not confirm (below). Pressing it opens the signing page from `packages/onchain/web`
-inside Phantom:
+The owner's keys are in Phantom (ADR 003), so the bot cannot remove the onchain limits itself: only
+the owner can sign `removeSpendingLimit` on the Squads multisig (Solana) or remove the hot wallet's
+allowance on the Safe (Robinhood Chain). When `SIGN_PAGE_URL` is set, the result of a `/kill` →
+**Kill everything** carries one Phantom button per configured chain, for example **Open Solana devnet
+kill in Phantom** and **Open Robinhood Chain testnet kill in Phantom**, labelled differently when
+guard-core did not confirm (below). Each opens the signing page from `packages/onchain/web` inside
+Phantom:
 
 ```
 https://phantom.app/ul/browse/<encodeURIComponent(link)>?ref=<encodeURIComponent(origin)>
-link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>
+Solana:    link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>&issued=<unix seconds>
+Robinhood: link = <SIGN_PAGE_URL>/?action=kill&cluster=<robinhood-testnet|robinhood>&safe=<ROBINHOOD_SAFE_ADDRESS>&issued=<unix seconds>
 ```
 
-- **The onchain half is never offered as if it were the kill.** The button never appears before
-  **Kill everything**. On a kill guard-core confirmed, it reads **Open kill in Phantom**. If guard-core
-  did not confirm, the message says "guard-core did **NOT** confirm a pause", and the button reads
-  **Remove onchain limit anyway (Phantom)**. With guard-core down, the onchain limit is the only brake
-  left, so the button stays, but the message says it stops refills only: guard-core can still spend
-  what the hot wallet holds.
-- **Only the newest button is live.** When a newer kill result is posted, in any owner's chat, every
-  older one is edited: its button is removed and it says "This Phantom button has expired. Use /kill
-  for a fresh one." A button nobody pressed expires the same way after 15 minutes, on the bot's
-  15-second sweep. Each link also carries `issued` (unix seconds, set when the result is posted),
-  and the signing page refuses a link older than 15 minutes. So a button the bot forgot about on a
-  restart still stops working on time, even though its message is not edited.
+The Robinhood link names no hot wallet: the page uses the one it was built with.
+
+- **The onchain half is never offered as if it were the kill.** No button appears before **Kill
+  everything**. On a kill guard-core confirmed, they read **Open … kill in Phantom**. If guard-core
+  did not confirm, the message says "guard-core did **NOT** confirm a pause", and each button reads
+  **Remove … limit anyway (Phantom)**. With guard-core down, the onchain limits are the only brake
+  left, so the buttons stay. The message lists, per chain, what each one removes (the Squads spending
+  limit, or the hot wallet's allowance on the Safe), and says that this stops refills only:
+  guard-core can still spend what the hot wallets hold.
+- **Only the newest buttons are live.** When a newer kill result is posted, in any owner's chat,
+  every older one is edited: its buttons are removed and it says "This Phantom button has expired.
+  Use /kill for a fresh one." Buttons nobody pressed expire the same way after 15 minutes, on the
+  bot's 15-second sweep. Each link also carries `issued` (unix seconds, set when the result is
+  posted), and the signing page refuses a link older than 15 minutes. So a button the bot forgot
+  about on a restart still stops working on time, even though its message is not edited.
 - **Kill everything** itself is unchanged: guard-core pauses every agent and signs nothing more.
 - Every value in the link is public, and all of them come from the bot's config. The cluster is
-  derived from `SOLANA_CHAIN`, never from anything a user sends.
+  derived from `SOLANA_CHAIN` or `ROBINHOOD_CHAIN`, never from anything a user sends.
 - `SIGN_PAGE_URL` must be https with no query or fragment. With it set, the bot refuses to start
-  unless `SQUADS_MULTISIG` and `SOLANA_HOT_WALLET_PUBKEY` are set too. Without it, there is no button.
+  unless at least one chain is complete: `SQUADS_MULTISIG` with `SOLANA_HOT_WALLET_PUBKEY`, or
+  `ROBINHOOD_SAFE_ADDRESS`, or both. Half a Solana pair is refused. Without `SIGN_PAGE_URL`, there are
+  no buttons.
 
 ## Notifications
 
@@ -169,7 +177,7 @@ fly apps create agentguard-bot --org <your-fly-org>
 
 # 3. Secrets: read from the bot's .env and piped straight in, never typed or printed.
 #    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
-cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
+cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
 
 # 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
 cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
