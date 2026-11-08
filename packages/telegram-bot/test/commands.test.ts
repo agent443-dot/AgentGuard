@@ -118,6 +118,9 @@ describe('owner commands', () => {
 })
 
 const PHANTOM = (issued: Date) => `https://phantom.app/ul/browse/kill?issued=${issued.getTime()}`
+const ROBINHOOD = (issued: Date) => `https://phantom.app/ul/browse/rh?issued=${issued.getTime()}`
+const KILLS = [{ chain: CHAINS.solanaDevnet, link: PHANTOM }]
+const BOTH = [...KILLS, { chain: CHAINS.robinhoodTestnet, link: ROBINHOOD }]
 
 function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
   const markup = call?.payload['reply_markup'] as
@@ -130,24 +133,26 @@ describe('/kill with the signing page configured', () => {
     String(call?.payload['text'])
 
   it('offers no Phantom button before the guard-core kill is confirmed', async () => {
-    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    const { bot, calls } = setup({ phantomKills: KILLS })
     await bot.handleUpdate(command(OWNER, '/kill'))
     const prompt = sent(calls, 'sendMessage')[0]
     expect(phantomButtons(prompt)).toEqual([])
     expect(offerText(prompt)).toContain('<b>Kill everything</b> pauses every agent')
     expect(offerText(prompt)).toContain(
-      'Once guard-core confirms, you get <b>Open kill in Phantom</b>',
+      'Once guard-core confirms, you get a Phantom button for each chain',
     )
   })
 
   it('offers it on the result of a kill guard-core confirmed', async () => {
-    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    const { bot, calls } = setup({ phantomKills: KILLS })
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
     const done = sent(calls, 'editMessageText')[0]
     expect(offerText(done)).toContain('guard-core has paused 2 agents and signs no more payments')
-    expect(offerText(done)).toContain('The Solana spending limit is still live onchain')
+    expect(offerText(done)).toContain('The onchain limit is still live on Solana devnet.')
     expect(offerText(done)).toContain('expires in 15 minutes')
-    expect(phantomButtons(done)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
+    expect(phantomButtons(done)).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+    ])
   })
 
   it('keeps the onchain brake when guard-core did not confirm, and says plainly it is only half', async () => {
@@ -155,7 +160,7 @@ describe('/kill with the signing page configured', () => {
     const kill = vi.fn().mockRejectedValue(new Error('down'))
     const { bot, commands, calls } = setup({
       guard: fakeGuard({ kill }),
-      phantomKill: PHANTOM,
+      phantomKills: KILLS,
       now: () => now,
     })
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
@@ -163,7 +168,7 @@ describe('/kill with the signing page configured', () => {
     expect(offerText(failed)).toContain('guard-core did <b>NOT</b> confirm a pause')
     expect(offerText(failed)).toContain('only the onchain half of the kill')
     expect(phantomButtons(failed)).toEqual([
-      { text: 'Remove onchain limit anyway (Phantom)', url: PHANTOM(NOW) },
+      { text: 'Remove Solana devnet limit anyway (Phantom)', url: PHANTOM(NOW) },
     ])
 
     // Same rules as any other button: it expires after 15 minutes.
@@ -180,18 +185,20 @@ describe('/kill with the signing page configured', () => {
       .fn()
       .mockRejectedValueOnce(new Error('down'))
       .mockResolvedValueOnce({ pausedAgents: 1, ownerTransactions: [] })
-    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKill: PHANTOM })
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKills: KILLS })
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
     const edits = sent(calls, 'editMessageText')
     expect(edits.map((call) => call.payload['message_id'])).toEqual([11, 12, 11])
     expect(offerText(edits[2])).toContain('guard-core did <b>NOT</b> confirm a pause')
     expect(phantomButtons(edits[2])).toEqual([])
-    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
+    expect(phantomButtons(edits[1])).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+    ])
   })
 
   it('retires the older button when a newer kill result is posted, in any owner chat', async () => {
-    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    const { bot, calls } = setup({ phantomKills: KILLS })
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
     await bot.handleUpdate(press(OTHER_OWNER, 'kill:confirm', 22))
     const edits = sent(calls, 'editMessageText')
@@ -208,18 +215,57 @@ describe('/kill with the signing page configured', () => {
 
   it('issues each button its own link, stamped when the kill result is posted', async () => {
     let now = NOW
-    const { bot, calls } = setup({ phantomKill: PHANTOM, now: () => now })
+    const { bot, calls } = setup({ phantomKills: KILLS, now: () => now })
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
     now = new Date(NOW.getTime() + 60_000)
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
     const edits = sent(calls, 'editMessageText')
-    expect(phantomButtons(edits[0])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(NOW) }])
-    expect(phantomButtons(edits[1])).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM(now) }])
+    expect(phantomButtons(edits[0])).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+    ])
+    expect(phantomButtons(edits[1])).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(now) },
+    ])
+  })
+
+  it('offers one button per chain on a confirmed kill, and retires them together', async () => {
+    const { bot, calls } = setup({ phantomKills: BOTH })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
+    const [done, , retired] = sent(calls, 'editMessageText')
+    expect(offerText(done)).toContain(
+      'The onchain limit is still live on Solana devnet and Robinhood Chain testnet.',
+    )
+    expect(offerText(done)).toContain('The buttons expire in 15 minutes')
+    expect(phantomButtons(done)).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+      { text: 'Open Robinhood Chain testnet kill in Phantom', url: ROBINHOOD(NOW) },
+    ])
+    expect(retired?.payload['message_id']).toBe(11)
+    expect(phantomButtons(retired)).toEqual([])
+  })
+
+  it('says per chain what each "anyway" button removes when guard-core did not confirm', async () => {
+    const kill = vi.fn().mockRejectedValue(new Error('down'))
+    const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKills: BOTH })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    const failed = sent(calls, 'editMessageText')[0]
+    expect(offerText(failed)).toContain('each button below removes one onchain limit:')
+    expect(offerText(failed)).toContain(
+      '• Solana devnet: the Squads spending limit that refills the hot wallet',
+    )
+    expect(offerText(failed)).toContain(
+      "• Robinhood Chain testnet: the hot wallet's allowance on the Safe, which refills it",
+    )
+    expect(phantomButtons(failed)).toEqual([
+      { text: 'Remove Solana devnet limit anyway (Phantom)', url: PHANTOM(NOW) },
+      { text: 'Remove Robinhood Chain testnet limit anyway (Phantom)', url: ROBINHOOD(NOW) },
+    ])
   })
 
   it('retires a button after 15 minutes, and not before', async () => {
     let now = NOW
-    const { bot, commands, calls } = setup({ phantomKill: PHANTOM, now: () => now })
+    const { bot, commands, calls } = setup({ phantomKills: KILLS, now: () => now })
     await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
 
     now = new Date(NOW.getTime() + 15 * 60_000 - 1)

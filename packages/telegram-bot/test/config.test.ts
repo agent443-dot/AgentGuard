@@ -57,13 +57,37 @@ describe('loadConfig', () => {
 
   it('refuses a kill page without the keys the link needs', () => {
     expect(() => loadConfig({ ...env, SIGN_PAGE_URL: killPage.SIGN_PAGE_URL })).toThrow(
-      /^invalid configuration: SQUADS_MULTISIG, SOLANA_HOT_WALLET_PUBKEY$/,
+      /^invalid configuration: SQUADS_MULTISIG, SOLANA_HOT_WALLET_PUBKEY, ROBINHOOD_SAFE_ADDRESS$/,
     )
     expect(() => loadConfig({ ...env, ...killPage, SQUADS_MULTISIG: '0xabc' })).toThrow(
       /^invalid configuration: SQUADS_MULTISIG$/,
     )
     expect(() => loadConfig({ ...env, ...killPage, SOLANA_CHAIN: 'eip155:84532' })).toThrow(
       /^invalid configuration: SOLANA_CHAIN$/,
+    )
+  })
+
+  it('takes a Robinhood Safe alone, or with Solana, but never half a Solana chain', () => {
+    const safe = { ROBINHOOD_SAFE_ADDRESS: '0x8b3a0e2c5d7f9a1b4c6e8d0f2a4b6c8d0e2f4a6b' }
+    const robinhood = loadConfig({ ...env, SIGN_PAGE_URL: killPage.SIGN_PAGE_URL, ...safe })
+    expect(robinhood.ROBINHOOD_SAFE_ADDRESS).toBe(safe.ROBINHOOD_SAFE_ADDRESS)
+    expect(robinhood.ROBINHOOD_CHAIN).toBe('eip155:46630')
+    expect(loadConfig({ ...env, ...killPage, ...safe }).SQUADS_MULTISIG).toBe(
+      killPage.SQUADS_MULTISIG,
+    )
+    expect(() =>
+      loadConfig({
+        ...env,
+        ...safe,
+        SIGN_PAGE_URL: killPage.SIGN_PAGE_URL,
+        SQUADS_MULTISIG: killPage.SQUADS_MULTISIG,
+      }),
+    ).toThrow(/^invalid configuration: SOLANA_HOT_WALLET_PUBKEY$/)
+    expect(() => loadConfig({ ...env, ...killPage, ROBINHOOD_SAFE_ADDRESS: 'AxCg' })).toThrow(
+      /^invalid configuration: ROBINHOOD_SAFE_ADDRESS$/,
+    )
+    expect(() => loadConfig({ ...env, ...killPage, ROBINHOOD_CHAIN: 'eip155:84532' })).toThrow(
+      /^invalid configuration: ROBINHOOD_CHAIN$/,
     )
   })
 

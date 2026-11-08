@@ -1,6 +1,7 @@
 import { Bot, type BotConfig, type Context } from 'grammy'
 import type { Logger } from 'pino'
 import type { GuardClient } from '../adapters/guard.js'
+import type { PhantomKill } from '../domain/phantom.js'
 import { registerCommands } from './commands.js'
 import { Desk } from './desk.js'
 
@@ -13,8 +14,8 @@ export interface BotDeps {
   now?: () => Date
   /** Tests pass botInfo so the bot never calls getMe. */
   botConfig?: BotConfig<Context>
-  /** Builds the onchain kill link issued at a given time; no Phantom button without it. */
-  phantomKill?: (issued: Date) => string
+  /** The onchain kill of each chain; no Phantom button without one. */
+  phantomKills?: PhantomKill[]
 }
 
 const DECISION = /^(approve|reject):([0-9a-f-]{36})$/
@@ -28,7 +29,7 @@ export function createBot({
   log,
   now,
   botConfig,
-  phantomKill,
+  phantomKills,
 }: BotDeps) {
   const bot = new Bot(token, botConfig)
   const desk = new Desk({ api: bot.api, owners, guard, notifyAbove, log, now })
@@ -63,7 +64,7 @@ export function createBot({
     ctx.answerCallbackQuery({ text: desk.recipient(ctx.match[1] ?? ''), show_alert: true }),
   )
 
-  const commands = registerCommands(bot, { guard, desk, log, phantomKill, now })
+  const commands = registerCommands(bot, { guard, desk, log, phantomKills, now })
 
   bot.catch(({ error }) => log.error({ err: error }, 'update failed'))
 

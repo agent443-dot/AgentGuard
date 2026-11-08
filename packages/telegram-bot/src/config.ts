@@ -36,6 +36,7 @@ const signPage = z.string().refine((value) => {
 }, 'expected an https url with no query or fragment')
 
 const solanaKey = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'expected a base58 public key')
+const evmAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'expected a 0x address')
 
 export const configSchema = z
   .object({
@@ -64,16 +65,27 @@ export const configSchema = z
     SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
     SQUADS_MULTISIG: optional(solanaKey),
     SOLANA_HOT_WALLET_PUBKEY: optional(solanaKey),
+    ROBINHOOD_CHAIN: z
+      .enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])
+      .default(CHAINS.robinhoodTestnet),
+    // The page takes the Robinhood hot wallet from its own build, so the link names only the Safe.
+    ROBINHOOD_SAFE_ADDRESS: optional(evmAddress),
   })
-  // A kill link that names no multisig or hot wallet opens a page that can only refuse it.
+  // A kill link that names no multisig or hot wallet opens a page that can only refuse it. With the
+  // page set, each chain is configured completely or not at all, and at least one chain is.
   .superRefine((config, ctx) => {
     if (config.SIGN_PAGE_URL === undefined) {
       return
     }
-    for (const key of ['SQUADS_MULTISIG', 'SOLANA_HOT_WALLET_PUBKEY'] as const) {
-      if (config[key] === undefined) {
-        ctx.addIssue({ code: 'custom', path: [key], message: 'required with SIGN_PAGE_URL' })
-      }
+    const solana = ['SQUADS_MULTISIG', 'SOLANA_HOT_WALLET_PUBKEY'] as const
+    const unset = (key: keyof typeof config) => config[key] === undefined
+    const missing = !solana.every(unset)
+      ? solana.filter(unset)
+      : unset('ROBINHOOD_SAFE_ADDRESS')
+        ? [...solana, 'ROBINHOOD_SAFE_ADDRESS']
+        : []
+    for (const key of missing) {
+      ctx.addIssue({ code: 'custom', path: [key], message: 'required with SIGN_PAGE_URL' })
     }
   })
 

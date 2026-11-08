@@ -10,9 +10,9 @@ export interface KillOffer {
 }
 
 /**
- * The live "Open kill in Phantom" buttons. A button removes the onchain limit only; pressed long
- * after its guard-core kill, or after a later one, it leaves the guard running with no limit to stop
- * at, half a kill. So only the newest offer stays live, and only for KILL_OFFER_TTL_MS.
+ * The live Phantom kill buttons, tracked per message. A button removes an onchain limit only; pressed
+ * long after its guard-core kill, or after a later one, it leaves the guard running with no limit to
+ * stop at, half a kill. So only the newest offer stays live, and only for KILL_OFFER_TTL_MS.
  */
 export class KillOffers {
   #offers: KillOffer[] = []

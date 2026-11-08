@@ -1,4 +1,10 @@
-import type { ApprovalRequest, BudgetView, OwnerTransaction, PayIntent } from '@agentguard/shared'
+import type {
+  ApprovalRequest,
+  BudgetView,
+  ChainId,
+  OwnerTransaction,
+  PayIntent,
+} from '@agentguard/shared'
 import { CHAINS, getAddress, usdSymbol } from '@agentguard/shared'
 import { ATTACK_DESCRIPTIONS, type AttackCode } from './codes.js'
 import { type ExplorerTarget, explorerUrl } from './explorer.js'
@@ -198,7 +204,12 @@ export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string
   ].join('\n')
 }
 
-export function killedText(pausedAgents: number, transactions: number, phantom = false): string {
+/** phantom: the chains whose onchain kill the bot offers as a Phantom button. */
+export function killedText(
+  pausedAgents: number,
+  transactions: number,
+  phantom: ChainId[] = [],
+): string {
   const next =
     transactions > 0
       ? `Sign the ${transactions === 1 ? 'transaction' : `${transactions} transactions`} below from ` +
@@ -208,10 +219,14 @@ export function killedText(pausedAgents: number, transactions: number, phantom =
   const stopped =
     `<b>Kill switch engaged.</b> guard-core has paused ${pausedAgents} ` +
     `${pausedAgents === 1 ? 'agent' : 'agents'} and signs no more payments.`
-  const onchain = phantom
-    ? '<b>The Solana spending limit is still live onchain.</b> Tap <b>Open kill in Phantom</b> ' +
-      'and confirm to remove it. The button expires in 15 minutes, or when another kill replaces it.'
-    : next
+  const one = phantom.length === 1
+  const onchain =
+    phantom.length > 0
+      ? `<b>The onchain limit is still live on ${phantom.map(chainName).join(' and ')}.</b> ` +
+        `Tap ${one ? 'the Phantom button' : "each chain's Phantom button"} and confirm to remove it. ` +
+        `${one ? 'The button expires' : 'The buttons expire'} in 15 minutes, or when another kill ` +
+        `replaces ${one ? 'it' : 'them'}.`
+      : next
   return [stopped, onchain].join('\n')
 }
 

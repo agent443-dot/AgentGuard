@@ -6,6 +6,7 @@ import { pino } from 'pino'
 import { vi } from 'vitest'
 import type { GuardClient } from '../src/adapters/guard.js'
 import { createBot } from '../src/bot/index.js'
+import type { PhantomKill } from '../src/domain/phantom.js'
 
 export const OWNER = { id: 1001, is_bot: false, first_name: 'Ana', username: 'ana' }
 export const OTHER_OWNER = { id: 1002, is_bot: false, first_name: 'Bo' }
@@ -114,7 +115,7 @@ export function setup(
     guard?: GuardClient
     now?: () => Date
     fail?: (call: ApiCall) => boolean
-    phantomKill?: (issued: Date) => string
+    phantomKills?: PhantomKill[]
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
@@ -126,7 +127,7 @@ export function setup(
     log: silent,
     now: options.now ?? (() => NOW),
     botConfig: { botInfo: BOT_INFO },
-    phantomKill: options.phantomKill,
+    phantomKills: options.phantomKills,
   })
   const calls = mockTelegram(bot, options.fail)
   return { bot, desk, commands, guard, calls }
