@@ -38,6 +38,10 @@ function button(label: string, action: () => void) {
   app.append(element)
 }
 
+// A kill link is good for 15 minutes; a few minutes of clock skew either way are forgiven.
+const KILL_LINK_TTL_S = 15 * 60
+const FUTURE_SLACK_S = 5 * 60
+
 const key = z
   .string()
   .refine(isPublicKey, 'not a Solana address')
@@ -45,7 +49,19 @@ const key = z
 // Own names only: `in` would also accept inherited ones such as toString.
 const cluster = z.string().refine((name) => Object.hasOwn(RPC_URLS, name), 'unknown cluster')
 const link = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('kill'), cluster, multisig: key, hot: key }),
+  z.object({
+    action: z.literal('kill'),
+    cluster,
+    multisig: key,
+    hot: key,
+    // Unix seconds when the bot made the link. A kill button left in an old message, or kept by a
+    // bot that restarted, must not remove the limit out of step with guard-core.
+    issued: z
+      .string()
+      .regex(/^\d{1,12}$/, 'unix seconds')
+      .transform(Number)
+      .refine((at) => at <= Date.now() / 1000 + FUTURE_SLACK_S, 'issued in the future'),
+  }),
   z.object({ action: z.literal('create'), cluster }),
   z.object({
     action: z.literal('add-limit'),
@@ -67,6 +83,12 @@ const link = z.discriminatedUnion('action', [
 function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof link>) {
   switch (request.action) {
     case 'kill':
+      if (Date.now() / 1000 - request.issued > KILL_LINK_TTL_S) {
+        return Promise.resolve<Plan>({
+          kind: 'refused',
+          reason: 'This link expired. Use /kill in Telegram for a fresh one.',
+        })
+      }
       return prepareKill(connection, { ...request, hotWallet: request.hot }, owner)
     case 'create':
       return prepareCreate(connection, request.cluster, owner)
