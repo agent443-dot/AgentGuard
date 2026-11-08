@@ -78,6 +78,17 @@ describe('GET /v1/admin/chains (CR-006)', () => {
     })
   })
 
+  // CR-008: after a kill there is no limit at all. That is a state the owner must see, not a read
+  // failure, and never an active limit with a zero cap.
+  it('passes a chain with no onchain limit through as none, not null and not a zero cap', async () => {
+    const solana = new StubChain(CHAINS.solanaDevnet)
+    vi.spyOn(solana, 'getAllowanceState').mockResolvedValue({ status: 'none', delegate: 'hot' })
+    const { get } = await setup([solana], [])
+    expect((await get('/v1/admin/chains', ADMIN)).json()).toEqual({
+      chains: [{ chain: CHAINS.solanaDevnet, allowance: { status: 'none', delegate: 'hot' } }],
+    })
+  })
+
   it('answers an empty list when no chain is configured', async () => {
     const { get } = await setup([], [])
     expect((await get('/v1/admin/chains', ADMIN)).json()).toEqual({ chains: [] })
