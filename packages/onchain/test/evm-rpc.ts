@@ -5,6 +5,7 @@ import {
   encodeErrorResult,
   getAddress,
   parseAbi,
+  toFunctionSelector,
   type Address,
   createWalletClient,
   custom,
@@ -25,6 +26,8 @@ export interface FakeNode {
   wallet: WalletClient & { account: Account }
   sent: ReturnType<typeof parseTransaction>[]
   handlers: Record<string, Handler>
+  /** The logs every receipt carries; a test sets the Transfer a payment should emit. */
+  logs: object[]
 }
 
 /**
@@ -51,7 +54,7 @@ export function fakeNode(account: Account): FakeNode {
       status: '0x1',
       blockNumber: '0x10',
       blockHash: `0x${'00'.repeat(32)}`,
-      logs: [],
+      logs: node.logs,
       cumulativeGasUsed: '0x0',
       gasUsed: '0x0',
       effectiveGasPrice: '0x1',
@@ -75,7 +78,8 @@ export function fakeNode(account: Account): FakeNode {
   const wallet = createWalletClient({ account, chain: baseSepolia, transport }) as WalletClient & {
     account: Account
   }
-  return { client, wallet, sent, handlers }
+  const node: FakeNode = { client, wallet, sent, handlers, logs: [] }
+  return node
 }
 
 const tokenAbi = parseAbi([
@@ -92,6 +96,8 @@ export interface Ledger {
   balances: Map<Address, bigint>
   /** What the delegate may still draw from the Safe today. */
   allowanceLeft: bigint
+  /** Addresses the issuer froze, as Paxos can: a transfer touching one reverts with AddressFrozen. */
+  frozen?: Address[]
 }
 
 /**
@@ -129,6 +135,17 @@ export function serveLedger(node: FakeNode, ledger: Ledger) {
         return revert('not the token')
       }
       const [to, amount] = args
+      if ((ledger.frozen ?? []).some((a) => a === getAddress(to) || a === getAddress(call.from!))) {
+        return {
+          status: '0x0',
+          returnData: '0x',
+          error: {
+            code: 3,
+            message: 'execution reverted',
+            data: toFunctionSelector('error AddressFrozen()'),
+          },
+        }
+      }
       if (balanceOf(state.balances, call.from!) < amount) {
         return revert('ERC20: transfer amount exceeds balance')
       }

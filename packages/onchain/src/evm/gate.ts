@@ -5,6 +5,8 @@ import { getAddress, isAddressEqual, type Address, type Hex } from 'viem'
 export interface ExpectedAuthorization {
   chainId: number
   usdc: Address
+  /** The token's own EIP-712 domain name and version (evm/tokens.ts). */
+  domain: { name: string; version: string }
   from: Address
   to: Address
   value: bigint
@@ -74,8 +76,8 @@ export function checkTypedData(
   const validBefore = toBigInt(message['validBefore'])
   const nonce = message['nonce']
   const exact =
-    typeof domain['name'] === 'string' &&
-    typeof domain['version'] === 'string' &&
+    domain['name'] === expected.domain.name &&
+    domain['version'] === expected.domain.version &&
     sameAddress(domain['verifyingContract'], expected.usdc) &&
     Number(domain['chainId']) === expected.chainId &&
     sameAddress(message['from'], expected.from) &&
@@ -93,8 +95,8 @@ export function checkTypedData(
   }
   return {
     domain: {
-      name: domain['name'] as string,
-      version: domain['version'] as string,
+      name: expected.domain.name,
+      version: expected.domain.version,
       chainId: expected.chainId,
       verifyingContract: expected.usdc,
     },

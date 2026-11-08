@@ -363,6 +363,29 @@ with no key, printing only its answer:
 BASE_RPC_URL=https://sepolia.base.org pnpm --filter @agentguard/onchain check:simulate
 ```
 
+### Robinhood Chain (RH-2)
+
+The Base adapter serves Robinhood Chain as it is: the same Safe 1.4.1 and Allowance Module 0.1.1, at
+the same addresses with the same code (RH-1, [`docs/robinhood-research.md`](./docs/robinhood-research.md)).
+Pass `eip155:46630` (testnet) or `eip155:4663` (mainnet) as the chain. What differs is the token:
+USDG from Paxos, at the one address per chain in `shared/addresses.ts`. Anything else is refused,
+whatever its symbol.
+
+- **The signing gate checks the token's own EIP-712 domain** (`src/evm/tokens.ts`): ("Global Dollar",
+  "1") for USDG, ("USD Coin", "2") and ("USDC", "2") for USDC on Base. The x402 server picks the name
+  and version, so a mismatch is refused (`SIM_UNEXPECTED_EFFECT`). The forge tests check every entry
+  against the token's `DOMAIN_SEPARATOR` on its chain.
+- **Paxos's reverts read as words in `SIM_FAILED`**: `AddressFrozen` (the issuer froze an address in
+  the payment), `ContractPaused`, `InsufficientFunds` and the EIP-3009 errors.
+- **A payment counts as made only on the token's own Transfer event**, from the hot wallet to the
+  recipient for exactly the amount, on every EVM chain. A successful receipt without that event is
+  `payment_unproven`.
+- **Settings** use the `ROBINHOOD_*` names guard-core reads: `ROBINHOOD_CHAIN`, `ROBINHOOD_RPC_URL`,
+  `ROBINHOOD_SAFE_ADDRESS` and `ROBINHOOD_HOT_WALLET_ADDRESS` (see `.env.example`). There is no owner
+  key: on Robinhood the owner signs in Phantom, on the signing page (D4). The Safe pages are the next
+  PRs. `pnpm status:robinhood` reads the setup from the chain: the owners, the threshold, the module,
+  the Safe's USDG and the allowance.
+
 ## Addresses
 
 Do **not** hardcode a guessed address. Read the Allowance Module address from the official Safe

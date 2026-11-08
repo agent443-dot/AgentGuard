@@ -28,7 +28,8 @@
     "test:fork": "forge test -vvv",
     "check:simulate": "tsx src/scripts/check-simulate.ts",
     "build:web": "tsx web/build.ts",
-    "test:web": "vitest run --config web/vitest.config.ts"
+    "test:web": "vitest run --config web/vitest.config.ts",
+    "status:robinhood": "tsx --env-file=.env src/scripts/robinhood-status.ts"
   },
   "dependencies": {
     "@agentguard/shared": "workspace:*",
