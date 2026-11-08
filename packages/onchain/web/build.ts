@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { CHAINS, getAddress } from '@agentguard/shared'
+import { CHAINS, getAddress, type ChainId } from '@agentguard/shared'
 import { build } from 'esbuild'
 import { isPublicKey } from './src/plan.js'
 
@@ -19,6 +19,27 @@ export function rpcUrls(env: NodeJS.ProcessEnv = process.env): Record<string, st
     devnet: env['SOLANA_DEVNET_RPC'] ?? 'https://api.devnet.solana.com',
     'mainnet-beta': env['SOLANA_MAINNET_RPC'] ?? 'https://api.mainnet-beta.solana.com',
     ...(env['SOLANA_LOCALNET_RPC'] ? { localnet: env['SOLANA_LOCALNET_RPC'] } : {}),
+    'robinhood-testnet': env['ROBINHOOD_TESTNET_RPC'] ?? 'https://rpc.testnet.chain.robinhood.com',
+    robinhood: env['ROBINHOOD_MAINNET_RPC'] ?? 'https://rpc.mainnet.chain.robinhood.com',
+    ...(env['EVM_LOCALNET_RPC'] ? { 'evm-localnet': env['EVM_LOCALNET_RPC'] } : {}),
+  }
+}
+
+/**
+ * The EVM clusters: the chain id Phantom must be on, and the module and token from the verified
+ * addresses in shared. A link names the cluster only. The tests' evm-localnet stands in for
+ * Robinhood testnet, with its id and addresses.
+ */
+export function evmChains(env: NodeJS.ProcessEnv = process.env) {
+  const chain = (id: ChainId) => ({
+    chainId: Number(id.split(':')[1]),
+    module: getAddress(id, 'allowanceModule')!,
+    usd: getAddress(id, 'usd')!,
+  })
+  return {
+    'robinhood-testnet': chain(CHAINS.robinhoodTestnet),
+    robinhood: chain(CHAINS.robinhood),
+    ...(env['EVM_LOCALNET_RPC'] ? { 'evm-localnet': chain(CHAINS.robinhoodTestnet) } : {}),
   }
 }
 
@@ -98,6 +119,7 @@ export async function buildPage(outdir = here('./dist'), env = process.env) {
       USDC_MINTS: JSON.stringify(usdcMints(env)),
       HOT_WALLETS: JSON.stringify(hotWallets(env)),
       MAX_DAILY_CAP: JSON.stringify(maxDailyCap(env)),
+      EVM_CHAINS: JSON.stringify(evmChains(env)),
       'process.env': '{}',
     },
     logLevel: 'warning',

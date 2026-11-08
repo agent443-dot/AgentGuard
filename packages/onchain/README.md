@@ -382,9 +382,25 @@ whatever its symbol.
   `payment_unproven`.
 - **Settings** use the `ROBINHOOD_*` names guard-core reads: `ROBINHOOD_CHAIN`, `ROBINHOOD_RPC_URL`,
   `ROBINHOOD_SAFE_ADDRESS` and `ROBINHOOD_HOT_WALLET_ADDRESS` (see `.env.example`). There is no owner
-  key: on Robinhood the owner signs in Phantom, on the signing page (D4). The Safe pages are the next
-  PRs. `pnpm status:robinhood` reads the setup from the chain: the owners, the threshold, the module,
+  key: on Robinhood the owner signs in Phantom, on the signing page (D4). `pnpm status:robinhood` reads the setup from the chain: the owners, the threshold, the module,
   the Safe's USDG and the allowance.
+- **The kill on the signing page:**
+  `/?action=kill&cluster=robinhood-testnet|robinhood&safe=<Safe>&hot=<hot wallet>&issued=<unix seconds>`.
+  - The page asks Phantom's EVM provider (`window.phantom.ethereum`) to switch to the chain, and stops if it cannot.
+  - It sends one transaction from the connected account to the Safe: `execTransaction` calling
+    `removeDelegate(hot, true)` on the module, the call `buildKillTx` builds. The signature is the
+    Safe's pre-validated one (r = owner, v = 1), which the Safe accepts only with the owner as
+    `msg.sender`, so nothing is signed off-chain.
+  - It refuses unless the connected account is the Safe's only owner at threshold 1. It runs the
+    call with `eth_call` first and does not ask Phantom if the Safe would revert.
+  - The module and USDG come from shared at build time. `ROBINHOOD_TESTNET_RPC` and
+    `ROBINHOOD_MAINNET_RPC` override the public RPCs. The link has the same 15-minute `issued` rule
+    as on Solana.
+  - `forge/SigningPageKill.t.sol` runs the page's exact bytes (`forge/fixtures/signing-page.json`,
+    kept equal to the builder by `test/web-evm.test.ts`) on a Robinhood testnet fork, against the
+    real Safe and module. From the owner the delegate and its allowance are gone; from anyone else
+    the call reverts.
+  - Creating the Safe and enabling the allowance on the page are the next PR.
 
 ## Addresses
 
