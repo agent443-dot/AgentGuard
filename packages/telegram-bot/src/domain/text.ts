@@ -202,7 +202,7 @@ export function killedText(pausedAgents: number, transactions: number, phantom =
     `${pausedAgents === 1 ? 'agent' : 'agents'} and signs no more payments.`
   const onchain = phantom
     ? '<b>The Solana spending limit is still live onchain.</b> Tap <b>Open kill in Phantom</b> ' +
-      'and confirm to remove it.'
+      'and confirm to remove it. The button expires in 15 minutes, or when another kill replaces it.'
     : next
   return [stopped, onchain].join('\n')
 }

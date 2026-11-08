@@ -87,18 +87,29 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 ## Onchain kill in Phantom
 
 The owner's Solana key is in Phantom (ADR 003), so the bot cannot remove the onchain spending limit
-itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, `/kill` and the
-messages after it carry an **Open kill in Phantom** button. Pressing it opens the signing page from
-`packages/onchain/web` inside Phantom:
+itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, the result of a
+`/kill` → **Kill everything** carries an **Open kill in Phantom** button, labelled differently when
+guard-core did not confirm (below). Pressing it opens the signing page from `packages/onchain/web`
+inside Phantom:
 
 ```
 https://phantom.app/ul/browse/<encodeURIComponent(link)>?ref=<encodeURIComponent(origin)>
 link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>
 ```
 
-- **Kill everything** is unchanged: guard-core pauses every agent and signs nothing more. The button
-  is the other half, the onchain limit, and it works even when guard-core does not answer. The
-  messages say which half each one is.
+- **The onchain half is never offered as if it were the kill.** The button never appears before
+  **Kill everything**. On a kill guard-core confirmed, it reads **Open kill in Phantom**. If guard-core
+  did not confirm, the message says "guard-core did **NOT** confirm a pause", and the button reads
+  **Remove onchain limit anyway (Phantom)**. With guard-core down, the onchain limit is the only brake
+  left, so the button stays, but the message says it stops refills only: guard-core can still spend
+  what the hot wallet holds.
+- **Only the newest button is live.** When a newer kill result is posted, in any owner's chat, every
+  older one is edited: its button is removed and it says "This Phantom button has expired. Use /kill
+  for a fresh one." A button nobody pressed expires the same way after 15 minutes, on the bot's
+  15-second sweep. Each link also carries `issued` (unix seconds, set when the result is posted),
+  and the signing page refuses a link older than 15 minutes. So a button the bot forgot about on a
+  restart still stops working on time, even though its message is not edited.
+- **Kill everything** itself is unchanged: guard-core pauses every agent and signs nothing more.
 - Every value in the link is public, and all of them come from the bot's config. The cluster is
   derived from `SOLANA_CHAIN`, never from anything a user sends.
 - `SIGN_PAGE_URL` must be https with no query or fragment. With it set, the bot refuses to start
