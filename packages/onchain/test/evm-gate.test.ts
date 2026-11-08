@@ -5,7 +5,15 @@ const usdc = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
 const hot = '0x1111111111111111111111111111111111111111'
 const merchant = '0x2222222222222222222222222222222222222222'
 const now = 1_800_000_000n
-const expected = { chainId: 84532, usdc, from: hot, to: merchant, value: 1_000_000n, now } as const
+const expected = {
+  chainId: 84532,
+  usdc,
+  domain: { name: 'USDC', version: '2' },
+  from: hot,
+  to: merchant,
+  value: 1_000_000n,
+  now,
+} as const
 
 const fields = [
   { name: 'from', type: 'address' },
@@ -79,6 +87,9 @@ describe('checkTypedData refuses an authorization that is not the one agreed', (
     ['a malformed nonce', authorization({ nonce: '0x01' })],
     ['a negative value as text', authorization({ value: '-1' })],
     ['no domain name', authorization({}, { name: 7 })],
+    // The server picks name and version; only the token's own are signed over.
+    ['another token name', authorization({}, { name: 'USD Coin' })],
+    ['another domain version', authorization({}, { version: '1' })],
     [
       'redefined field types',
       {

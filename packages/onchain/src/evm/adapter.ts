@@ -1,4 +1,5 @@
 import {
+  usdSymbol,
   type Address as TokenAddress,
   type AllowanceState,
   type Amount,
@@ -17,6 +18,8 @@ import {
   getAddress,
   http,
   isAddress,
+  isAddressEqual,
+  parseEventLogs,
   type Account,
   type Address,
   type Hash,
@@ -29,10 +32,11 @@ import {
   type KillTx,
   type SimulationOutcome,
 } from '../ChainAdapter.js'
-import { chainOf } from './config.js'
+import { chainOf, type EvmChainId } from './config.js'
 import { checkTypedData } from './gate.js'
 import { allowanceModuleAbi, hasAllowance, readAllowance } from './safe.js'
 import { erc20Abi, simulatePayment, topUpData } from './simulate.js'
+import { TOKEN_DOMAINS } from './tokens.js'
 
 export interface EvmAdapterDeps {
   chain: ChainId
@@ -48,7 +52,7 @@ export interface EvmAdapterDeps {
 
 /** The same adapter from plain values, so guard-core never handles a viem type. */
 export function createEvmAdapter(config: {
-  chain: '84532' | '8453'
+  chain: EvmChainId
   rpcUrl: string
   hotWalletKey: Hash
   safe: string
@@ -100,13 +104,15 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
     return []
   }
 
-  async function confirmed(hash: Hash): Promise<TxId> {
+  async function settled(hash: Hash) {
     const receipt = await client.waitForTransactionReceipt({ hash })
     if (receipt.status !== 'success') {
       throw new Error(`transaction_failed: ${hash}`)
     }
-    return hash
+    return receipt
   }
+
+  const confirmed = async (hash: Hash): Promise<TxId> => (await settled(hash)).transactionHash
 
   return {
     chain,
@@ -162,7 +168,7 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
       }
       return simulatePayment(
         client,
-        { safe, hot, usdc, module },
+        { symbol: usdSymbol(chain) ?? 'USD', safe, hot, usdc, module },
         getAddress(intent.recipient),
         amount,
       )
@@ -176,15 +182,34 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
       if (!isAddress(intent.recipient)) {
         throw new Error(`send_refused: SIM_FAILED`)
       }
+      const to = getAddress(intent.recipient)
+      const amount = atomic(intent.amount)
       const hash = await wallet.writeContract({
         chain: client.chain,
         account: wallet.account,
         address: usdc,
         abi: erc20Abi,
         functionName: 'transfer',
-        args: [getAddress(intent.recipient), atomic(intent.amount)],
+        args: [to, amount],
       })
-      return confirmed(hash)
+      const receipt = await settled(hash)
+      // The proof of payment is the token's own Transfer event, not the receipt's status alone: a
+      // token can succeed while moving something other than what was asked.
+      const paid = parseEventLogs({
+        abi: erc20Abi,
+        eventName: 'Transfer',
+        logs: receipt.logs,
+      }).some(
+        (log) =>
+          isAddressEqual(log.address, usdc) &&
+          isAddressEqual(log.args.from, hot) &&
+          isAddressEqual(log.args.to, to) &&
+          log.args.value === amount,
+      )
+      if (!paid) {
+        throw new Error(`payment_unproven: ${hash} has no Transfer of ${amount} to ${to}`)
+      }
+      return hash
     },
 
     async buildKillTx(): Promise<KillTx> {
@@ -219,9 +244,14 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
       if (!agreed) {
         throw new SigningRefused(['INVALID_402'])
       }
+      const domain = TOKEN_DOMAINS[chain]
+      if (!domain) {
+        throw new SigningRefused(['TOKEN_NOT_ALLOWED'])
+      }
       const expected = {
         chainId: Number(chain.split(':')[1]),
         usdc,
+        domain,
         from: hot,
         to: getAddress(intent.recipient),
         value: atomic(intent.amount),

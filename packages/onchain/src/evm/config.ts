@@ -1,6 +1,6 @@
 import { getAddress } from '@agentguard/shared'
 import { getAddress as checksum, isAddress, type Address, type Chain } from 'viem'
-import { base, baseSepolia } from 'viem/chains'
+import { base, baseSepolia, robinhood, robinhoodTestnet } from 'viem/chains'
 import { z } from 'zod'
 
 const address = z.string().refine((value) => isAddress(value), 'not an EVM address')
@@ -55,8 +55,18 @@ export function loadEvmConfig(env: NodeJS.ProcessEnv = process.env): EvmConfig {
   return config
 }
 
-export function chainOf(id: EvmConfig['BASE_CHAIN_ID']): Chain {
-  return id === '8453' ? base : baseSepolia
+/** The EVM chains the adapter serves, by numeric id. */
+export type EvmChainId = '84532' | '8453' | '46630' | '4663'
+
+const CHAINS_BY_ID: Record<EvmChainId, Chain> = {
+  '84532': baseSepolia,
+  '8453': base,
+  '46630': robinhoodTestnet,
+  '4663': robinhood,
+}
+
+export function chainOf(id: EvmChainId): Chain {
+  return CHAINS_BY_ID[id]
 }
 
 export function caip2(config: EvmConfig): string {
