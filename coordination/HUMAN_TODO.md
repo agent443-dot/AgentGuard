@@ -1084,10 +1084,10 @@ com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
 
 3. **ETH e USDG de testnet.** ETH em `faucet.testnet.chain.robinhood.com`, para a tua conta Phantom e
    para a hot wallet (a Safe não precisa). USDG no faucet da Paxos (`faucet.paxos.com`), **para a tua
-   conta Phantom** — confirma se a Robinhood Chain testnet aparece lá. Depois envias o USDG da Phantom
-   para a Safe com uma transferência normal: primeiro um valor pequeno, e confirmas com
+   conta Phantom** — confirma se a Robinhood Chain testnet aparece lá. Fica lá até a Safe existir (passo 4).
+4. **Criar a Safe** na página de assinatura, na Phantom. Logo a seguir, envia o USDG da Phantom para a Safe com uma
+   transferência normal — primeiro um valor pequeno — e confirma com
    `pnpm --filter @agentguard/onchain status:robinhood`.
-4. **Criar a Safe** na página de assinatura, na Phantom.
 5. **Ligar o Allowance Module com o teto de 50 USDG**, na mesma página.
 6. **Pôr os segredos da Robinhood no Fly** e fazer redeploy do guard-core.
 7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
