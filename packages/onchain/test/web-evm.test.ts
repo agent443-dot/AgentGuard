@@ -1,3 +1,6 @@
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { CHAINS, getAddress as sharedAddress } from '@agentguard/shared'
 import {
   decodeFunctionData,
@@ -11,7 +14,7 @@ import {
 } from 'viem'
 import { describe, expect, it } from 'vitest'
 import { allowanceCalls, allowanceModuleAbi } from '../src/evm/safe.js'
-import { csp, evmChains, rpcUrls } from '../web/build.js'
+import { buildPage, csp, evmChains, rpcUrls } from '../web/build.js'
 import {
   createData,
   enableData,
@@ -27,7 +30,8 @@ const owner = getAddress('0x0000000000000000000000000000000000000E0E')
 const hot = getAddress('0x0000000000000000000000000000000000000B0B')
 const module = getAddress(sharedAddress(CHAINS.robinhoodTestnet, 'allowanceModule')!)
 const usd = getAddress(sharedAddress(CHAINS.robinhoodTestnet, 'usd')!)
-const cap = 20_000_000n
+// The mainnet pilot's cap: 5 USDG a day.
+const cap = 5_000_000n
 const allowance = { module, hot, usd, cap }
 // Where the factory puts createData(owner, 1n): CREATE2 depends only on the factory, the proxy code,
 // the initializer and the salt, so it is the same on every chain. SigningPage.t.sol checks it.
@@ -116,26 +120,33 @@ describe("the signing page's Safe calls", () => {
     ).toHaveLength(2)
   })
 
-  // forge/SigningPage.t.sol sends these exact bytes to the real contracts on a Robinhood fork. Update
-  // with `vitest -u` when a builder changes.
-  it('matches the bytes the forge fork test runs', async () => {
-    const fixture = {
-      owner,
-      hot,
-      module,
-      usd,
-      cap: cap.toString(),
-      salt: '1',
-      safe,
-      create: createData(owner, 1n),
-      enable: enableData(owner, safe, allowance, false),
-      kill: killData(owner, module, hot),
-      reenable: enableData(owner, safe, allowance, true),
-    }
-    await expect(`${JSON.stringify(fixture, null, 2)}\n`).toMatchFileSnapshot(
-      '../forge/fixtures/signing-page.json',
-    )
-  })
+  // forge/SigningPage.t.sol sends these exact bytes to the real contracts on a fork of each chain.
+  // The module and USDG are the ones the page is built with. Update with `vitest -u` when a builder
+  // changes.
+  it.each(['robinhood-testnet', 'robinhood'] as const)(
+    'matches the bytes the forge fork test runs on %s',
+    async (cluster) => {
+      const built = evmChains({})[cluster]
+      const on = { module: getAddress(built.module), hot, usd: getAddress(built.usd), cap }
+      const fixture = {
+        chainId: built.chainId,
+        owner,
+        hot,
+        module: on.module,
+        usd: on.usd,
+        cap: cap.toString(),
+        salt: '1',
+        safe,
+        create: createData(owner, 1n),
+        enable: enableData(owner, safe, on, false),
+        kill: killData(owner, on.module, hot),
+        reenable: enableData(owner, safe, on, true),
+      }
+      await expect(`${JSON.stringify(fixture, null, 2)}\n`).toMatchFileSnapshot(
+        `../forge/fixtures/signing-page-${cluster}.json`,
+      )
+    },
+  )
 })
 
 /** MultiSend's packed list: operation, to, value, data length, data, one after another. */
@@ -187,5 +198,18 @@ describe('the EVM clusters the page is built for', () => {
     const policy = csp(rpcUrls({}))
     expect(policy).toContain('https://rpc.testnet.chain.robinhood.com')
     expect(policy).toContain('https://rpc.mainnet.chain.robinhood.com')
+  })
+
+  it('build into a page for the mainnet pilot: its hot wallet, USDG and RPC, no stand-in', async () => {
+    const dist = await mkdtemp(join(tmpdir(), 'agentguard-page-'))
+    await buildPage(dist, { ROBINHOOD_HOT_WALLET_MAINNET: hot })
+    const app = await readFile(join(dist, 'app.js'), 'utf8')
+    // esbuild prints the define without quoting its keys.
+    const usd = sharedAddress(CHAINS.robinhood, 'usd')
+    const mainnet = `robinhood:{chainId:4663,module:"${module}",usd:"${usd}",symbol:"USDG",hot:"${hot}"}`
+    expect(app.includes(mainnet)).toBe(true)
+    expect(app.includes('evm-localnet')).toBe(false)
+    const html = await readFile(join(dist, 'index.html'), 'utf8')
+    expect(html).toContain('https://rpc.mainnet.chain.robinhood.com')
   })
 })

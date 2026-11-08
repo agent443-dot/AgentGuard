@@ -407,10 +407,11 @@ whatever its symbol.
     `ROBINHOOD_HOT_WALLET_TESTNET` and `ROBINHOOD_HOT_WALLET_MAINNET`. A `hot` in a link must match
     the built-in one, or the page refuses. `ROBINHOOD_TESTNET_RPC` and `ROBINHOOD_MAINNET_RPC`
     override the public RPCs. Kill links have the same 15-minute `issued` rule as on Solana.
-  - `forge/SigningPage.t.sol` runs the page's exact bytes (`forge/fixtures/signing-page.json`, kept
-    equal to the builders by `test/web-evm.test.ts`) on a Robinhood testnet fork against the real
-    factory, MultiSendCallOnly and Allowance Module: create, enable, kill, enable again. From anyone
-    but the owner, the Safe calls revert.
+  - `forge/SigningPage.t.sol` runs the page's exact bytes on a fork of **each** Robinhood chain,
+    testnet and mainnet, against that chain's real factory, MultiSendCallOnly, Allowance Module and
+    USDG: create, enable, kill, enable again. From anyone but the owner, the Safe calls revert. The
+    bytes are in `forge/fixtures/signing-page-<cluster>.json`, generated from the page's builders
+    and build values and kept equal to them by `test/web-evm.test.ts`.
 
 ## Addresses
 
