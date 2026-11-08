@@ -1062,6 +1062,40 @@ Depois, no Telegram, `/status` tem de responder normalmente.
 
 ---
 
+## ⬜ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+
+Depois de as páginas de assinatura da Phantom para a Robinhood Chain (criar a Safe, ligar o teto, kill)
+estarem no `main` — eu aviso-te. É o equivalente da `HUMAN-15` + `HUMAN-17` para a Robinhood Chain,
+com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
+
+1. **A Phantom aceita a Robinhood Chain?** Na tua Phantom de teste, em modo de testnet, confirma que a
+   Robinhood Chain testnet aparece. É a verificação n.º 1: se não aparecer, paramos e repensamos a D4
+   para esta rede.
+2. **Uma hot wallet nova só para a Robinhood Chain**, separada da da Base. Este comando cria a chave
+   direto em `~/.agentguard/rh-hot.key` (`0600`), recusa escrever por cima de uma que já exista, e
+   imprime **só o endereço**:
+
+   ```bash
+   cd ~/AgentGuard/packages/onchain && (umask 077 && mkdir -p ~/.agentguard && node --input-type=module -e "import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'; import { writeFileSync } from 'node:fs'; const key = generatePrivateKey(); writeFileSync(process.env.HOME + '/.agentguard/rh-hot.key', key + '\n', { mode: 0o600, flag: 'wx' }); console.log(privateKeyToAddress(key))")
+   ```
+
+   Esse endereço público vai para o Vercel, no projeto `agentguard-onchain`, como variável
+   `ROBINHOOD_HOT_WALLET_TESTNET` — a página só aceita essa hot wallet.
+
+3. **ETH e USDG de testnet.** ETH em `faucet.testnet.chain.robinhood.com`, para a tua conta Phantom e
+   para a hot wallet (a Safe não precisa). USDG no faucet da Paxos (`faucet.paxos.com`), **para a tua
+   conta Phantom** — confirma se a Robinhood Chain testnet aparece lá. Fica lá até a Safe existir (passo 4).
+4. **Criar a Safe** na página de assinatura, na Phantom. Logo a seguir, envia o USDG da Phantom para a Safe com uma
+   transferência normal — primeiro um valor pequeno — e confirma com
+   `pnpm --filter @agentguard/onchain status:robinhood`.
+5. **Ligar o Allowance Module com o teto de 50 USDG**, na mesma página.
+6. **Pôr os segredos da Robinhood no Fly** e fazer redeploy do guard-core.
+7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
+   prepara-o), com a hot wallet a começar vazia.
+8. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Phantom para remover o teto.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`

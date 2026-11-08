@@ -8,6 +8,7 @@ import { readEvmKeyFile, readKeypairFile } from '../src/adapters/keypair.js'
 const ENTRYPOINT = join(import.meta.dirname, '../deploy/entrypoint.sh')
 const SOLANA_KEY = JSON.stringify(Array.from({ length: 64 }, (_, i) => i))
 const BASE_KEY = `0x${'ab'.repeat(32)}`
+const ROBINHOOD_KEY = `0x${'cd'.repeat(32)}`
 
 // Mounting tmpfs and dropping to another user both need root, as on a Fly machine.
 const root = process.platform === 'linux' && process.getuid?.() === 0
@@ -33,15 +34,18 @@ describe.skipIf(!root)('deploy/entrypoint.sh', () => {
         AGENTGUARD_DATA_DIR: data,
         SOLANA_HOT_WALLET_KEYPAIR_JSON: SOLANA_KEY,
         BASE_HOT_WALLET_KEY: BASE_KEY,
+        ROBINHOOD_HOT_WALLET_KEY: ROBINHOOD_KEY,
       },
     })
 
-  it('moves both keys to tmpfs files and out of the environment of what it runs', () => {
+  it('moves every key to tmpfs files and out of the environment of what it runs', () => {
     const env = run('env')
     expect(env).not.toContain(SOLANA_KEY)
     expect(env).not.toContain(BASE_KEY)
+    expect(env).not.toContain(ROBINHOOD_KEY)
     expect(env).toContain(`SOLANA_HOT_WALLET_KEYPAIR=${dir}/hot.json`)
     expect(env).toContain(`BASE_HOT_WALLET_KEY_FILE=${dir}/base-hot`)
+    expect(env).toContain(`ROBINHOOD_HOT_WALLET_KEY_FILE=${dir}/robinhood-hot`)
     expect(execFileSync('stat', ['-f', '-c', '%T', dir], { encoding: 'utf8' }).trim()).toBe('tmpfs')
   })
 
@@ -49,7 +53,7 @@ describe.skipIf(!root)('deploy/entrypoint.sh', () => {
     const nobody = execFileSync('id', ['-u', 'nobody'], { encoding: 'utf8' }).trim()
     expect(run('id -u').trim()).toBe(nobody)
     expect(String(statSync(data).uid)).toBe(nobody)
-    for (const file of ['hot.json', 'base-hot']) {
+    for (const file of ['hot.json', 'base-hot', 'robinhood-hot']) {
       const stat = statSync(join(dir, file))
       expect(stat.mode & 0o777).toBe(0o600)
       expect(String(stat.uid)).toBe(nobody)
@@ -62,5 +66,6 @@ describe.skipIf(!root)('deploy/entrypoint.sh', () => {
       Uint8Array.from(JSON.parse(SOLANA_KEY) as number[]),
     )
     expect(await readEvmKeyFile(join(dir, 'base-hot'))).toBe(BASE_KEY)
+    expect(await readEvmKeyFile(join(dir, 'robinhood-hot'))).toBe(ROBINHOOD_KEY)
   })
 })
