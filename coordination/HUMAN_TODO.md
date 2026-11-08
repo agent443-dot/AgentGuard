@@ -1062,7 +1062,11 @@ Depois, no Telegram, `/status` tem de responder normalmente.
 
 ---
 
-## ⬜ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+## ⏳ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+
+**Os passos 1 a 3 já podes fazer** — não dependem das páginas novas, e o 2 deve ir cedo, porque o
+Vercel pode demorar a publicar a página por causa do limite diário. Do 4 em diante, espera que eu te
+avise.
 
 Depois de as páginas de assinatura da Phantom para a Robinhood Chain (criar a Safe, ligar o teto, kill)
 estarem no `main` — eu aviso-te. É o equivalente da `HUMAN-15` + `HUMAN-17` para a Robinhood Chain,
@@ -1089,7 +1093,9 @@ com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
    transferência normal — primeiro um valor pequeno — e confirma com
    `pnpm --filter @agentguard/onchain status:robinhood`.
 5. **Ligar o Allowance Module com o teto de 50 USDG**, na mesma página.
-6. **Pôr os segredos da Robinhood no Fly** e fazer redeploy do guard-core.
+6. **Pôr os segredos da Robinhood no Fly**: no guard-core, a chave da hot wallet e o `ROBINHOOD_*`;
+   no bot, o `ROBINHOOD_CHAIN` e o `ROBINHOOD_SAFE_ADDRESS` (públicos), para o `kill` ter também o
+   botão da Robinhood Chain. Redeploy dos dois.
 7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
    prepara-o), com a hot wallet a começar vazia.
 8. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Phantom para remover o teto.
