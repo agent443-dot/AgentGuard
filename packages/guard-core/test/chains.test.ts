@@ -1,4 +1,4 @@
-import { CHAINS } from '@agentguard/shared'
+import { CHAINS, requireAddress } from '@agentguard/shared'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -134,10 +134,15 @@ describe('checking env addresses against the chain before trusting them', () => 
     ])
   })
 
-  it('checks only the Safe on Base Sepolia, where shared has USDC and the module', async () => {
+  it('asks about the verified USDC and module on Base Sepolia too', async () => {
     const fetchImpl = node()
     await build(baseChain, fetchImpl)
-    expect(askedOf(fetchImpl)).toEqual([['eth_getCode', baseChain.SAFE_ADDRESS]])
+    expect(askedOf(fetchImpl)).toEqual([
+      ['eth_getCode', baseChain.SAFE_ADDRESS],
+      ['eth_getCode', requireAddress(CHAINS.baseSepolia, 'usd')],
+      ['eth_call', requireAddress(CHAINS.baseSepolia, 'usd')],
+      ['eth_getCode', requireAddress(CHAINS.baseSepolia, 'allowanceModule')],
+    ])
   })
 
   it.each([
@@ -159,6 +164,60 @@ describe('checking env addresses against the chain before trusting them', () => 
   it('refuses to start when the node cannot be asked', async () => {
     await expect(build(baseChain, node({ down: true }))).rejects.toThrow(
       'could not check SAFE_ADDRESS against BASE_RPC_URL',
+    )
+  })
+})
+
+describe('Robinhood Chain (CR-007)', () => {
+  const robinhood = {
+    ROBINHOOD_CHAIN: CHAINS.robinhoodTestnet,
+    ROBINHOOD_RPC_URL: 'https://rpc.testnet.chain.robinhood.com',
+    ROBINHOOD_SAFE_ADDRESS: `0x${'d'.repeat(40)}`,
+    ROBINHOOD_HOT_WALLET_KEY_FILE: KEY_FILE,
+  }
+  const USDG = requireAddress(CHAINS.robinhoodTestnet, 'usd')
+
+  it('builds the adapter on eip155:46630 next to Base, each on its own id', async () => {
+    const chains = await build({ ...baseChain, ...robinhood })
+    expect([...chains.keys()]).toEqual([CHAINS.baseSepolia, CHAINS.robinhoodTestnet])
+    expect(chains.get(CHAINS.robinhoodTestnet)?.chain).toBe(CHAINS.robinhoodTestnet)
+  })
+
+  it("checks the Safe, shared's USDG with its decimals, and the module against the chain", async () => {
+    const fetchImpl = node()
+    await build(robinhood, fetchImpl)
+    expect(askedOf(fetchImpl)).toEqual([
+      ['eth_getCode', robinhood.ROBINHOOD_SAFE_ADDRESS],
+      ['eth_getCode', USDG],
+      ['eth_call', USDG],
+      ['eth_getCode', requireAddress(CHAINS.robinhoodTestnet, 'allowanceModule')],
+    ])
+  })
+
+  it('takes the dollar from shared alone, so a BASE_USDC cannot reach it', async () => {
+    const fetchImpl = node()
+    await build({ ...robinhood, BASE_USDC: `0x${'e'.repeat(40)}` }, fetchImpl)
+    expect(askedOf(fetchImpl).map(([, address]) => address)).not.toContain(`0x${'e'.repeat(40)}`)
+  })
+
+  it('refuses a USDG that does not report 6 decimals, naming the token', async () => {
+    await expect(build(robinhood, node({ decimals: 18 }))).rejects.toThrow(
+      `shared usd for ${CHAINS.robinhoodTestnet} is not a 6-decimal token, so it is not USDG`,
+    )
+  })
+
+  it.each(['ROBINHOOD_RPC_URL', 'ROBINHOOD_SAFE_ADDRESS', 'ROBINHOOD_HOT_WALLET_KEY_FILE'])(
+    'refuses to start Robinhood Chain without %s',
+    async (name) => {
+      await expect(build({ ...robinhood, [name]: '' })).rejects.toThrow(
+        `invalid configuration: ${name}`,
+      )
+    },
+  )
+
+  it('names the Robinhood RPC when it cannot be reached', async () => {
+    await expect(build(robinhood, node({ down: true }))).rejects.toThrow(
+      'could not check ROBINHOOD_SAFE_ADDRESS against ROBINHOOD_RPC_URL',
     )
   })
 })

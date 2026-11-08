@@ -28,10 +28,17 @@ For Solana, set `SOLANA_HOT_WALLET_KEYPAIR`, `SOLANA_RPC_URL` and `SQUADS_MULTIS
 builds onchain's adapter from them. For Base, set `BASE_CHAIN` (`eip155:84532` or `eip155:8453`) with
 `BASE_RPC_URL`, `SAFE_ADDRESS`, `BASE_HOT_WALLET_KEY_FILE` and, until `shared/addresses.ts` has
 verified values, `BASE_USDC` and `BASE_ALLOWANCE_MODULE`. A chain switched on with a value missing
-stops the start, naming the missing variables and never their values. Before trusting `SAFE_ADDRESS`
-and any address that came from the env rather than `shared/addresses.ts`, guard-core asks the chain:
-each must hold a contract, and the USDC must report 6 decimals. If any check fails, or the RPC cannot
-be reached, it refuses to start. Both chains can run at once. To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
+stops the start, naming the missing variables and never their values. For Robinhood Chain (CR-007),
+set `ROBINHOOD_CHAIN` (`eip155:46630` or `eip155:4663`) with `ROBINHOOD_RPC_URL`,
+`ROBINHOOD_SAFE_ADDRESS` and `ROBINHOOD_HOT_WALLET_KEY_FILE`. Its dollar is Paxos's USDG, taken from
+`shared/addresses.ts` only, so no env value can name another token there.
+
+On every EVM chain, guard-core asks the chain before building the adapter: the Safe, the token and
+the module must each hold a contract, and the token must report 6 decimals. Verified addresses are
+asked too, so an RPC URL for the wrong chain fails at startup. If any check fails, or the RPC cannot
+be reached, it refuses to start. Every configured chain runs at once.
+
+To run offline instead, set `GUARD_STUB_CHAINS=true`: nothing
 is signed and no money moves. With neither, there is no adapter and every payment is refused.
 
 ## Pipeline
@@ -205,7 +212,7 @@ fly volumes create guard_data --app agentguard-guard-core --region gru --size 1
 # 2. Settings, read from guard-core's .env. The three tokens must equal the bot's GUARD_ADMIN_TOKEN,
 #    GUARD_BOT_TOKEN and BOT_WEBHOOK_SECRET, as they already do for the local runs. SOLANA_CHAIN
 #    must be in the .env for mainnet: without it guard-core runs on devnet.
-cd ~/AgentGuard && grep -E '^(ADMIN_TOKEN|BOT_TOKEN|BOT_WEBHOOK_SECRET|SOLANA_CHAIN|SOLANA_RPC_URL|SQUADS_MULTISIG)=.' packages/guard-core/.env | fly secrets import --app agentguard-guard-core --stage
+cd ~/AgentGuard && grep -E '^(ADMIN_TOKEN|BOT_TOKEN|BOT_WEBHOOK_SECRET|SOLANA_CHAIN|SOLANA_RPC_URL|SQUADS_MULTISIG|ROBINHOOD_CHAIN|ROBINHOOD_RPC_URL|ROBINHOOD_SAFE_ADDRESS)=.' packages/guard-core/.env | fly secrets import --app agentguard-guard-core --stage
 
 # 3. The hot wallet key, piped from the keypair file that SOLANA_HOT_WALLET_KEYPAIR names (a full
 #    path, no ~). On mainnet it must be a new key, never used on devnet.
@@ -218,6 +225,13 @@ cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --co
 #    side: /health answers, and an admin route is not there at all (404).
 fly status --app agentguard-guard-core && fly checks list --app agentguard-guard-core && fly logs --app agentguard-guard-core --no-tail
 curl -s https://agentguard-guard-core.fly.dev/health && curl -s -o /dev/null -w '%{http_code}\n' https://agentguard-guard-core.fly.dev/v1/admin/chains
+```
+
+For Robinhood Chain, pipe its key the same way as step 3, from the file that
+`ROBINHOOD_HOT_WALLET_KEY_FILE` names:
+
+```bash
+cd ~/AgentGuard && key="$(grep '^ROBINHOOD_HOT_WALLET_KEY_FILE=' packages/guard-core/.env | cut -d= -f2-)" && { printf 'ROBINHOOD_HOT_WALLET_KEY='; tr -d ' \n' < "$key"; echo; } | fly secrets import --app agentguard-guard-core --stage
 ```
 
 To change a setting or a key later, repeat step 2 or 3 without `--stage`: Fly restarts the machine,
