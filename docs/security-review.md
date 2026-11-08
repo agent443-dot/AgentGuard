@@ -117,60 +117,82 @@ from a keypair file. In env, the key is visible to anything that can read the pr
 (`/proc/<pid>/environ`, crash reporters, a `printenv` in a debug shell). It should come from a file,
 as on Solana and as D5 assumes. guard-core holds it until the owner decides D5, at the owner's request.
 
-## Deployment review (planned, D3 Fly.io and D5 Fly secrets)
+## Deployment review (INT-7, run 2026-11-07/08 on the devnet stack, HUMAN-17)
 
-To run once GC-16/20/21/22 and BOT-12 are merged, against the deployed apps, not only the config.
-Each line records what was checked and how.
+Run against the deployed Fly apps (`agentguard-guard-core` and `agentguard-bot`, region gru, Solana
+devnet only), not only the config. The owner ran each check from his machine; the commands are in
+the session record. Both images were built from `main` as pulled at 19:00 UTC on 2026-11-07.
 
 **Network shape**
 
-- guard-core's private listener (`/v1/admin/*`, `/v1/bot/*`) is reachable only over 6PN
-  (`.internal`). From outside, it is checked with `curl` against the public hostname and the
-  app's IPs, and must refuse or 404.
-- The public listener serves only `/v1/agent/*` (GC-22). Admin and bot paths must 404 there, and
-  agent paths must 404 on the private listener. This is checked live as well as by the tests.
-- The bot's only public route is the Telegram webhook, behind TLS. `/hooks/*` (guard-core → bot)
-  is private.
-- No service binds a public port it does not need: check `fly.toml` `[[services]]` and
-  `fly ips list` for every app.
+- ✅ From the internet, `/v1/admin/chains` and `POST /v1/bot/decision` return 404 on the public
+  hostname: the private listener is not exposed.
+- ✅ The bot has no public service. It answers Telegram by long polling, and guard-core reaches its
+  hooks only over 6PN. `/status` in Telegram reached guard-core at
+  `agentguard-guard-core.internal:8787`.
+- Open: `fly ips list` for the bot app was not checked. It has no `[http_service]`, so no
+  traffic is routed to it even if Fly allocated an address.
 
 **The public agent surface (GC-22)**
 
-- TLS only. Plain HTTP is redirected or refused, and the certificate is valid for the hostname.
-- Every request without a valid agent token gets a 401, before any work.
-- Rate limits hold per IP and per token, behind Fly's proxy. Requests are keyed on `Fly-Client-IP`
-  on this listener only, and a client-sent `Fly-Client-IP` or `X-Forwarded-For` cannot change the
-  key: send a flood with forged headers and confirm a 429.
-- No admin or bot capability is reachable with an agent token, and one agent cannot read another
-  agent's intents (the e2e checks, rerun against the deployment).
-- Error bodies leak no stack, path or config.
-- A revoked token is refused on its next request.
+- ✅ TLS: `https://agentguard-guard-core.fly.dev/health` returns 200 with a valid certificate. Plain
+  `http://` returns 301 to the same path over https.
+- ✅ Without a token and with a wrong token, the agent routes return 401.
+- ✅ With fly-agent's token, its own budget returns 200, and agent-1's budget returns 403.
+- ✅ Rate limit behind Fly's proxy: 130 requests in about a minute, each with a different forged
+  `Fly-Client-IP` and `X-Forwarded-For`, still drew 429s. Had the forged header been trusted, every
+  key would have seen one request and none would have been limited. Fly replaces the header with the
+  real client address.
+- ✅ Error bodies are Fastify's 404 and the API's `{"error":"unauthorized"}`. No stack, file path or
+  config value was seen.
+- Open: a revoked token was not tested live. It is covered by the tests.
 
 **Secrets (D5)**
 
-- The hot wallet key comes from a Fly secret, written by the entrypoint to a tmpfs file (GC-20),
-  never to the volume. Check `mount`, file mode 0400, owner, and that the file is not in any image
-  layer (`docker history`, and the image filesystem).
-- No secret appears in `fly logs` across a full payment, approval and kill; and none in the image's
-  environment (`fly ssh console` → `env` shows only names expected from `fly secrets list`).
-- ADMIN, BOT and webhook tokens are distinct, at least 32 chars, and set as secrets, not in
-  `fly.toml`.
+- ✅ Inside the machine, node runs as `node`, not root. The Solana hot key is at
+  `/run/agentguard/hot.json` on tmpfs, mode `0600`, owner `node`. That is owner-only like the
+  planned `0400`, from the entrypoint's `umask 077`.
+- ✅ `SOLANA_HOT_WALLET_KEYPAIR_JSON` is not in node's environment, only the file path
+  `SOLANA_HOT_WALLET_KEYPAIR`. The env names that remain are `ADMIN_TOKEN`, `BOT_TOKEN` and
+  `BOT_WEBHOOK_SECRET`, which guard-core needs to check its callers.
+- ✅ No `.env`, keypair or `id.json` in the image filesystem (only the source file `keypair.ts`).
+  The build context was 473 KB for guard-core and 2.49 MB for the bot. The root `.dockerignore`
+  keeps keys out, and CI's decoy check covers it.
+- ✅ The three shared tokens are Fly secrets, identical between the two apps (same digests), and
+  not in `fly.toml`.
+- Open: a full grep of `fly logs` for secrets across a payment, an approval and a kill. The log
+  lines read during the run showed none, but no systematic grep was done.
 
 **Data**
 
-- The database is on the volume, and guard-core refuses an unsafe location (#35). A redeploy keeps
-  the day's spend: make a payment, redeploy, and check `spentToday`.
-- `pnpm db:backup` works against the deployed volume, and a restore is rehearsed once.
+- ✅ The database is on the encrypted `guard_data` volume, at `/data/guard.db`, mode `0600`, owner
+  `node`, with daily Fly snapshots kept for 5 days.
+- ✅ After a 0.5 USDC payment, `spentToday` was `500000` before and after `fly machine restart`.
+  The machine came back healthy, which also shows the entrypoint rewrites the key on each boot.
+- Open: `pnpm db:backup` against the volume, and one restore rehearsal.
 
 **Operations**
 
-- The kill runbook works against the deployed stack: `/kill` → "Open kill in Phantom" → `status`
-  shows no limit, and the agent is paused in guard-core.
-- Deploys come only from protected `main` for both the Fly apps and the signing page.
+- ✅ A live x402 payment through the hosted guard-core: intent `24bb9338`, 0.5 USDC, auto-approved
+  under the threshold. The flow was simulated, topped up from the vault, signed and executed, and
+  the onchain limit then read $0.50 of $50.00.
+- ✅ The kill works on the hosted stack: `/kill` → Confirm paused 1 agent and built the Solana
+  owner transaction (audit `killed`, `built: true`). The signing page then reported the limit
+  removed.
+- **Finding, runbook:** an "Open kill in Phantom" button from an older message removes the onchain
+  limit without pausing guard-core. The page is idempotent and the onchain part is the stronger
+  stop, but the agent stayed unpaused until `/kill` → Confirm was run. The runbook must start
+  every kill from `/kill` → Confirm. A bot change could also refuse or label stale kill
+  buttons.
+- **Finding, CR-008:** after a kill, `/status` says "onchain allowance could not be read", because
+  the Squads account is gone and the adapter throws. Proposed fix in CR-008.
+- ✅ The Fly trial stops machines after 5 minutes without a card. With a card on the account,
+  they have stayed up.
 
 ## Left for INT-7
 
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).
 - The Base hot key finding above: D5 is now decided (a Fly secret written to a file), so the Base
   key must be read from a file like Solana's before Base launches. D6 puts Base after Solana.
-- Run the deployment review above once the deploy PRs are merged.
+- The open items in the deployment review above: the bot's IPs, a revoked token live, a log grep
+  for secrets, and a backup restore rehearsal.
