@@ -384,25 +384,33 @@ whatever its symbol.
   `ROBINHOOD_SAFE_ADDRESS` and `ROBINHOOD_HOT_WALLET_ADDRESS` (see `.env.example`). There is no owner
   key: on Robinhood the owner signs in Phantom, on the signing page (D4). `pnpm status:robinhood` reads the setup from the chain: the owners, the threshold, the module,
   the Safe's USDG and the allowance.
-- **The kill on the signing page:**
-  `/?action=kill&cluster=robinhood-testnet|robinhood&safe=<Safe>&issued=<unix seconds>`.
-  - The page asks Phantom's EVM provider (`window.phantom.ethereum`) to switch to the chain, and stops if it cannot.
-  - It sends one transaction from the connected account to the Safe: `execTransaction` calling
-    `removeDelegate(hot, true)` on the module, the call `buildKillTx` builds. The signature is the
-    Safe's pre-validated one (r = owner, v = 1), which the Safe accepts only with the owner as
-    `msg.sender`, so nothing is signed off-chain.
-  - It refuses unless the connected account is the Safe's only owner at threshold 1. It runs the
-    call with `eth_call` first and does not ask Phantom if the Safe would revert.
+- **The signing page on Robinhood:** one Phantom transaction per action, from the owner's
+  account. Phantom's EVM provider (`window.phantom.ethereum`) must switch to the chain first, or the
+  page stops.
+
+  | Link (`cluster=robinhood-testnet` or `robinhood`)                   | Sends                                                                                                              |
+  | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+  | `/?action=create&cluster=<cluster>`                                 | `createProxyWithNonce` on Safe's factory: SafeL2 1.4.1, the owner alone, threshold 1                               |
+  | `/?action=enable&cluster=<cluster>&safe=<Safe>&amount=<base units>` | `execTransaction` → MultiSendCallOnly: `enableModule`, `addDelegate(hot)`, `setAllowance(hot, USDG, amount, 1440)` |
+  | `/?action=kill&cluster=<cluster>&safe=<Safe>&issued=<unix seconds>` | `execTransaction` → `removeDelegate(hot, true)`, the call `buildKillTx` builds                                     |
+  - The Safe calls carry the Safe's pre-validated signature (r = owner, v = 1). The Safe accepts it
+    only with the owner as `msg.sender`, so nothing is signed off-chain. The batch is a delegatecall
+    into MultiSendCallOnly, which itself refuses delegatecalls.
+  - Create uses a new salt on each page load and names the Safe's address, from a dry run of the
+    same call, before Phantom asks. Afterwards it prints `ROBINHOOD_SAFE_ADDRESS` for guard-core.
+  - Enable and kill refuse unless the connected account is the Safe's only owner at threshold 1.
+    Enable refuses when the hot wallet already has an allowance (kill first), leaves `enableModule`
+    out when the module is already on (after a kill), and caps `amount` at `MAX_DAILY_CAP`.
+  - Every call runs as `eth_call` from the owner first; the page does not ask Phantom if it would
+    revert.
   - The module and USDG come from shared at build time, and the hot wallet from
-    `ROBINHOOD_HOT_WALLET_TESTNET` and `ROBINHOOD_HOT_WALLET_MAINNET`. The link names the Safe only.
-    A `hot` in the link must match the built-in one, or the page refuses. `ROBINHOOD_TESTNET_RPC`
-    and `ROBINHOOD_MAINNET_RPC` override the public RPCs. The link has the same 15-minute `issued` rule
-    as on Solana.
-  - `forge/SigningPageKill.t.sol` runs the page's exact bytes (`forge/fixtures/signing-page.json`,
-    kept equal to the builder by `test/web-evm.test.ts`) on a Robinhood testnet fork, against the
-    real Safe and module. From the owner the delegate and its allowance are gone; from anyone else
-    the call reverts.
-  - Creating the Safe and enabling the allowance on the page are the next PR.
+    `ROBINHOOD_HOT_WALLET_TESTNET` and `ROBINHOOD_HOT_WALLET_MAINNET`. A `hot` in a link must match
+    the built-in one, or the page refuses. `ROBINHOOD_TESTNET_RPC` and `ROBINHOOD_MAINNET_RPC`
+    override the public RPCs. Kill links have the same 15-minute `issued` rule as on Solana.
+  - `forge/SigningPage.t.sol` runs the page's exact bytes (`forge/fixtures/signing-page.json`, kept
+    equal to the builders by `test/web-evm.test.ts`) on a Robinhood testnet fork against the real
+    factory, MultiSendCallOnly and Allowance Module: create, enable, kill, enable again. From anyone
+    but the owner, the Safe calls revert.
 
 ## Addresses
 

@@ -16,12 +16,18 @@ import {
 import { z } from 'zod'
 import { allowanceModuleAbi } from '../../src/evm/safe.js'
 import { buildPage } from '../build.js'
-import { killData, safeAbi } from '../src/evm/calls.js'
+import { createData, enableData, killData, PROXY_FACTORY, safeAbi } from '../src/evm/calls.js'
 import { jsonRpc, JsonRpcError, serve } from './server.js'
 
 export const MODULE = getAddress(sharedAddress(CHAINS.robinhoodTestnet, 'allowanceModule')!)
 export const USDG = getAddress(sharedAddress(CHAINS.robinhoodTestnet, 'usd')!)
-const abi = [...safeAbi, ...allowanceModuleAbi]
+const abi = [
+  ...safeAbi,
+  ...allowanceModuleAbi,
+  ...parseAbi([
+    'function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)',
+  ]),
+]
 const call = z.object({ from: z.string().optional(), to: z.string(), data: z.string() })
 const reverts = (reason: string) =>
   new JsonRpcError(
@@ -36,30 +42,41 @@ const reverts = (reason: string) =>
 
 /**
  * Robinhood testnet as the page reads it, for one Safe: its owners, the module's delegate and
- * allowance. The Safe runs only the kill this suite expects, from its owner, as the real one would
- * with a pre-validated signature; the real contracts are exercised by forge (SigningPageKill.t.sol).
+ * allowance. The Safe runs only the kill and enable this suite expects, from its owner, as the real one would
+ * with a pre-validated signature; the real contracts are exercised by forge (SigningPage.t.sol).
  */
 export async function stageEvm() {
   const state = {
     safe: getAddress('0x5afe00000000000000000000000000000000cafe'),
+    /** Whether the Safe exists yet: create makes it, at `safe`, for whoever sends it. */
+    exists: true,
     owners: [getAddress('0x0e0e00000000000000000000000000000000beef')],
     threshold: 1n,
     hot: getAddress('0x0b0b00000000000000000000000000000000f00d'),
+    moduleEnabled: true,
     listed: true,
-    /** The Safe reverts even its owner's kill, as it would for a guard or a changed module. */
+    /** The Safe reverts even its owner's call, as it would for a guard or a changed module. */
     refuses: false,
-    allowance: [50_000_000n, 1_500_000n, 1440n, 29_000_000n, 3n] as const,
+    allowance: [50_000_000n, 1_500_000n, 1440n, 29_000_000n, 3n] as readonly bigint[],
+    /** The cap the enable test's link asks for: the only enable the Safe runs. */
+    cap: 20_000_000n,
   }
   const sent: { from: Address; to: Address; data: Hex; value: Hex }[] = []
 
-  function execute(from: Address | undefined, to: Address, data: Hex): Hex {
+  /** A call's return data, and what it changes once it is really sent rather than dry-run. */
+  function execute(from: Address | undefined, to: Address, data: Hex): [Hex, () => void] {
     const { functionName, args } = decodeFunctionData({ abi, data })
-    const answer = (result: unknown) => encodeFunctionResult({ abi, functionName, result } as never)
+    const answer = (result: unknown, effect = () => {}): [Hex, () => void] => [
+      encodeFunctionResult({ abi, functionName, result } as never),
+      effect,
+    ]
     switch (functionName) {
       case 'getOwners':
         return answer(state.owners)
       case 'getThreshold':
         return answer(state.threshold)
+      case 'isModuleEnabled':
+        return answer(isAddressEqual(args[0] as Address, MODULE) && state.moduleEnabled)
       // The module's entries, only under the keys it really uses for this Safe and hot wallet.
       case 'delegates': {
         const [safe, key] = args as [Address, number]
@@ -74,16 +91,41 @@ export async function stageEvm() {
         )
         return answer(ours && state.listed ? state.allowance : [0n, 0n, 0n, 0n, 0n])
       }
+      case 'createProxyWithNonce': {
+        const [, , salt] = args as [Address, Hex, bigint]
+        if (!from || !isAddressEqual(to, PROXY_FACTORY) || data !== createData(from, salt)) {
+          throw reverts('not the create this suite expects')
+        }
+        return answer(state.safe, () => {
+          state.exists = true
+          state.owners = [from]
+        })
+      }
       case 'execTransaction': {
         const owner = state.owners[0]!
-        const expected = killData(owner, MODULE, state.hot)
-        if (state.refuses || !from || !isAddressEqual(from, owner) || data !== expected) {
+        const kill = killData(owner, MODULE, state.hot)
+        const enable = enableData(
+          owner,
+          state.safe,
+          { module: MODULE, hot: state.hot, usd: USDG, cap: state.cap },
+          state.moduleEnabled,
+        )
+        if (
+          state.refuses ||
+          !from ||
+          !isAddressEqual(from, owner) ||
+          ![kill, enable].includes(data)
+        ) {
           throw reverts('GS025')
         }
         if (!isAddressEqual(to, state.safe)) {
           throw reverts('not the Safe')
         }
-        return answer(true)
+        return answer(true, () => {
+          state.moduleEnabled = true
+          state.listed = data === enable
+          state.allowance = [state.cap, 0n, 1440n, 29_000_000n, 0n]
+        })
       }
       default:
         throw new Error(`fake node: ${functionName} not served`)
@@ -93,20 +135,21 @@ export async function stageEvm() {
   const rpc = jsonRpc({
     eth_chainId: () => '0xb626',
     eth_getCode: ([address]) =>
-      isAddressEqual(z.string().parse(address) as Address, state.safe) ? '0x6080' : '0x',
+      state.exists && isAddressEqual(z.string().parse(address) as Address, state.safe)
+        ? '0x6080'
+        : '0x',
     eth_call: ([request]) => {
       const { from, to, data } = call.parse(request)
-      return execute(from as Address | undefined, to as Address, data as Hex)
+      return execute(from as Address | undefined, to as Address, data as Hex)[0]
     },
   })
-  // What Phantom sends: the node runs it, and the kill takes effect.
+  // What Phantom sends: the node runs it, and it takes effect.
   async function send(body: string) {
     const tx = z
       .object({ from: z.string(), to: z.string(), data: z.string(), value: z.string() })
       .parse(JSON.parse(body))
     sent.push(tx as (typeof sent)[number])
-    execute(tx.from as Address, tx.to as Address, tx.data as Hex)
-    state.listed = false
+    execute(tx.from as Address, tx.to as Address, tx.data as Hex)[1]()
     return JSON.stringify(`0x${'ab'.repeat(32)}`)
   }
 

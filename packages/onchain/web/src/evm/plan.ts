@@ -2,14 +2,14 @@ import { isAddressEqual, type Address, type Hex, type PublicClient } from 'viem'
 import type { Plan } from '../plan.js'
 import { safeAbi } from './calls.js'
 
-/** What the page asks the owner to send on an EVM chain: one call from the owner to the Safe. */
+/** What the page asks the owner to send on an EVM chain: one call from the owner's account. */
 export type EvmPlan =
   | Exclude<Plan, { kind: 'sign' }>
   | {
       kind: 'sign'
       title: string
       summary: string[]
-      safe: Address
+      to: Address
       data: Hex
       after: string
       landed: () => Promise<string[] | undefined>
