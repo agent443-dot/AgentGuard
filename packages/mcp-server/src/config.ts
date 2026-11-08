@@ -25,7 +25,7 @@ export const configSchema = z
     AGENT_ID: z.string().min(1).max(64),
     AGENT_TOKEN: z.string().min(1),
     DEFAULT_CHAIN: z.enum(Object.values(CHAINS)).default(CHAINS.solanaDevnet),
-    /** USDC on the Base chain guard-core runs, until shared carries a verified address for it. */
+    /** USDC on Base mainnet, until shared carries a verified address for it. Ignored on other chains. */
     BASE_USDC: z
       .string()
       .regex(/^0x[0-9a-fA-F]{40}$/, 'expected a 0x address')

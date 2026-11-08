@@ -1,8 +1,8 @@
 # @agentguard/mcp-server
 
 An MCP server that lets an AI agent pay **only** through AgentGuard. It holds no keys and makes no
-policy decisions. It checks the agent's inputs, turns dollars into USDC atomic units, asks guard-core,
-and explains the answer in plain English.
+policy decisions. It checks the agent's inputs, turns dollars into atomic units of the chain's dollar
+(USDC, or USDG on Robinhood Chain), asks guard-core, and explains the answer in plain English.
 
 Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
 
@@ -13,7 +13,8 @@ Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
 The agent **can**:
 
 - pay for an HTTP resource that asks for an x402 payment (`paid_fetch`);
-- send USDC to an address (`transfer`), on Solana or Base;
+- send dollars to an address (`transfer`) on Solana, Base or Robinhood Chain: USDC, or USDG on
+  Robinhood Chain, which has no Circle USDC;
 - see what it has spent today and its limits (`get_budget`);
 - follow a payment through owner approval (`check_intent`).
 
@@ -176,6 +177,10 @@ committed without it:
 }
 ```
 
+To make transfers without a `chain` default to another chain, add `DEFAULT_CHAIN` to the same `env`
+block, for example `"DEFAULT_CHAIN": "eip155:46630"` for Robinhood Chain testnet. It must be a chain
+guard-core runs and the agent's policy allows; the server warns at startup if not.
+
 Then set `AGENTGUARD_AGENT_TOKEN` in the shell that starts Claude Code, from your secret manager
 rather than typed on the command line. `claude mcp add … -e AGENT_TOKEN=<token>` also works, but it
 leaves the token in your shell history.
@@ -185,7 +190,7 @@ leaves the token in your shell history.
 | Tool           | Input                                              | What it does                                   |
 | -------------- | -------------------------------------------------- | ---------------------------------------------- |
 | `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | Fetches the URL, paying an x402 request if any |
-| `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends USDC to an address                       |
+| `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends the chain's dollar to an address         |
 | `get_budget`   | `{}`                                               | Spend today, limits, chains, pause, balances   |
 | `check_intent` | `{ intentId }`                                     | The current status of one payment              |
 
@@ -193,8 +198,11 @@ leaves the token in your shell history.
   through a float by the time it arrives. A sign, an exponent, `NaN`, `Infinity` and more than 6
   decimal places are refused rather than rounded.
 - **Chains** are CAIP-2 ids: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet),
-  `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (Solana devnet), `eip155:8453` (Base mainnet) and
-  `eip155:84532` (Base Sepolia). `transfer` without `chain` uses `DEFAULT_CHAIN`. `paid_fetch` takes
+  `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (Solana devnet), `eip155:8453` (Base mainnet),
+  `eip155:84532` (Base Sepolia), `eip155:4663` (Robinhood Chain) and `eip155:46630` (Robinhood Chain
+  testnet). `transfer` without `chain` uses `DEFAULT_CHAIN`.
+- **The dollar** is USDC on Solana and Base, and USDG (Paxos) on Robinhood Chain. Both have 6
+  decimals, so `amountUsd` means the same on every chain; results name the token they moved. `paid_fetch` takes
   no chain: the website's payment request names one, and the policy decides whether it is allowed.
 - **`maxAmountUsd`** caps one `paid_fetch`. The tighter of it and the policy's per-payment limit
   applies.
@@ -249,7 +257,7 @@ worth retrying unchanged.
 | -------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
 | `amountUsd: "…" is not a valid USD amount` (or `maxAmountUsd`) | Bad amount format                                      | Send a decimal string like `"2.50"`                                   |
 | `amountUsd: a transfer must be more than zero.`                | A zero transfer                                        | Send a positive amount                                                |
-| `This server has no USDC address for …`                        | No USDC configured for that chain                      | Use another chain; the owner sets `BASE_USDC`                         |
+| `This server has no dollar token for …`                        | No dollar token configured for that chain              | Use another chain; on Base mainnet the owner sets `BASE_USDC`         |
 | `AgentGuard could not be reached or did not answer in time.`   | guard-core is down or slow                             | Call `get_budget` before retrying a payment: it may have gone through |
 | `AgentGuard did not accept this agent's credentials.`          | Wrong or revoked `AGENT_TOKEN`                         | The owner fixes the configuration                                     |
 | `AgentGuard is rate limiting this agent.`                      | Too many calls to guard-core                           | Wait a minute                                                         |
@@ -265,25 +273,25 @@ worth retrying unchanged.
 
 ## Configuration
 
-| Variable                | Required    | Default                | Notes                                                                                        |
-| ----------------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `GUARD_URL`             | yes         |                        | guard-core base URL: `https://`, or `http://` to localhost only                              |
-| `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                |
-| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                         |
-| `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                  |
-| `BASE_USDC`             | on Base     |                        | USDC contract on the Base chain guard-core runs, while shared has no verified address for it |
-| `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                            |
-| `MCP_HTTP_HOST`         | no          | `127.0.0.1`            | HTTP only                                                                                    |
-| `MCP_HTTP_PORT`         | no          | `8789`                 | HTTP only                                                                                    |
-| `MCP_HTTP_TOKEN`        | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                   |
-| `MCP_HTTP_ALLOW_REMOTE` | no          | `false`                | Must be `true` to bind `MCP_HTTP_HOST` to anything but loopback                              |
-| `MCP_HTTP_RATE_LIMIT`   | no          | `60`                   | HTTP requests per minute per client address                                                  |
-| `LOG_LEVEL`             | no          | `info`                 | Logs go to stderr as JSON                                                                    |
+| Variable                | Required    | Default                | Notes                                                                                         |
+| ----------------------- | ----------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| `GUARD_URL`             | yes         |                        | guard-core base URL: `https://`, or `http://` to localhost only                               |
+| `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                 |
+| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                          |
+| `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                   |
+| `BASE_USDC`             | on Base     |                        | USDC contract on Base mainnet, while shared has no verified address for it; ignored elsewhere |
+| `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                             |
+| `MCP_HTTP_HOST`         | no          | `127.0.0.1`            | HTTP only                                                                                     |
+| `MCP_HTTP_PORT`         | no          | `8789`                 | HTTP only                                                                                     |
+| `MCP_HTTP_TOKEN`        | with `http` |                        | Bearer token clients must send, ≥ 32 chars                                                    |
+| `MCP_HTTP_ALLOW_REMOTE` | no          | `false`                | Must be `true` to bind `MCP_HTTP_HOST` to anything but loopback                               |
+| `MCP_HTTP_RATE_LIMIT`   | no          | `60`                   | HTTP requests per minute per client address                                                   |
+| `LOG_LEVEL`             | no          | `info`                 | Logs go to stderr as JSON                                                                     |
 
 The config is validated at startup; a bad value stops the server with the field name, never the
 value. Logs never contain the tokens. At startup the server also reads the budget, and warns if
 `DEFAULT_CHAIN` is not among the chains guard-core runs and this agent may pay on (`chains` in the
-budget, CR-006), or if `DEFAULT_CHAIN` has no USDC address. It warns rather than refuses to start:
+budget, CR-006), or if `DEFAULT_CHAIN` has no dollar token. It warns rather than refuses to start:
 guard-core may be down at that moment. Against a guard-core that does not report `chains`, the check
 is skipped.
 

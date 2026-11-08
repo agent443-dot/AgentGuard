@@ -5,7 +5,7 @@ import { httpGuard } from './adapters/guard.js'
 import { loadConfig } from './config.js'
 import { rateLimiter } from './domain/rate-limit.js'
 import { startHttp } from './http.js'
-import { usdcFor } from './domain/chains.js'
+import { usdTokenFor } from './domain/chains.js'
 import { createServer } from './server.js'
 import { checkDefaultChain } from './startup.js'
 
@@ -21,10 +21,10 @@ const deps = {
   }),
   log,
   defaultChain: config.DEFAULT_CHAIN,
-  usdc: (chain: string) => usdcFor(chain, config.BASE_USDC),
+  usd: (chain: string) => usdTokenFor(chain, config.BASE_USDC),
 }
 
-await checkDefaultChain(deps.guard, config.DEFAULT_CHAIN, deps.usdc(config.DEFAULT_CHAIN), log)
+await checkDefaultChain(deps.guard, config.DEFAULT_CHAIN, deps.usd(config.DEFAULT_CHAIN), log)
 
 if (config.MCP_TRANSPORT === 'stdio') {
   await createServer(deps).connect(new StdioServerTransport())
