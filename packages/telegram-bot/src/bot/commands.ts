@@ -9,23 +9,26 @@ import {
   ownerTransactionText,
   statusText,
 } from '../domain/text.js'
+import type { ChainId } from '@agentguard/shared'
 import {
+  anywayLabel,
   chainsText,
   KILL_FAILED,
-  KILL_FAILED_ONCHAIN,
   KILL_OFFER_EXPIRED,
+  killFailedOnchain,
   killWarning,
-  PHANTOM_ANYWAY,
+  openLabel,
 } from '../domain/chains.js'
 import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
+import type { PhantomKill } from '../domain/phantom.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
   guard: GuardClient
   desk: Desk
   log: Logger
-  /** Builds the onchain kill link on the signing page, when SIGN_PAGE_URL is configured. */
-  phantomKill?: (issued: Date) => string
+  /** The onchain kill of each chain on the signing page; none without SIGN_PAGE_URL. */
+  phantomKills?: PhantomKill[]
   now?: () => Date
 }
 
@@ -35,9 +38,10 @@ const AGENT_ID = /^\S{1,64}$/
 
 export function registerCommands(
   bot: Bot,
-  { guard, desk, log, phantomKill, now = () => new Date() }: CommandDeps,
+  { guard, desk, log, phantomKills = [], now = () => new Date() }: CommandDeps,
 ) {
-  const phantom = phantomKill !== undefined
+  const phantom = phantomKills.length > 0
+  const phantomChains = phantomKills.map((kill) => kill.chain)
   const offers = new KillOffers()
 
   /** Drops the button and says so, keeping what the message told the owner. */
@@ -128,20 +132,25 @@ export function registerCommands(
   })
 
   /**
-   * Edits the kill message to text and, when the signing page is configured, a Phantom button with
-   * label. The button becomes the only live one: older ones are retired, and it expires on its own.
+   * Edits the kill message to text and, when the signing page is configured, one Phantom button per
+   * chain. These become the only live ones: older ones are retired, and they expire on their own.
    */
-  async function offerKill(ctx: CallbackQueryContext<Context>, text: string, label: string) {
+  async function offerKill(
+    ctx: CallbackQueryContext<Context>,
+    text: string,
+    label: (chain: ChainId) => string,
+  ) {
     const message = ctx.callbackQuery.message
-    if (phantomKill === undefined || message === undefined) {
+    if (!phantom || message === undefined) {
       await ctx.editMessageText(text, HTML)
       return
     }
     const at = now()
-    await ctx.editMessageText(text, {
-      ...HTML,
-      reply_markup: new InlineKeyboard().url(label, phantomKill(at)),
-    })
+    const keyboard = new InlineKeyboard()
+    for (const kill of phantomKills) {
+      keyboard.url(label(kill.chain), kill.link(at)).row()
+    }
+    await ctx.editMessageText(text, { ...HTML, reply_markup: keyboard })
     const offer = {
       chatId: message.chat.id,
       messageId: message.message_id,
@@ -160,11 +169,11 @@ export function registerCommands(
     } catch (err) {
       log.error({ err }, 'kill failed')
       // guard-core may be down, so the onchain limit is the only brake left; the label says so.
-      await offerKill(ctx, phantom ? KILL_FAILED_ONCHAIN : KILL_FAILED, PHANTOM_ANYWAY)
+      await offerKill(ctx, phantom ? killFailedOnchain(phantomChains) : KILL_FAILED, anywayLabel)
       return
     }
     const built = result.ownerTransactions.filter(isBuilt).length
-    await offerKill(ctx, killedText(result.pausedAgents, built, phantom), 'Open kill in Phantom')
+    await offerKill(ctx, killedText(result.pausedAgents, built, phantomChains), openLabel)
     for (const tx of result.ownerTransactions) {
       await ctx.reply(ownerTransactionText(tx), HTML)
     }
