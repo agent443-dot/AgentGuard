@@ -6,3 +6,5 @@ out = "out"
 cache_path = "cache"
 libs = []
 solc_version = "0.8.26"
+# The signing page's calldata, which SigningPageKill.t.sol runs on a fork.
+fs_permissions = [{ access = "read", path = "./forge/fixtures" }]
