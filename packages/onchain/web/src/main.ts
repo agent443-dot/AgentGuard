@@ -2,45 +2,23 @@ import './shim.js'
 import { Connection, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { z } from 'zod'
 import { prepareCreate } from './create.js'
+import { evmMain, type EvmChain } from './evm/main.js'
 import { prepareKill } from './kill.js'
 import { prepareLimit } from './limit.js'
+import { EXPIRED, expired, issued, problems } from './link.js'
 import { isPublicKey, type Plan } from './plan.js'
+import { button, link, show, waitFor } from './view.js'
 import { openInPhantom, phantom, type Wallet } from './wallet.js'
 
 declare const RPC_URLS: Record<string, string>
 declare const USDC_MINTS: Record<string, string>
 declare const HOT_WALLETS: Record<string, string>
 declare const MAX_DAILY_CAP: string
+declare const EVM_CHAINS: Record<string, Omit<EvmChain, 'name' | 'rpc'>>
 
 /** A build-time value for the cluster, by its own name only. */
-const built = (map: Record<string, string>, cluster: string) =>
+const built = <T>(map: Record<string, T>, cluster: string) =>
   Object.hasOwn(map, cluster) ? map[cluster] : undefined
-
-const app = document.getElementById('app')!
-
-function show(title: string, lines: string[], tone: 'info' | 'stop' | 'done' = 'info') {
-  app.replaceChildren()
-  app.dataset['state'] = tone
-  const heading = document.createElement('h1')
-  heading.textContent = title
-  app.append(heading)
-  for (const line of lines) {
-    const p = document.createElement('p')
-    p.textContent = line
-    app.append(p)
-  }
-}
-
-function button(label: string, action: () => void) {
-  const element = document.createElement('button')
-  element.textContent = label
-  element.addEventListener('click', action, { once: true })
-  app.append(element)
-}
-
-// A kill link is good for 15 minutes; a few minutes of clock skew either way are forgiven.
-const KILL_LINK_TTL_S = 15 * 60
-const FUTURE_SLACK_S = 5 * 60
 
 const key = z
   .string()
@@ -48,19 +26,13 @@ const key = z
   .transform((value) => new PublicKey(value))
 // Own names only: `in` would also accept inherited ones such as toString.
 const cluster = z.string().refine((name) => Object.hasOwn(RPC_URLS, name), 'unknown cluster')
-const link = z.discriminatedUnion('action', [
+const solanaLink = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('kill'),
     cluster,
     multisig: key,
     hot: key,
-    // Unix seconds when the bot made the link. A kill button left in an old message, or kept by a
-    // bot that restarted, must not remove the limit out of step with guard-core.
-    issued: z
-      .string()
-      .regex(/^\d{1,12}$/, 'unix seconds')
-      .transform(Number)
-      .refine((at) => at <= Date.now() / 1000 + FUTURE_SLACK_S, 'issued in the future'),
+    issued,
   }),
   z.object({ action: z.literal('create'), cluster }),
   z.object({
@@ -80,14 +52,11 @@ const link = z.discriminatedUnion('action', [
   }),
 ])
 
-function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof link>) {
+function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof solanaLink>) {
   switch (request.action) {
     case 'kill':
-      if (Date.now() / 1000 - request.issued > KILL_LINK_TTL_S) {
-        return Promise.resolve<Plan>({
-          kind: 'refused',
-          reason: 'This link expired. Use /kill in Telegram for a fresh one.',
-        })
+      if (expired(request.issued)) {
+        return Promise.resolve<Plan>({ kind: 'refused', reason: EXPIRED })
       }
       return prepareKill(connection, { ...request, hotWallet: request.hot }, owner)
     case 'create':
@@ -112,19 +81,21 @@ function prepare(connection: Connection, owner: PublicKey, request: z.infer<type
 }
 
 async function main() {
-  const parsed = link.safeParse(Object.fromEntries(new URLSearchParams(location.search)))
+  const query = Object.fromEntries(new URLSearchParams(location.search))
+  const evm = built(EVM_CHAINS, query['cluster'] ?? '')
+  if (evm) {
+    await evmMain(query, { ...evm, name: query['cluster']!, rpc: RPC_URLS[query['cluster']!]! })
+    return
+  }
+  const parsed = solanaLink.safeParse(query)
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-    show('This link is not valid', [issues.join('; ')], 'stop')
+    show('This link is not valid', [problems(parsed.error)], 'stop')
     return
   }
   const wallet = phantom()
   if (!wallet) {
     show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
-    const open = document.createElement('a')
-    open.href = openInPhantom(location.href)
-    open.textContent = 'Open in Phantom'
-    app.append(open)
+    link('Open in Phantom', openInPhantom(location.href))
     return
   }
   const connection = new Connection(RPC_URLS[parsed.data.cluster]!, 'confirmed')
@@ -162,19 +133,7 @@ async function run(connection: Connection, wallet: Wallet, owner: PublicKey, pla
     return
   }
   show('Waiting for the chain…', plan.summary)
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const result = await plan.landed()
-    if (result) {
-      show(plan.after, result, 'done')
-      return
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-  }
-  show(
-    'Not confirmed yet',
-    ['The change is not on the chain yet. Run status before trying again.'],
-    'stop',
-  )
+  await waitFor(plan)
 }
 
 main().catch((error: unknown) => show('Something went wrong', [String(error)], 'stop'))

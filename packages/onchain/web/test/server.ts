@@ -58,22 +58,53 @@ export async function servePage(svm: Svm, dist: string, wallet: () => Keypair) {
     return { signature: Buffer.from(result.signature()).toString('hex') }
   }
 
+  const served = await serve(dist, {
+    '/rpc': jsonRpc(methods),
+    '/wallet': async (body) => JSON.stringify(await sign(body)),
+  })
+  return { ...served, dist, signed }
+}
+
+/** A JSON-RPC endpoint over `methods`; a method that throws a JsonRpcError answers with it. */
+export function jsonRpc(methods: Record<string, (params: unknown[]) => unknown>) {
+  return async (body: string) => {
+    const { id, method, params } = rpcRequest.parse(JSON.parse(body))
+    const handler = methods[method]
+    if (!handler) {
+      throw new Error(`test RPC: ${method} not served`)
+    }
+    try {
+      return JSON.stringify({ jsonrpc: '2.0', id, result: await handler(params) })
+    } catch (error) {
+      if (error instanceof JsonRpcError) {
+        return JSON.stringify({ jsonrpc: '2.0', id, error: { ...error } })
+      }
+      throw error
+    }
+  }
+}
+
+export class JsonRpcError {
+  constructor(
+    readonly code: number,
+    readonly message: string,
+    readonly data?: string,
+  ) {}
+}
+
+/** The built page's files, and a JSON answer from `routes` for each POST path. */
+export async function serve(
+  dist: string,
+  routes: Record<string, (body: string) => Promise<string>>,
+) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', 'http://localhost')
-      if (req.method === 'POST' && url.pathname === '/rpc') {
-        const { id, method, params } = rpcRequest.parse(JSON.parse(await text(req)))
-        const handler = methods[method]
-        if (!handler) {
-          throw new Error(`test RPC: ${method} not served`)
-        }
+      const route = Object.hasOwn(routes, url.pathname) ? routes[url.pathname] : undefined
+      if (req.method === 'POST' && route) {
+        const answer = await route(await text(req))
         res.setHeader('content-type', 'application/json')
-        res.end(JSON.stringify({ jsonrpc: '2.0', id, result: handler(params) }))
-        return
-      }
-      if (req.method === 'POST' && url.pathname === '/wallet') {
-        res.setHeader('content-type', 'application/json')
-        res.end(JSON.stringify(await sign(await text(req))))
+        res.end(answer)
         return
       }
       const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1)
@@ -94,7 +125,7 @@ export async function servePage(svm: Svm, dist: string, wallet: () => Keypair) {
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-  return { origin, dist, signed, close: () => new Promise((resolve) => server.close(resolve)) }
+  return { origin, close: () => new Promise((resolve) => server.close(resolve)) }
 }
 
 async function text(req: IncomingMessage): Promise<string> {
