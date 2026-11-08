@@ -41,7 +41,10 @@ export function requirePersistentDb(
   config: Config,
   places?: Parameters<typeof dbPlacementProblem>[1],
 ) {
-  const mainnet = config.SOLANA_CHAIN === CHAINS.solanaMainnet || config.BASE_CHAIN === CHAINS.base
+  const mainnet =
+    config.SOLANA_CHAIN === CHAINS.solanaMainnet ||
+    config.BASE_CHAIN === CHAINS.base ||
+    config.ROBINHOOD_CHAIN === CHAINS.robinhood
   const problem = mainnet ? dbPlacementProblem(dbFile(config.DATABASE_URL), places) : undefined
   if (problem !== undefined) {
     throw new Error(`invalid configuration: ${problem}`)

@@ -1,7 +1,7 @@
 import { createEvmAdapter, createSvmAdapter, type ChainAdapter } from '@agentguard/onchain'
 import type { ChainId } from '@agentguard/shared'
-import { CHAINS, getAddress, requireAddress } from '@agentguard/shared'
-import { checkEnvContracts } from './adapters/evm-check.js'
+import { CHAINS, getAddress, requireAddress, usdSymbol } from '@agentguard/shared'
+import { checkContracts } from './adapters/evm-check.js'
 import { readEvmKeyFile, readKeypairFile } from './adapters/keypair.js'
 import { StubChain } from './adapters/stub.js'
 import type { Config } from './config.js'
@@ -49,32 +49,91 @@ export async function buildChains(
       BASE_USDC: usdcFor(config, chain),
       BASE_ALLOWANCE_MODULE: getAddress(chain, 'allowanceModule') ?? config.BASE_ALLOWANCE_MODULE,
     })
-    const usdcVerified = getAddress(chain, 'usd') !== undefined
-    const moduleVerified = getAddress(chain, 'allowanceModule') !== undefined
-    await checkEnvContracts(
-      values.BASE_RPC_URL,
-      [
-        { name: 'SAFE_ADDRESS', address: values.SAFE_ADDRESS },
-        ...(usdcVerified ? [] : [{ name: 'BASE_USDC', address: values.BASE_USDC, usdc: true }]),
-        ...(moduleVerified
-          ? []
-          : [{ name: 'BASE_ALLOWANCE_MODULE', address: values.BASE_ALLOWANCE_MODULE }]),
-      ],
-      fetchImpl,
-    )
     chains.set(
       chain,
-      createEvmAdapter({
-        chain: chain === CHAINS.base ? '8453' : '84532',
-        rpcUrl: values.BASE_RPC_URL,
-        hotWalletKey: await readEvmKeyFile(values.BASE_HOT_WALLET_KEY_FILE),
-        safe: values.SAFE_ADDRESS,
-        usdc: values.BASE_USDC,
-        module: values.BASE_ALLOWANCE_MODULE,
-      }),
+      await evmChain(
+        chain,
+        {
+          rpcUrl: values.BASE_RPC_URL,
+          rpcName: 'BASE_RPC_URL',
+          keyFile: values.BASE_HOT_WALLET_KEY_FILE,
+          safe: { name: 'SAFE_ADDRESS', address: values.SAFE_ADDRESS },
+          usd: { name: 'BASE_USDC', address: values.BASE_USDC },
+          module: { name: 'BASE_ALLOWANCE_MODULE', address: values.BASE_ALLOWANCE_MODULE },
+        },
+        fetchImpl,
+      ),
+    )
+  }
+
+  if (config.ROBINHOOD_CHAIN !== undefined) {
+    const chain = config.ROBINHOOD_CHAIN
+    const values = required({
+      ROBINHOOD_RPC_URL: config.ROBINHOOD_RPC_URL,
+      ROBINHOOD_SAFE_ADDRESS: config.ROBINHOOD_SAFE_ADDRESS,
+      ROBINHOOD_HOT_WALLET_KEY_FILE: config.ROBINHOOD_HOT_WALLET_KEY_FILE,
+    })
+    // CR-007: the dollar here is Paxos's USDG, and tokens named USDC are copies. Its address comes
+    // from shared alone; there is no env value that could point at another token.
+    chains.set(
+      chain,
+      await evmChain(
+        chain,
+        {
+          rpcUrl: values.ROBINHOOD_RPC_URL,
+          rpcName: 'ROBINHOOD_RPC_URL',
+          keyFile: values.ROBINHOOD_HOT_WALLET_KEY_FILE,
+          safe: { name: 'ROBINHOOD_SAFE_ADDRESS', address: values.ROBINHOOD_SAFE_ADDRESS },
+          usd: { name: `shared usd for ${chain}`, address: requireAddress(chain, 'usd') },
+          module: {
+            name: `shared allowanceModule for ${chain}`,
+            address: requireAddress(chain, 'allowanceModule'),
+          },
+        },
+        fetchImpl,
+      ),
     )
   }
   return chains
+}
+
+const EVM_IDS = {
+  [CHAINS.baseSepolia]: '84532',
+  [CHAINS.base]: '8453',
+  [CHAINS.robinhoodTestnet]: '46630',
+  [CHAINS.robinhood]: '4663',
+} as const
+
+/**
+ * An EVM adapter once the chain has answered for every address it will use: the Safe, the token
+ * and the module each hold code, and the token has 6 decimals. Verified addresses are asked too: a
+ * wrong RPC URL, pointing at another chain, fails here and not at the first payment.
+ */
+async function evmChain(
+  chain: keyof typeof EVM_IDS,
+  values: {
+    rpcUrl: string
+    rpcName: string
+    keyFile: string
+    safe: { name: string; address: string }
+    usd: { name: string; address: string }
+    module: { name: string; address: string }
+  },
+  fetchImpl: typeof fetch,
+): Promise<ChainAdapter> {
+  await checkContracts(
+    { url: values.rpcUrl, name: values.rpcName },
+    [values.safe, { ...values.usd, usd: usdSymbol(chain) ?? 'USDC' }, values.module],
+    fetchImpl,
+  )
+  return createEvmAdapter({
+    chain: EVM_IDS[chain],
+    rpcUrl: values.rpcUrl,
+    hotWalletKey: await readEvmKeyFile(values.keyFile),
+    safe: values.safe.address,
+    usdc: values.usd.address,
+    module: values.module.address,
+  })
 }
 
 /**
