@@ -347,8 +347,7 @@ integrator before any session writes code, since every package imports those typ
 - **From:** integrator, at the owner's request (2026-11-07). The owner made it top priority, ahead of
   Base (D6 changed).
 - **Date:** 2026-11-07
-- **Status:** proposed. Item 3's research is done (RH-1) and keeps items 1 and 2 as written. Items
-  1, 2 and 4 need the owner's approval, after HUMAN-18.
+- **Status:** approved by the owner on 2026-11-08 and applied in SPEC v0.5 and shared.
 - **What:**
   1. **Chains.** `CHAINS.robinhood = 'eip155:4663'` and `CHAINS.robinhoodTestnet = 'eip155:46630'`
      in shared, added to SPEC's chain identifiers. The EVM adapter, signing gate, simulation and kill
@@ -397,7 +396,7 @@ integrator before any session writes code, since every package imports those typ
 
 - **From:** integrator, from the first Fly.io run (HUMAN-17), with the shape proposed by the manager
 - **Date:** 2026-11-07
-- **Status:** proposed. Needs the owner's approval.
+- **Status:** approved by the owner on 2026-11-08 and applied in SPEC v0.5 and shared.
 - **Found:** after a kill, the Squads `SpendingLimit` account no longer exists. The Solana adapter's
   `getAllowanceState()` then throws "Unable to find SpendingLimit account", so `GET /v1/admin/chains`
   reports `allowance: null` and the bot says "onchain allowance could not be read". That reads like an

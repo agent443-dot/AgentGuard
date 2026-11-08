@@ -50,13 +50,18 @@ const chainList = z.object({
     .array(
       z.object({
         chain: z.string().min(1).max(64),
+        // CR-008. A guard-core from before CR-008 sends no status; its allowance is an active one.
         allowance: z
-          .object({
-            cap: atomic,
-            spent: atomic,
-            resetsAt: z.iso.datetime({ offset: true }),
-            delegate: z.string().min(1).max(128),
-          })
+          .union([
+            z.object({ status: z.literal('none'), delegate: z.string().min(1).max(128) }),
+            z.object({
+              status: z.literal('active').default('active'),
+              cap: atomic,
+              spent: atomic,
+              resetsAt: z.iso.datetime({ offset: true }),
+              delegate: z.string().min(1).max(128),
+            }),
+          ])
           .nullable(),
       }),
     )

@@ -7,9 +7,15 @@
 import { CHAINS } from './constants.js'
 import type { Address, ChainId } from './types.js'
 
+/** CR-007: the chain's dollar. USDC from Circle, or USDG from Paxos on Robinhood Chain. */
+export interface UsdToken {
+  address: Address
+  symbol: 'USDC' | 'USDG'
+}
+
 export interface ChainAddresses {
-  /** USDC mint (Solana) or token contract (EVM). Source: Circle. */
-  usdc?: Address
+  /** USDC mint (Solana), or the dollar token contract (EVM). */
+  usd?: UsdToken
   /** Squads v4 program id (Solana). Source: Squads. */
   squadsProgram?: Address
   /** Allowance Module (EVM). Source: Safe deployment list. */
@@ -23,13 +29,13 @@ const SQUADS_V4 = 'SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf'
 export const ADDRESSES: Record<ChainId, ChainAddresses> = {
   [CHAINS.solanaMainnet]: {
     // https://developers.circle.com/stablecoins/usdc-contract-addresses
-    usdc: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    usd: { address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC' },
     squadsProgram: SQUADS_V4,
   },
   [CHAINS.solanaDevnet]: {
     // https://developers.circle.com/stablecoins/quickstart-transfer-10-usdc-on-solana, and the mint
     // the Circle devnet faucet delivered on 2026-11-03.
-    usdc: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+    usd: { address: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', symbol: 'USDC' },
     squadsProgram: SQUADS_V4,
   },
   [CHAINS.base]: {},
@@ -41,12 +47,30 @@ export const ADDRESSES: Record<ChainId, ChainAddresses> = {
     allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
     // https://developers.circle.com/stablecoins/usdc-contract-addresses, the Base Sepolia row,
     // confirmed by the owner on 2026-11-04. It is also the address the x402 SDK ships for this chain.
-    usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    usd: { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', symbol: 'USDC' },
+  },
+  // RH-1 (packages/onchain/docs/robinhood-research.md). The Allowance Module 0.1.1 is canonical on both
+  // chains in safe-modules-deployments 3.0.14, and its code hash equals Base mainnet's (forge
+  // RobinhoodProbe). USDG from Paxos's "USDG on Test/Main Networks" pages, read by the owner
+  // (HUMAN-18), and on mainnet also Robinhood's contract list. Robinhood Chain has no Circle USDC:
+  // every token named USDC there is someone else's.
+  [CHAINS.robinhood]: {
+    allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
+    usd: { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', symbol: 'USDG' },
+  },
+  [CHAINS.robinhoodTestnet]: {
+    allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
+    usd: { address: '0x7E955252E15c84f5768B83c41a71F9eba181802F', symbol: 'USDG' },
   },
 }
 
 export function getAddress(chain: ChainId, key: keyof ChainAddresses): Address | undefined {
-  return ADDRESSES[chain]?.[key]
+  const value = ADDRESSES[chain]?.[key]
+  return typeof value === 'object' ? value.address : value
+}
+
+export function usdSymbol(chain: ChainId): UsdToken['symbol'] | undefined {
+  return ADDRESSES[chain]?.usd?.symbol
 }
 
 export function requireAddress(chain: ChainId, key: keyof ChainAddresses): Address {

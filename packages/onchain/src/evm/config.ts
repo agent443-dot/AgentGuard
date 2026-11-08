@@ -71,7 +71,7 @@ export function contractAddress(
   config: EvmConfig,
   key: 'usdc' | 'allowanceModule',
 ): { address: Address; source: string } {
-  const verified = getAddress(caip2(config), key)
+  const verified = getAddress(caip2(config), key === 'usdc' ? 'usd' : key)
   if (verified) {
     return { address: checksum(verified), source: 'shared/addresses.ts' }
   }

@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.4 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.5 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -26,7 +26,8 @@ Neither chain needs a contract we write. Both primitives are audited and already
 
 ## Stack
 - Monorepo: pnpm workspaces, TypeScript (strict), Node 20+
-- Chains: Solana first, Base second. Both ship in v0.1, in that order. Token: USDC only in v0.1.
+- Chains: Solana first, then Robinhood Chain, then Base (D6, CR-007). Token: each chain's dollar
+  only: USDC, and USDG from Paxos on Robinhood Chain, which has no Circle USDC.
 - Shared: @modelcontextprotocol/sdk, grammY (Telegram), Fastify (HTTP), Drizzle + SQLite (MVP DB),
   zod (validation), vitest (tests)
 - Solana: @sqds/multisig (depends on @solana/web3.js v1) for the multisig and the spending limit;
@@ -49,18 +50,23 @@ Neither chain needs a contract we write. Both primitives are audited and already
 
 ## Chain identifiers
 Chains are CAIP-2 strings, never numbers: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" style for Solana,
-"eip155:8453" for Base mainnet, "eip155:84532" for Base Sepolia. The values live in
+"eip155:8453" for Base mainnet, "eip155:84532" for Base Sepolia, "eip155:4663" for Robinhood Chain and
+"eip155:46630" for its testnet (CR-007). The values live in
 packages/shared/src/constants.ts. The Solana references are the first 32 characters of each cluster's
 genesis hash, confirmed with `solana genesis-hash` (CR-002):
 
   mainnet-beta | solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
   devnet       | solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1
 
+Each chain's dollar is `ChainAddresses.usd = { address, symbol }` in packages/shared/src/addresses.ts,
+symbol "USDC" or "USDG", always 6 decimals. Exactly that address is the chain's dollar: a token with
+the same name or symbol at any other address is refused (CR-007).
+
 Addresses, token identifiers and transaction ids are opaque strings. Solana uses base58, EVM uses hex;
 nothing outside a chain adapter may assume either.
 
 ## Shared types (packages/shared/src/types.ts)
-type Amount = string // atomic units (USDC = 6 decimals), decimal string, never JS number
+type Amount = string // atomic units (the chain's dollar = 6 decimals), decimal string, never JS number
 
 interface Policy {
   agentId: string
@@ -107,7 +113,11 @@ allowlist), HIDDEN_ACCOUNTS_DETECTED (address lookup tables obscuring touched ac
 ## ChainAdapter (packages/onchain/src/ChainAdapter.ts)
 guard-core depends on this interface only and never imports a chain SDK directly.
 
-interface AllowanceState { cap: Amount; spent: Amount; resetsAt: string; delegate: string }
+type AllowanceState =                            // CR-008
+  | { status: 'active'; cap: Amount; spent: Amount; resetsAt: string; delegate: string }
+  | { status: 'none'; delegate: string }           // the chain shows no limit: after a kill
+  // getAllowanceState throws when it cannot read the chain; it never reports a failed read as 'none',
+  // and never reports 'none' as an active limit with a zero cap.
 interface SimulationOutcome { simulation: SimulationResult; rejectReasons: RejectCode[] }
 
 interface ChainAdapter {
@@ -161,7 +171,8 @@ GET  /v1/admin/budget/:agentId -> BudgetView   same body as GET /v1/agent/budget
 GET  /v1/admin/chains -> { chains: { chain: string, allowance: AllowanceState | null }[] }
   One entry per configured ChainAdapter, in the order guard-core holds them. allowance is that
   adapter's getAllowanceState(), or null when reading it failed. An empty list means no chain is
-  configured, so every payment is refused.
+  configured, so every payment is refused. The bot shows status 'none' as "no onchain limit (killed)"
+  and null as "could not be read" (CR-008).
 
 ## Webhook guard-core -> telegram-bot
 POST {BOT_URL}/hooks/approval-request  (header X-Guard-Signature: HMAC-SHA256 of body with BOT_WEBHOOK_SECRET)
@@ -190,6 +201,12 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.5 (2026-11-08): CR-007 and CR-008, approved by the owner.
+  CR-007: Robinhood Chain (eip155:4663, testnet eip155:46630) comes after Solana and before Base. Its
+  dollar is Paxos USDG, so each chain's dollar is `usd: { address, symbol }` instead of `usdc`; the
+  policy, the caps and the amounts do not change.
+  CR-008: AllowanceState has an explicit 'none' status for a chain with no limit, so a kill is not
+  shown as a read failure.
 - v0.4 (2026-11-04): CR-006, approved by the owner. GET /v1/admin/chains lists the chains guard-core
   runs, with each one's onchain allowance, for the bot's /status and /kill. The budget routes gain
   `chains`, the configured chains this agent's policy allows, so mcp can check its DEFAULT_CHAIN.

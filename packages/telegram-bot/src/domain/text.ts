@@ -23,6 +23,8 @@ const CHAIN_NAMES = new Map<string, string>([
   [CHAINS.solanaDevnet, 'Solana devnet'],
   [CHAINS.base, 'Base'],
   [CHAINS.baseSepolia, 'Base Sepolia'],
+  [CHAINS.robinhood, 'Robinhood Chain'],
+  [CHAINS.robinhoodTestnet, 'Robinhood Chain testnet'],
 ])
 
 // Telegram rejects messages over 4096 characters; the payload is the only part that can be that long.
@@ -48,7 +50,7 @@ export function shortAddress(address: string): string {
  * in base units with its address: a token with 6 decimals could otherwise pass for dollars.
  */
 export function amountText(intent: PayIntent): string {
-  if (getAddress(intent.chain, 'usdc') === intent.token) {
+  if (getAddress(intent.chain, 'usd') === intent.token) {
     return `<b>${formatUsd(intent.amount)}</b> USDC`
   }
   return (

@@ -100,12 +100,13 @@ export interface SimulationResult {
   balanceChanges: BalanceChange[]
 }
 
-export interface AllowanceState {
-  cap: Amount
-  spent: Amount
-  resetsAt: string
-  delegate: Address
-}
+/**
+ * CR-008. `none` means the chain shows no limit for the hot wallet, as a kill leaves it. A read that
+ * fails throws instead, so a kill is never mistaken for an outage, nor an outage for a kill.
+ */
+export type AllowanceState =
+  | { status: 'active'; cap: Amount; spent: Amount; resetsAt: string; delegate: Address }
+  | { status: 'none'; delegate: Address }
 
 /** Body of POST {BOT_URL}/hooks/approval-request. */
 export interface ApprovalRequest {

@@ -41,6 +41,7 @@ describe('reads', () => {
         [[100_000_000n, 30_000_000n, 1440n, minute, 3n]],
       )
     expect(await adapter.getAllowanceState()).toEqual({
+      status: 'active',
       cap: '100000000',
       spent: '30000000',
       resetsAt: new Date(Number(minute + 1440n) * 60_000).toISOString(),

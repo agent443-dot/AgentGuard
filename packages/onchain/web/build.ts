@@ -25,8 +25,8 @@ export function rpcUrls(env: NodeJS.ProcessEnv = process.env): Record<string, st
 /** USDC for each cluster, from the verified addresses in shared, so no link can name another mint. */
 export function usdcMints(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
   const known = {
-    devnet: getAddress(CHAINS.solanaDevnet, 'usdc'),
-    'mainnet-beta': getAddress(CHAINS.solanaMainnet, 'usdc'),
+    devnet: getAddress(CHAINS.solanaDevnet, 'usd'),
+    'mainnet-beta': getAddress(CHAINS.solanaMainnet, 'usd'),
     localnet: env['SOLANA_LOCALNET_USDC'],
   }
   return Object.fromEntries(
