@@ -48,6 +48,7 @@ interface ISafeProxyFactory {
 interface IAllowanceModule {
     function addDelegate(address delegate) external;
     function removeDelegate(address delegate, bool removeAllowances) external;
+    function delegates(address safe, uint48 key) external view returns (address delegate, uint48 prev, uint48 next);
     function setAllowance(address delegate, address token, uint96 amount, uint16 resetTimeMin, uint32 resetBaseMin)
         external;
     function getTokenAllowance(address safe, address delegate, address token)
@@ -155,7 +156,12 @@ contract AllowanceCapTest {
     /// The kill exactly as buildKillTx builds it: one Safe call, removeDelegate(hot, true).
     function test_drawsNothingAfterTheKill() public {
         draw(10e6);
+        // getAllowanceState reads this entry, keyed by the address's low 48 bits, to say none.
+        (address listed,,) = MODULE.delegates(address(safe), uint48(uint160(HOT)));
+        require(listed == HOT, "the hot wallet is not listed as a delegate before the kill");
         asOwner(address(MODULE), abi.encodeCall(IAllowanceModule.removeDelegate, (HOT, true)));
+        (listed,,) = MODULE.delegates(address(safe), uint48(uint160(HOT)));
+        require(listed == address(0), "the hot wallet is still listed after the kill");
         uint256[5] memory allowance = MODULE.getTokenAllowance(address(safe), HOT, address(token));
         require(allowance[0] == 0, "the allowance survived the kill");
         vm.expectRevert();

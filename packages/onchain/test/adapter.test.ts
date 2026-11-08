@@ -11,11 +11,13 @@ import {
   LAMPORTS_PER_SOL,
   TransactionMessage,
   PublicKey,
+  SystemProgram,
   VersionedTransaction,
 } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MEMO_PROGRAM_ID } from '../src/svm/inspect.js'
+import { spendingLimitPda } from '../src/svm/squads.js'
 import { chain, plantMultisig, plantSpendingLimit, USDC, type Chain } from './fixture.js'
 
 let c: Chain
@@ -208,6 +210,29 @@ describe('getAllowanceState', () => {
       resetsAt: '2026-11-04T00:00:00.000Z',
       delegate: c.hotWallet.publicKey.toBase58(),
     })
+  })
+
+  it('is none when the limit account does not exist: before setup, or after the kill', async () => {
+    expect(await c.adapter.getAllowanceState()).toEqual({
+      status: 'none',
+      delegate: c.hotWallet.publicKey.toBase58(),
+    })
+  })
+
+  it('throws, rather than saying none, for an account at the limit address it cannot read', async () => {
+    const limit = spendingLimitPda(c.multisigPda, c.hotWallet.publicKey)
+    c.svm.setAccount(limit, {
+      lamports: 1_000_000,
+      data: new Uint8Array(64),
+      owner: SystemProgram.programId,
+      executable: false,
+    })
+    await expect(c.adapter.getAllowanceState()).rejects.toThrow('not_a_spending_limit')
+  })
+
+  it('throws when the RPC itself fails', async () => {
+    c.connection.getAccountInfo = () => Promise.reject(new Error('rpc down'))
+    await expect(c.adapter.getAllowanceState()).rejects.toThrow('rpc down')
   })
 })
 

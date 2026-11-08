@@ -33,13 +33,25 @@ describe('reads', () => {
     expect(await adapter.getHotWalletBalance(usdc)).toBe('7000000')
   })
 
+  const minute = 29_896_000n
+  /** The module's two reads: getTokenAllowance, and the delegates list entry for a key. */
+  function answers(allowance: [bigint, bigint, bigint, bigint, bigint], listed: Address) {
+    node.handlers['eth_call'] = ([call]) => {
+      const { functionName } = decodeFunctionData({
+        abi: allowanceModuleAbi,
+        data: (call as { data: Hex }).data,
+      })
+      return functionName === 'delegates'
+        ? encodeAbiParameters(
+            [{ type: 'address' }, { type: 'uint48' }, { type: 'uint48' }],
+            [listed, 0, 0],
+          )
+        : encodeAbiParameters([{ type: 'uint256[5]' }], [allowance])
+    }
+  }
+
   it('the allowance, with its next reset', async () => {
-    const minute = 29_896_000n
-    node.handlers['eth_call'] = () =>
-      encodeAbiParameters(
-        [{ type: 'uint256[5]' }],
-        [[100_000_000n, 30_000_000n, 1440n, minute, 3n]],
-      )
+    answers([100_000_000n, 30_000_000n, 1440n, minute, 3n], hot)
     expect(await adapter.getAllowanceState()).toEqual({
       status: 'active',
       cap: '100000000',
@@ -47,6 +59,28 @@ describe('reads', () => {
       resetsAt: new Date(Number(minute + 1440n) * 60_000).toISOString(),
       delegate: hot,
     })
+  })
+
+  it('none once the delegate is removed, as the kill leaves it', async () => {
+    answers([0n, 0n, 0n, 0n, 3n], zeroAddress)
+    expect(await adapter.getAllowanceState()).toEqual({ status: 'none', delegate: hot })
+  })
+
+  it('none when the delegate is listed but its allowance was deleted', async () => {
+    answers([0n, 0n, 0n, 0n, 3n], hot)
+    expect(await adapter.getAllowanceState()).toEqual({ status: 'none', delegate: hot })
+  })
+
+  it('none when an allowance is left but the delegate is no longer listed', async () => {
+    answers([100_000_000n, 0n, 1440n, minute, 3n], zeroAddress)
+    expect(await adapter.getAllowanceState()).toEqual({ status: 'none', delegate: hot })
+  })
+
+  it('throws, rather than saying none, when the read fails', async () => {
+    node.handlers['eth_call'] = () => {
+      throw new Error('rpc down')
+    }
+    await expect(adapter.getAllowanceState()).rejects.toThrow()
   })
 })
 

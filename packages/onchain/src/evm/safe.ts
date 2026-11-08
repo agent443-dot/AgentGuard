@@ -2,6 +2,7 @@ import {
   createPublicClient,
   encodeFunctionData,
   http,
+  isAddressEqual,
   parseAbi,
   type Address,
   type Hash,
@@ -21,6 +22,7 @@ export const allowanceModuleAbi = parseAbi([
   'function deleteAllowance(address delegate, address token)',
   'function removeDelegate(address delegate, bool removeAllowances)',
   'function getTokenAllowance(address safe, address delegate, address token) view returns (uint256[5])',
+  'function delegates(address safe, uint48 key) view returns (address delegate, uint48 prev, uint48 next)',
 ])
 
 const safeAbi = parseAbi(['function enableModule(address module)'])
@@ -105,6 +107,27 @@ export interface AllowanceState {
   resetTimeMin: bigint
   lastResetMin: bigint
   nonce: bigint
+}
+
+/**
+ * Whether the hot wallet is still a delegate with an allowance. The kill (removeDelegate with
+ * removeAllowances) unlists the delegate and zeroes the allowance; either one alone already means
+ * the wallet can draw nothing. The module keys its delegate list by the address's low 48 bits.
+ */
+export async function hasAllowance(
+  client: PublicClient,
+  module: Address,
+  safe: Address,
+  delegate: Address,
+  allowance: AllowanceState,
+): Promise<boolean> {
+  const [listed] = await client.readContract({
+    address: module,
+    abi: allowanceModuleAbi,
+    functionName: 'delegates',
+    args: [safe, Number(BigInt(delegate) & 0xffffffffffffn)],
+  })
+  return isAddressEqual(listed, delegate) && allowance.amount > 0n
 }
 
 export async function readAllowance(
