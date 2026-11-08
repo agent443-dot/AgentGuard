@@ -1,5 +1,5 @@
 import type { ApprovalRequest, BudgetView, OwnerTransaction, PayIntent } from '@agentguard/shared'
-import { CHAINS, getAddress } from '@agentguard/shared'
+import { CHAINS, getAddress, usdSymbol } from '@agentguard/shared'
 import { ATTACK_DESCRIPTIONS, type AttackCode } from './codes.js'
 import { type ExplorerTarget, explorerUrl } from './explorer.js'
 import { formatUsd } from './money.js'
@@ -46,16 +46,22 @@ export function shortAddress(address: string): string {
 }
 
 /**
- * Dollars only for the USDC verified for that chain in shared/addresses.ts. Any other token is shown
- * in base units with its address: a token with 6 decimals could otherwise pass for dollars.
+ * Dollars only for the chain's dollar in shared/addresses.ts (USDC, or USDG on Robinhood Chain). Any
+ * other token is shown in base units with its address: a token with 6 decimals, or one named USDC,
+ * could otherwise pass for dollars.
  */
 export function amountText(intent: PayIntent): string {
-  if (getAddress(intent.chain, 'usd') === intent.token) {
-    return `<b>${formatUsd(intent.amount)}</b> USDC`
+  const symbol = usdSymbol(intent.chain)
+  if (symbol !== undefined && getAddress(intent.chain, 'usd') === intent.token) {
+    return `<b>${formatUsd(intent.amount)}</b> ${symbol}`
   }
+  const warning =
+    symbol === undefined
+      ? 'this chain has no verified dollar'
+      : `not the ${symbol} of this chain: any token named USDC or USDG at another address is someone else's`
   return (
     `<b>${escapeHtml(intent.amount)}</b> base units of <code>${escapeHtml(intent.token)}</code> ` +
-    '(not a known USDC for this chain)'
+    `(${warning})`
   )
 }
 

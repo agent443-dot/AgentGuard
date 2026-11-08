@@ -58,13 +58,16 @@ cannot pose as the bot's own text.
 
 **Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
 transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
-devnet, basescan.org on Base, sepolia.basescan.org on Base Sepolia. The explorer is looked up by the
+devnet, basescan.org on Base, sepolia.basescan.org on Base Sepolia, robinhoodchain.blockscout.com on
+Robinhood Chain and explorer.testnet.chain.robinhood.com on its testnet. The explorer is looked up by the
 exact CAIP-2 id, so a chain the bot does not know gets no link at all, never one on another network.
 
-**Amounts** read as dollars only when the intent's token is the USDC listed for that chain in
-`packages/shared/src/addresses.ts`. Any other token is shown in base units with its address, marked
-"not a known USDC for this chain": a token with 6 decimals could otherwise pass for dollars. Base and
-Base Sepolia USDC are not listed there yet (CR-005), so Base amounts show as base units until they are.
+**Amounts** read as dollars only when the intent's token is the chain's dollar listed in
+`packages/shared/src/addresses.ts`, labelled with its symbol: USDC, or USDG on Robinhood Chain
+(CR-007). Any other token is shown in base units with its address, marked "not the USDC of this chain"
+(or USDG), because a token with 6 decimals, or one named USDC or USDG at another address, could
+otherwise pass for dollars. A chain with no dollar listed (Base mainnet today) says "this chain has no
+verified dollar".
 
 **Approve** / **Reject** call `POST /v1/bot/decision` with the presser's Telegram id. Then every
 owner's copy is edited to the outcome, with the full recipient, and the buttons are gone. guard-core's
@@ -119,7 +122,7 @@ link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUA
 
 From `POST /hooks/intent-event`:
 
-- an executed payment at or above `NOTIFY_ABOVE_AMOUNT` (USDC atomic units)
+- an executed payment at or above `NOTIFY_ABOVE_AMOUNT` (dollar atomic units, USDC or USDG)
 - any intent carrying an attack code, at any amount — EVM: `APPROVAL_DETECTED`, `PERMIT_DETECTED`,
   `DELEGATION_DETECTED`; Solana: `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`,
   `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED`. The alert says in
