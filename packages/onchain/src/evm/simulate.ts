@@ -10,16 +10,20 @@ import {
 } from 'viem'
 import type { SimulationOutcome } from '../ChainAdapter.js'
 import { formatUnits } from '../svm/transfer.js'
+import { TOKEN_ERRORS, tokenErrorsAbi } from './tokens.js'
 
 export const erc20Abi = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
   'function balanceOf(address owner) view returns (uint256)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
 ])
 export const executeAbi = parseAbi([
   'function executeAllowanceTransfer(address safe, address token, address to, uint96 amount, address paymentToken, uint96 payment, address delegate, bytes signature)',
 ])
 
 export interface Accounts {
+  /** The token's symbol for the summary: USDC on Base, USDG on Robinhood Chain. */
+  symbol: string
   safe: Address
   hot: Address
   usdc: Address
@@ -27,7 +31,7 @@ export interface Accounts {
 }
 
 /** The module call that moves `amount` from the Safe to the hot wallet, sent by the hot wallet. */
-export function topUpData(accounts: Accounts, amount: bigint): Hex {
+export function topUpData(accounts: Omit<Accounts, 'symbol'>, amount: bigint): Hex {
   const { safe, usdc, hot } = accounts
   // An empty signature makes the module authenticate the delegate as the caller.
   return encodeFunctionData({
@@ -59,7 +63,7 @@ export async function simulatePayment(
   })
   const shortfall = held < amount ? amount - held : 0n
 
-  const usd = (value: bigint) => `${formatUnits(value, USDC_DECIMALS)} USDC`
+  const usd = (value: bigint) => `${formatUnits(value, USDC_DECIMALS)} ${accounts.symbol}`
   const paying = `pays ${usd(amount)} from ${hot} to ${to}`
   const summary = shortfall ? `draws ${usd(shortfall)} from Safe ${safe}, then ${paying}` : paying
   const simulation = {
@@ -121,8 +125,11 @@ function failure(label: string | undefined, data: Hex | undefined, toppingUp: bo
 /** A revert string when the data is one, else the raw data. */
 function revert(data: Hex): string {
   try {
-    const { errorName, args } = decodeErrorResult({ abi: [], data })
-    return errorName === 'Error' && typeof args?.[0] === 'string' ? args[0] : data
+    const { errorName, args } = decodeErrorResult({ abi: tokenErrorsAbi, data })
+    if (errorName === 'Error' && typeof args[0] === 'string') {
+      return args[0]
+    }
+    return TOKEN_ERRORS[errorName] ?? errorName
   } catch {
     return data
   }

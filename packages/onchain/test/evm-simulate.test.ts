@@ -66,6 +66,16 @@ describe('simulate', () => {
     )
   })
 
+  it('says in words when the token issuer has frozen an address in the payment', async () => {
+    ledger.frozen = [merchant]
+    const outcome = await adapter.simulate(intent())
+    expect(outcome.rejectReasons).toEqual(['SIM_FAILED'])
+    expect(outcome.simulation.summary).toBe(
+      'simulation failed: the transfer of 1.5 USDC reverted: the token issuer has frozen an ' +
+        'address in this payment (AddressFrozen)',
+    )
+  })
+
   it('names the reverted call and its revert string', async () => {
     ledger.usdc = merchant
     const outcome = await adapter.simulate(intent())

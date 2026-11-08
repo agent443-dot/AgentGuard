@@ -3,6 +3,7 @@ import type { PaymentRequirements } from '@x402/core/types'
 import {
   decodeFunctionData,
   encodeAbiParameters,
+  encodeEventTopics,
   parseAbi,
   recoverTypedDataAddress,
   zeroAddress,
@@ -17,6 +18,7 @@ import { base, hot, intent, merchant, module, safe, uint, usdc } from './evm-fix
 
 const abis = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
   'function executeAllowanceTransfer(address safe, address token, address to, uint96 amount, address paymentToken, uint96 payment, address delegate, bytes signature)',
 ])
 
@@ -94,7 +96,21 @@ describe('writes', () => {
     expect(args).toEqual([safe, usdc, hot, 2_000_000n, zeroAddress, 0n, hot, '0x'])
   })
 
+  /** The receipt log a USDC transfer emits. */
+  const transferLog = (to: Address, value: bigint, token: Address = usdc) => ({
+    address: token,
+    topics: encodeEventTopics({ abi: abis, eventName: 'Transfer', args: { from: hot, to } }),
+    data: encodeAbiParameters([{ type: 'uint256' }], [value]),
+    blockNumber: '0x10',
+    transactionHash: `0x${'00'.repeat(32)}`,
+    transactionIndex: '0x0',
+    blockHash: `0x${'00'.repeat(32)}`,
+    logIndex: '0x0',
+    removed: false,
+  })
+
   it('sends a USDC transfer of the exact amount to the exact recipient', async () => {
+    node.logs = [transferLog(merchant, 1_500_000n)]
     await adapter.send(intent())
     const [tx] = node.sent
     expect(tx?.to?.toLowerCase()).toBe(usdc.toLowerCase())
@@ -102,6 +118,16 @@ describe('writes', () => {
       merchant,
       1_500_000n,
     ])
+  })
+
+  it.each([
+    ['no Transfer event at all', []],
+    ['a Transfer of another amount', [transferLog(merchant, 1_499_999n)]],
+    ['a Transfer to someone else', [transferLog(hot, 1_500_000n)]],
+    ['a Transfer of another token', [transferLog(merchant, 1_500_000n, merchant)]],
+  ])('does not count a payment as made on %s', async (_case, logs) => {
+    node.logs = logs
+    await expect(adapter.send(intent())).rejects.toThrow('payment_unproven')
   })
 
   it('sends nothing for another chain or token', async () => {
