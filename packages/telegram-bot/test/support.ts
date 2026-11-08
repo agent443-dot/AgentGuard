@@ -118,7 +118,7 @@ export function setup(
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
-  const { bot, desk } = createBot({
+  const { bot, desk, commands } = createBot({
     token: '42:test-token',
     owners: new Set([OWNER.id, OTHER_OWNER.id]),
     guard,
@@ -129,7 +129,7 @@ export function setup(
     phantomKill: options.phantomKill,
   })
   const calls = mockTelegram(bot, options.fail)
-  return { bot, desk, guard, calls }
+  return { bot, desk, commands, guard, calls }
 }
 
 let updateId = 1

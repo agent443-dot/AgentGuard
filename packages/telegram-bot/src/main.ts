@@ -31,7 +31,7 @@ const phantomKill =
       })
     : undefined
 
-const { bot, desk } = createBot({
+const { bot, desk, commands } = createBot({
   token: config.TELEGRAM_BOT_TOKEN,
   owners: config.OWNER_TELEGRAM_IDS,
   guard,
@@ -51,8 +51,8 @@ const server = await buildServer({
 })
 
 const sweep = setInterval(() => {
-  Promise.all([desk.expire(), desk.flushAlerts()]).catch((err: unknown) =>
-    log.error({ err }, 'sweep failed'),
+  Promise.all([desk.expire(), desk.flushAlerts(), commands.expireKillOffers()]).catch(
+    (err: unknown) => log.error({ err }, 'sweep failed'),
   )
 }, EXPIRY_SWEEP_MS)
 

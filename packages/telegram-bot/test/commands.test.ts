@@ -1,6 +1,17 @@
 import { CHAINS } from '@agentguard/shared'
 import { describe, expect, it, vi } from 'vitest'
-import { approval, command, fakeGuard, OWNER, press, sent, setup, STRANGER } from './support.js'
+import {
+  approval,
+  command,
+  fakeGuard,
+  NOW,
+  OTHER_OWNER,
+  OWNER,
+  press,
+  sent,
+  setup,
+  STRANGER,
+} from './support.js'
 
 function lastReply(calls: ReturnType<typeof setup>['calls']): string {
   return String(sent(calls, 'sendMessage').at(-1)?.payload['text'])
@@ -112,42 +123,83 @@ function phantomButtons(call: { payload: Record<string, unknown> } | undefined):
 }
 
 describe('/kill with the signing page configured', () => {
-  it('offers the onchain kill in Phantom next to the guard-core kill, and says what each does', async () => {
+  const offerText = (call: { payload: Record<string, unknown> } | undefined) =>
+    String(call?.payload['text'])
+
+  it('offers no Phantom button before the guard-core kill is confirmed', async () => {
     const { bot, calls } = setup({ phantomKill: PHANTOM })
     await bot.handleUpdate(command(OWNER, '/kill'))
     const prompt = sent(calls, 'sendMessage')[0]
-    expect(phantomButtons(prompt)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
-    expect(prompt?.payload['text']).toContain('<b>Kill everything</b> pauses every agent')
-    expect(prompt?.payload['text']).toContain('removes the Solana spending limit onchain')
+    expect(phantomButtons(prompt)).toEqual([])
+    expect(offerText(prompt)).toContain('<b>Kill everything</b> pauses every agent')
+    expect(offerText(prompt)).toContain(
+      'Once guard-core confirms, you get <b>Open kill in Phantom</b>',
+    )
   })
 
-  it('keeps the button after the kill and says the limit is still live', async () => {
+  it('offers it on the result of a kill guard-core confirmed', async () => {
     const { bot, calls } = setup({ phantomKill: PHANTOM })
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
     const done = sent(calls, 'editMessageText')[0]
-    expect(done?.payload['text']).toContain(
-      'guard-core has paused 2 agents and signs no more payments',
-    )
-    expect(done?.payload['text']).toContain('The Solana spending limit is still live onchain')
-    expect(phantomButtons(done)).toHaveLength(1)
+    expect(offerText(done)).toContain('guard-core has paused 2 agents and signs no more payments')
+    expect(offerText(done)).toContain('The Solana spending limit is still live onchain')
+    expect(offerText(done)).toContain('expires in 15 minutes')
+    expect(phantomButtons(done)).toEqual([{ text: 'Open kill in Phantom', url: PHANTOM }])
   })
 
-  it('keeps the button when guard-core fails, when the onchain kill matters most', async () => {
+  it('offers nothing onchain when guard-core did not confirm, so a kill is never half done', async () => {
     const kill = vi.fn().mockRejectedValue(new Error('down'))
     const { bot, calls } = setup({ guard: fakeGuard({ kill }), phantomKill: PHANTOM })
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
     const failed = sent(calls, 'editMessageText')[0]
-    expect(failed?.payload['text']).toContain('Kill failed')
-    expect(failed?.payload['text']).toContain('It works even if guard-core is down')
-    expect(phantomButtons(failed)).toHaveLength(1)
+    expect(offerText(failed)).toContain('Kill failed')
+    expect(phantomButtons(failed)).toEqual([])
+  })
+
+  it('retires the older button when a newer kill result is posted, in any owner chat', async () => {
+    const { bot, calls } = setup({ phantomKill: PHANTOM })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    await bot.handleUpdate(press(OTHER_OWNER, 'kill:confirm', 22))
+    const edits = sent(calls, 'editMessageText')
+    expect(edits.map((call) => call.payload['message_id'])).toEqual([11, 22, 11])
+    const retired = edits[2]
+    expect(retired?.payload['chat_id']).toBe(OWNER.id)
+    expect(offerText(retired)).toContain('guard-core has paused 2 agents')
+    expect(offerText(retired)).toContain(
+      'This Phantom button has expired. Use /kill for a fresh one.',
+    )
+    expect(phantomButtons(retired)).toEqual([])
+    expect(phantomButtons(edits[1])).toHaveLength(1)
+  })
+
+  it('retires a button after 15 minutes, and not before', async () => {
+    let now = NOW
+    const { bot, commands, calls } = setup({ phantomKill: PHANTOM, now: () => now })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+
+    now = new Date(NOW.getTime() + 15 * 60_000 - 1)
+    await commands.expireKillOffers()
+    expect(sent(calls, 'editMessageText')).toHaveLength(1)
+
+    now = new Date(NOW.getTime() + 15 * 60_000)
+    await commands.expireKillOffers()
+    const retired = sent(calls, 'editMessageText')[1]
+    expect(retired?.payload['message_id']).toBe(11)
+    expect(offerText(retired)).toContain('This Phantom button has expired')
+    expect(phantomButtons(retired)).toEqual([])
+
+    await commands.expireKillOffers()
+    expect(sent(calls, 'editMessageText')).toHaveLength(2)
   })
 
   it('shows no Phantom button at all without the signing page', async () => {
-    const { bot, calls } = setup()
+    const { bot, commands, calls } = setup()
     await bot.handleUpdate(command(OWNER, '/kill'))
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    await commands.expireKillOffers()
     expect(phantomButtons(sent(calls, 'sendMessage')[0])).toEqual([])
-    expect(phantomButtons(sent(calls, 'editMessageText')[0])).toEqual([])
+    expect(sent(calls, 'editMessageText').flatMap(phantomButtons)).toEqual([])
     expect(JSON.stringify(calls)).not.toContain('Phantom')
   })
 })

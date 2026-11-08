@@ -63,9 +63,9 @@ export function createBot({
     ctx.answerCallbackQuery({ text: desk.recipient(ctx.match[1] ?? ''), show_alert: true }),
   )
 
-  registerCommands(bot, { guard, desk, log, phantomKill })
+  const commands = registerCommands(bot, { guard, desk, log, phantomKill, now })
 
   bot.catch(({ error }) => log.error({ err: error }, 'update failed'))
 
-  return { bot, desk }
+  return { bot, desk, commands }
 }

@@ -41,7 +41,13 @@ export function killWarning(chains: ChainStatus[] | undefined, phantom = false):
   return phantom ? `${warning}\n${PHANTOM_STEP}\nContinue?` : `${warning} Continue?`
 }
 
-/** Only the owner's key can remove the onchain limit, so the bot can hand it over but not do it. */
+/**
+ * Only the owner's key can remove the onchain limit, so the bot hands it over. It does so only after
+ * guard-core has paused the agents: the onchain half alone would leave the guard running.
+ */
 export const PHANTOM_STEP =
-  '<b>Open kill in Phantom</b> removes the Solana spending limit onchain, after you confirm in ' +
-  'Phantom. It works even if guard-core is down.'
+  'Once guard-core confirms, you get <b>Open kill in Phantom</b> to remove the Solana spending ' +
+  'limit onchain, after you confirm in Phantom.'
+
+export const KILL_OFFER_EXPIRED =
+  '<i>This Phantom button has expired. Use /kill for a fresh one.</i>'

@@ -9,7 +9,8 @@ import {
   ownerTransactionText,
   statusText,
 } from '../domain/text.js'
-import { chainsText, killWarning, PHANTOM_STEP } from '../domain/chains.js'
+import { chainsText, KILL_OFFER_EXPIRED, killWarning } from '../domain/chains.js'
+import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
@@ -18,19 +19,32 @@ export interface CommandDeps {
   log: Logger
   /** The onchain kill on the signing page, when SIGN_PAGE_URL is configured. */
   phantomKill?: string
+  now?: () => Date
 }
 
 const HTML = { parse_mode: 'HTML' } as const
 
 const AGENT_ID = /^\S{1,64}$/
 
-export function registerCommands(bot: Bot, { guard, desk, log, phantomKill }: CommandDeps): void {
+export function registerCommands(
+  bot: Bot,
+  { guard, desk, log, phantomKill, now = () => new Date() }: CommandDeps,
+) {
   const phantom = phantomKill !== undefined
+  const offers = new KillOffers()
 
-  function phantomButton(keyboard = new InlineKeyboard()) {
-    return phantomKill === undefined
-      ? keyboard
-      : keyboard.row().url('Open kill in Phantom', phantomKill)
+  /** Drops the button and says so, keeping what the message told the owner. */
+  async function retire(stale: KillOffer[]) {
+    for (const offer of stale) {
+      await bot.api
+        .editMessageText(
+          offer.chatId,
+          offer.messageId,
+          `${offer.text}\n${KILL_OFFER_EXPIRED}`,
+          HTML,
+        )
+        .catch((err: unknown) => log.warn({ err }, 'kill offer retire failed'))
+    }
   }
 
   /** A command that cannot reach guard-core says so instead of going quiet. */
@@ -95,9 +109,9 @@ export function registerCommands(bot: Bot, { guard, desk, log, phantomKill }: Co
   bot.command('kill', async (ctx) =>
     ctx.reply(killWarning(await chains(), phantom), {
       ...HTML,
-      reply_markup: phantomButton(
-        new InlineKeyboard().text('Kill everything', 'kill:confirm').text('Cancel', 'kill:cancel'),
-      ),
+      reply_markup: new InlineKeyboard()
+        .text('Kill everything', 'kill:confirm')
+        .text('Cancel', 'kill:cancel'),
     }),
   )
 
@@ -112,24 +126,40 @@ export function registerCommands(bot: Bot, { guard, desk, log, phantomKill }: Co
     try {
       const { pausedAgents, ownerTransactions } = await guard.kill()
       const built = ownerTransactions.filter(isBuilt).length
-      await ctx.editMessageText(killedText(pausedAgents, built, phantom), {
+      const text = killedText(pausedAgents, built, phantom)
+      await ctx.editMessageText(text, {
         ...HTML,
-        reply_markup: phantomButton(),
+        // Only here, once guard-core has answered: the onchain half is never offered on its own.
+        reply_markup:
+          phantomKill === undefined
+            ? undefined
+            : new InlineKeyboard().url('Open kill in Phantom', phantomKill),
       })
+      const message = ctx.callbackQuery.message
+      if (phantom && message !== undefined) {
+        const offer = {
+          chatId: message.chat.id,
+          messageId: message.message_id,
+          text,
+          at: now().getTime(),
+        }
+        await retire(offers.offer(offer))
+      }
       for (const tx of ownerTransactions) {
         await ctx.reply(ownerTransactionText(tx), HTML)
       }
     } catch (err) {
       log.error({ err }, 'kill failed')
-      // guard-core being down is exactly when the onchain kill matters most.
-      const failed =
-        '<b>Kill failed</b>: guard-core did not confirm. Assume nothing is paused and run /kill again.'
-      await ctx.editMessageText(phantom ? `${failed}\n${PHANTOM_STEP}` : failed, {
-        ...HTML,
-        reply_markup: phantomButton(),
-      })
+      // No Phantom button here: removing the onchain limit while the guard still runs is half a kill.
+      await ctx.editMessageText(
+        '<b>Kill failed</b>: guard-core did not confirm. Assume nothing is paused and run /kill again.',
+        HTML,
+      )
     }
   })
+
+  /** Runs on the bot's sweep timer: a button nobody pressed in time stops working. */
+  return { expireKillOffers: () => retire(offers.expired(now())) }
 }
 
 async function withAgent(ctx: Context, command: string, run: (agentId: string) => Promise<void>) {

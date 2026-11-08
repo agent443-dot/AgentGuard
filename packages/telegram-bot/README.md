@@ -87,18 +87,24 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 ## Onchain kill in Phantom
 
 The owner's Solana key is in Phantom (ADR 003), so the bot cannot remove the onchain spending limit
-itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, `/kill` and the
-messages after it carry an **Open kill in Phantom** button. Pressing it opens the signing page from
-`packages/onchain/web` inside Phantom:
+itself: only the owner can sign `removeSpendingLimit`. When `SIGN_PAGE_URL` is set, the result of a
+`/kill` → **Kill everything** that guard-core confirmed carries an **Open kill in Phantom** button.
+Pressing it opens the signing page from `packages/onchain/web` inside Phantom:
 
 ```
 https://phantom.app/ul/browse/<encodeURIComponent(link)>?ref=<encodeURIComponent(origin)>
 link = <SIGN_PAGE_URL>/?action=kill&cluster=<devnet|mainnet-beta>&multisig=<SQUADS_MULTISIG>&hot=<SOLANA_HOT_WALLET_PUBKEY>
 ```
 
-- **Kill everything** is unchanged: guard-core pauses every agent and signs nothing more. The button
-  is the other half, the onchain limit, and it works even when guard-core does not answer. The
-  messages say which half each one is.
+- **A kill is never left half done.** The onchain half on its own leaves guard-core running with no
+  limit to stop at, so the button never appears before **Kill everything**, nor when guard-core did
+  not confirm it. It appears only on the result of a kill that paused the agents.
+- **Only the newest button is live.** When a newer kill result is posted, in any owner's chat, every
+  older one is edited: its button is removed and it says "This Phantom button has expired. Use /kill
+  for a fresh one." A button nobody pressed expires the same way after 15 minutes, on the bot's
+  15-second sweep. Buttons live in memory: after a restart, older messages keep theirs until a new
+  kill result replaces them.
+- **Kill everything** itself is unchanged: guard-core pauses every agent and signs nothing more.
 - Every value in the link is public, and all of them come from the bot's config. The cluster is
   derived from `SOLANA_CHAIN`, never from anything a user sends.
 - `SIGN_PAGE_URL` must be https with no query or fragment. With it set, the bot refuses to start
