@@ -31,7 +31,7 @@ import {
 } from '../ChainAdapter.js'
 import { chainOf } from './config.js'
 import { checkTypedData } from './gate.js'
-import { allowanceModuleAbi, readAllowance } from './safe.js'
+import { allowanceModuleAbi, hasAllowance, readAllowance } from './safe.js'
 import { erc20Abi, simulatePayment, topUpData } from './simulate.js'
 
 export interface EvmAdapterDeps {
@@ -113,6 +113,9 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
 
     async getAllowanceState(): Promise<AllowanceState> {
       const state = await readAllowance(client, module, safe, hot, usdc)
+      if (!(await hasAllowance(client, module, safe, hot, state))) {
+        return { status: 'none', delegate: hot }
+      }
       const resetsAtMin = state.lastResetMin + state.resetTimeMin
       return {
         status: 'active',
