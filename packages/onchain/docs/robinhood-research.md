@@ -141,6 +141,45 @@ parses any `eip155:<id>` (`src/utils.ts`). The v1 network-name table is not used
 **What it would take:** `evm/gate.ts` must accept the two chain ids and the USDG domain. That is
 adapter work, for after this research.
 
+## (f) Funding the testnet run (HUMAN-20)
+
+The faucet pages are blocked from the cloud sessions, so their details below come from search
+results, not from the pages. The owner confirms each one while doing the run.
+
+- **Testnet ETH on 46630.**
+  - Robinhood's docs (`docs.robinhood.com/chain/connecting`) say there is a faucet that deposits
+    testnet funds straight into a wallet. BitGo's Robinhood Chain page gives it as
+    `https://faucet.testnet.chain.robinhood.com`. Robinhood publishes no amount or cooldown.
+  - The fallback, from the same docs: Sepolia ETH from any Sepolia faucet, bridged to Robinhood Chain
+    testnet. Sepolia ETH on its own is not on 46630.
+  - **Who needs ETH:**
+    - the owner's Phantom account, for gas on every Safe transaction from the signing page;
+    - the hot wallet, for gas on its top-ups (`executeAllowanceTransfer`).
+    - The Safe itself needs none.
+- **Testnet USDG on 46630.**
+  - Paxos's sandbox guide (`docs.paxos.com/guides/developer/fund-sandbox-with-test-crypto`) names
+    the Paxos Testnet Faucet, `https://faucet.paxos.com`, as the source of test USDG "across
+    supported networks".
+  - Nothing found says whether Robinhood Chain testnet is one of them. The Robinhood faucet lets you
+    pick an asset, but no source says USDG is one. **Open: the owner checks both faucets for USDG
+    on 46630.** If neither has it, ask Paxos.
+- **Into the Safe: from the owner's account, not from the faucet.**
+  - Have the faucet send to the owner's Phantom account, then transfer USDG from Phantom to the
+    Safe. A Safe can receive an ERC-20 transfer, which runs no code on the receiver. A faucet that
+    refuses contract addresses (as Circle's refused the Solana vault PDA) is then no obstacle.
+  - The transfer also proves Phantom can send on 46630 before the Safe is involved.
+  - Send a small amount first. `pnpm status:robinhood` shows it as the Safe's USDG balance.
+- **The hot wallet key,** straight into the file guard-core reads (`ROBINHOOD_HOT_WALLET_KEY_FILE`:
+  `0x` and 64 hex digits). Run it from `packages/onchain`, which has viem. It prints only the
+  address, writes the key with mode 0600 and refuses to overwrite an existing file:
+
+  ```bash
+  (umask 077 && mkdir -p ~/.agentguard && node --input-type=module -e "import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'; import { writeFileSync } from 'node:fs'; const key = generatePrivateKey(); writeFileSync(process.env.HOME + '/.agentguard/rh-hot.key', key + '\n', { mode: 0o600, flag: 'wx' }); console.log(privateKeyToAddress(key))")
+  ```
+
+  With Foundry installed, `cast wallet new --json` and jq do the same job. The command above was run
+  here, and the one with cast was not.
+
 ## Blocked hosts
 
 The cloud sessions cannot reach these hosts, so the owner reads them:
@@ -154,6 +193,7 @@ The cloud sessions cannot reach these hosts, so the owner reads them:
     hence the allowlist.
   - `https://docs.robinhood.com/chain/contracts`: no USDC, official or bridged; USDG at the address
     above.
-- **Open:** nothing.
+- **Open (HUMAN-20):** `https://faucet.testnet.chain.robinhood.com` and `https://faucet.paxos.com`:
+  does either give USDG on 46630, how much ETH, any cooldown (section f).
 - **Not needed now:** `https://developers.circle.com/stablecoins/usdc-contract-addresses`. With the
   allowlist, a Circle USDC would only matter if we chose to accept it, and that would be its own CR.
