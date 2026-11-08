@@ -3,7 +3,8 @@ import { USDC_DECIMALS } from '@agentguard/shared'
 /**
  * Plain digits, optional fraction, nothing else. No sign, exponent, whitespace, "NaN" or "Infinity":
  * each of those is a way for a number to mean something other than what the model wrote. More than
- * six fraction digits would have to be rounded to fit USDC, so it is refused rather than rounded.
+ * six fraction digits would have to be rounded to fit the chain's dollar (USDC or USDG), so it is
+ * refused rather than rounded.
  */
 const USD = new RegExp(`^(0|[1-9]\\d{0,11})(\\.\\d{1,${USDC_DECIMALS}})?$`)
 
@@ -26,7 +27,7 @@ export function parseUsd(value: string): UsdParse {
   return { ok: true, atomic: BigInt(whole) * SCALE + BigInt(cents) }
 }
 
-/** Renders atomic USDC as dollars, trimming trailing zeros but keeping two places: "$1.50", "$0.000001". */
+/** Renders a dollar token's atomic units as dollars, trimming trailing zeros but keeping two places: "$1.50", "$0.000001". */
 export function formatUsd(atomic: bigint): string {
   const sign = atomic < 0n ? '-' : ''
   const abs = atomic < 0n ? -atomic : atomic

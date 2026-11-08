@@ -4,7 +4,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { CHAINS } from '@agentguard/shared'
 import { pino } from 'pino'
 import type { Guard } from '../src/adapters/guard.js'
-import { usdcFor } from '../src/domain/chains.js'
+import { usdTokenFor } from '../src/domain/chains.js'
 import { createServer } from '../src/server.js'
 import type { ToolDeps } from '../src/tools/deps.js'
 
@@ -18,7 +18,7 @@ export function deps(guard: Guard, overrides: Partial<ToolDeps> = {}): ToolDeps 
     guard,
     log: silent,
     defaultChain: CHAINS.solanaDevnet,
-    usdc: (chain) => usdcFor(chain, BASE_USDC),
+    usd: (chain) => usdTokenFor(chain, BASE_USDC),
     ...overrides,
   }
 }

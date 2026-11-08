@@ -1,3 +1,4 @@
+import type { UsdToken } from '@agentguard/shared'
 import type { Logger } from 'pino'
 import type { Guard } from '../adapters/guard.js'
 
@@ -6,6 +7,6 @@ export interface ToolDeps {
   log: Logger
   /** CAIP-2 chain used when `transfer` is called without one. */
   defaultChain: string
-  /** The USDC token on a chain, or undefined when this server has none configured for it. */
-  usdc: (chain: string) => string | undefined
+  /** The chain's dollar token (USDC or USDG), or undefined when this server has none for it. */
+  usd: (chain: string) => UsdToken | undefined
 }

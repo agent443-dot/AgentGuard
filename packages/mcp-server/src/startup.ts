@@ -1,3 +1,4 @@
+import type { UsdToken } from '@agentguard/shared'
 import type { Logger } from 'pino'
 import type { Guard } from './adapters/guard.js'
 import { chainName } from './domain/chains.js'
@@ -9,13 +10,13 @@ import { chainName } from './domain/chains.js'
 export async function checkDefaultChain(
   guard: Guard,
   chain: string,
-  usdc: string | undefined,
+  usd: UsdToken | undefined,
   log: Logger,
 ): Promise<void> {
-  if (usdc === undefined) {
+  if (usd === undefined) {
     log.warn(
       { chain },
-      `no USDC address for DEFAULT_CHAIN (${chainName(chain)}): set BASE_USDC, or transfer will refuse every call there`,
+      `no dollar token for DEFAULT_CHAIN (${chainName(chain)}): on Base set BASE_USDC; otherwise transfer will refuse every call there`,
     )
   }
   try {
