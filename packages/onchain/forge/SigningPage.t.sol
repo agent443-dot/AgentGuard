@@ -60,15 +60,7 @@ contract SigningPageTest {
     }
 
     function test_createEnableKillAndEnableAgain() public {
-        bytes memory result = send(owner, PROXY_FACTORY, "create");
-        address created = abi.decode(result, (address));
-        require(
-            created == address(safe),
-            string.concat("the page's create made a Safe at ", vm.toString(created), ", not the fixture's")
-        );
-        address[] memory owners = safe.getOwners();
-        require(owners.length == 1 && owners[0] == owner && safe.getThreshold() == 1, "not the owner's 1-of-1 Safe");
-
+        create();
         send(owner, address(safe), "enable");
         requireAllowance(vm.parseJsonUint(fixture, ".cap"));
 
@@ -83,12 +75,24 @@ contract SigningPageTest {
 
     /// The pre-validated signature is good only from the owner: the same bytes from anyone else revert.
     function test_safeCallsFromAnotherSenderRevert() public {
-        send(owner, PROXY_FACTORY, "create");
+        create();
         require(!sends(address(0xBAD), address(safe), "enable"), "the Safe ran the enable for a stranger");
         require(!safe.isModuleEnabled(address(module)), "a refused enable changed the Safe");
         send(owner, address(safe), "enable");
         require(!sends(address(0xBAD), address(safe), "kill"), "the Safe ran the kill for a stranger");
         require(listed() == hot, "a refused kill changed the delegate");
+    }
+
+    /// The Safe at the fixture's address, from the page's create. Every later call goes there, and a
+    /// call to an address with no code would succeed doing nothing, so this check comes first.
+    function create() private {
+        address created = abi.decode(send(owner, PROXY_FACTORY, "create"), (address));
+        require(
+            created == address(safe),
+            string.concat("the page's create made a Safe at ", vm.toString(created), ", not the fixture's")
+        );
+        address[] memory owners = safe.getOwners();
+        require(owners.length == 1 && owners[0] == owner && safe.getThreshold() == 1, "not the owner's 1-of-1 Safe");
     }
 
     function requireAllowance(uint256 cap) private view {

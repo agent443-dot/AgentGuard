@@ -31,7 +31,7 @@ const cap = 20_000_000n
 const allowance = { module, hot, usd, cap }
 // Where the factory puts createData(owner, 1n): CREATE2 depends only on the factory, the proxy code,
 // the initializer and the salt, so it is the same on every chain. SigningPage.t.sol checks it.
-const safe = getAddress('0x0000000000000000000000000000000000005afe')
+const safe = getAddress('0xE0f814d1D102ECa19737Fa20610ff2fA8226Bb20')
 const factoryAbi = parseAbi([
   'function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)',
 ])
