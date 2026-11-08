@@ -26,11 +26,12 @@ interface PageModule {
         returns (uint256[5] memory);
 }
 
-/// The signing page's Safe flows on Robinhood testnet, as the exact bytes the page sends
-/// (forge/fixtures/signing-page.json, kept equal to the page's builders by test/web-evm.test.ts), run
-/// one after another on the real Safe 1.4.1 factory, MultiSendCallOnly and Allowance Module.
-contract SigningPageTest {
-    PageVm private constant vm = PageVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+/// The signing page's Safe flows as the exact bytes the page sends for one chain
+/// (forge/fixtures/signing-page-<cluster>.json, kept equal to the page's builders and build values by
+/// test/web-evm.test.ts), run one after another on that chain's real Safe 1.4.1 factory,
+/// MultiSendCallOnly, Allowance Module and USDG.
+abstract contract SigningPageFlows {
+    PageVm internal constant vm = PageVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     address private constant PROXY_FACTORY = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
     address private constant MULTI_SEND_CALL_ONLY = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
@@ -45,14 +46,21 @@ contract SigningPageTest {
     PageModule private module;
     PageSafe private safe;
 
+    /// The fork's RPC and the fixture for its cluster.
+    function chain() internal view virtual returns (string memory rpc, string memory cluster);
+
     function setUp() public {
-        vm.createSelectFork(vm.envOr("ROBINHOOD_TESTNET_RPC_URL", string("https://rpc.testnet.chain.robinhood.com")));
-        fixture = vm.readFile("forge/fixtures/signing-page.json");
+        (string memory rpc, string memory cluster) = chain();
+        vm.createSelectFork(rpc);
+        fixture = vm.readFile(string.concat("forge/fixtures/signing-page-", cluster, ".json"));
+        require(block.chainid == vm.parseJsonUint(fixture, ".chainId"), "the RPC serves another chain");
         owner = vm.parseJsonAddress(fixture, ".owner");
         hot = vm.parseJsonAddress(fixture, ".hot");
         usd = vm.parseJsonAddress(fixture, ".usd");
         module = PageModule(vm.parseJsonAddress(fixture, ".module"));
         safe = PageSafe(vm.parseJsonAddress(fixture, ".safe"));
+        require(usd.code.length > 0, "no USDG at the fixture's address");
+        require(address(module).code.length > 0, "no Allowance Module at the fixture's address");
     }
 
     function test_multiSendCallOnlyIsTheCanonicalCode() public view {
@@ -118,5 +126,18 @@ contract SigningPageTest {
         bytes memory data = vm.parseJsonBytes(fixture, string.concat(".", key));
         vm.prank(from);
         (ok,) = to.call(data);
+    }
+}
+
+contract SigningPageTestnetTest is SigningPageFlows {
+    function chain() internal view override returns (string memory, string memory) {
+        return (vm.envOr("ROBINHOOD_TESTNET_RPC_URL", string("https://rpc.testnet.chain.robinhood.com")), "robinhood-testnet");
+    }
+}
+
+/// The mainnet pilot's Safe, enabled and killed before the owner signs any of it for real.
+contract SigningPageMainnetTest is SigningPageFlows {
+    function chain() internal view override returns (string memory, string memory) {
+        return (vm.envOr("ROBINHOOD_MAINNET_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com")), "robinhood");
     }
 }
