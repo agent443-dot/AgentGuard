@@ -162,10 +162,18 @@ Each line can be checked by someone other than its author.
 - [ ] **Persistent database.** `DATABASE_URL` defaults to `file:./data/guard.db`. The host needs a
       persistent volume, or intents, the audit log and daily spend are lost on redeploy. Since #35,
       guard-core refuses to start on mainnet with the database in memory, inside the repository or
-      in a temp directory, and `pnpm db:backup` takes a consistent copy while it runs. **Left:** the
-      volume itself, and a backup schedule, once HUMAN-7 picks a host.
+      in a temp directory, and `pnpm db:backup` takes a consistent copy while it runs. Done on Fly:
+      the encrypted `guard_data` volume with daily snapshots, and `spentToday` survived a restart
+      (INT-7). **Left:** a backup schedule.
+- [ ] **Launch blocker: one backup restore rehearsed.** `pnpm db:backup` against the Fly volume,
+      then a restore into a fresh machine, checking that agents, policies, the audit log and the
+      day's spend come back. Until then, a lost volume means a guard with no history and a reset
+      daily spend.
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
-      fronts each service, secrets in the manager).
+      fronts each service, secrets in the manager). Done live on Fly for devnet (INT-7,
+      `docs/security-review.md`). **Left:** the bot app's `fly ips list`, a revoked token tested
+      live, a grep of `fly logs` for secrets across a payment, an approval and a kill, and the
+      restore rehearsal above.
 - [x] **Rate limits on the bot hooks and the MCP HTTP endpoint.**
   - Bot hooks (#38): `HOOK_RATE_LIMIT_PER_MINUTE`, default 300. A request without a well-formed
     signature is refused before its body is read.
@@ -223,22 +231,29 @@ leaked token or key, or any doubt at all. A kill is cheap to undo; a drain is no
 
 ### Kill, in order
 
+**Always start from `/kill` in Telegram.** A Phantom kill button from an older message removes the
+onchain limit but does not pause guard-core. That happened on the first hosted run (INT-7), and the
+agent stayed unpaused until `/kill` was confirmed. BOT-13 makes old buttons expire.
+
 1. **Stop new payments.** In Telegram send `/kill`, then press **Kill everything**. guard-core
    pauses every agent first (`POST /v1/admin/kill`). From then on every payment is refused with
    `PAUSED`. The bot then shows the owner transaction for each chain. If Telegram is unavailable, use
-   the same call directly (from the guard-core checkout; use the deployed URL once hosted):
+   the same call directly. On Fly the admin route is private, so open it on your machine first with
+   `fly proxy 18787:8787 --app agentguard-guard-core` in another terminal, then:
 
    ```bash
-   t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X POST http://localhost:8787/v1/admin/kill -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{}'
+   t=$(grep '^ADMIN_TOKEN=' packages/guard-core/.env | cut -d= -f2-) && curl -sS -X POST http://127.0.0.1:18787/v1/admin/kill -H "Authorization: Bearer $t" -H 'content-type: application/json' -d '{}'
    ```
 
 2. **Remove the onchain limit.** This is what actually stops the hot wallet drawing from the vault;
    step 1 only stops the guard. The bot's message gives the `removeSpendingLimit` instruction, which
    must be signed by the config authority, the owner key.
 
-   With the owner key in Phantom (D4): sign `removeSpendingLimit` from the Phantom owner account by
-   the path the D4 blocker proved on devnet, then check `pnpm status` prints
-   `spending limit:   none at <address>`. Write the exact steps here once that run passes.
+   With the owner key in Phantom (D4): press **Open kill in Phantom** under the message that
+   confirmed the pause, check that the page names your multisig and hot wallet, and approve in
+   Phantom. The page waits until the limit is gone. "Already killed" means there was nothing left
+   to remove. Then `/status` shows the chain without a limit. Until CR-008 lands, it reads
+   "onchain allowance could not be read".
 
    With the owner key on a Ledger, if D4 changes:
    1. Plug the Ledger in, unlock it, and open the Solana app.
