@@ -1062,7 +1062,11 @@ Depois, no Telegram, `/status` tem de responder normalmente.
 
 ---
 
-## ⬜ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+## ⏳ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+
+**Os passos 1 a 3 já podes fazer** — não dependem das páginas novas, e o 2 deve ir cedo, porque o
+Vercel pode demorar a publicar a página por causa do limite diário. Do 4 em diante, espera que eu te
+avise.
 
 Depois de as páginas de assinatura da Phantom para a Robinhood Chain (criar a Safe, ligar o teto, kill)
 estarem no `main` — eu aviso-te. É o equivalente da `HUMAN-15` + `HUMAN-17` para a Robinhood Chain,
