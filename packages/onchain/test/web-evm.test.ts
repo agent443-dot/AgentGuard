@@ -74,6 +74,13 @@ describe('the EVM clusters the page is built for', () => {
     expect(chains['evm-localnet']).toEqual(chains['robinhood-testnet'])
   })
 
+  it('take each hot wallet from the build, and refuse one that is not an address', () => {
+    expect(evmChains({ ROBINHOOD_HOT_WALLET_TESTNET: hot })['robinhood-testnet'].hot).toBe(hot)
+    expect(() => evmChains({ ROBINHOOD_HOT_WALLET_MAINNET: '0x12' })).toThrow(
+      'ROBINHOOD_HOT_WALLET_MAINNET is not an EVM address',
+    )
+  })
+
   it('may reach their RPCs, and only those', () => {
     const policy = csp(rpcUrls({}))
     expect(policy).toContain('https://rpc.testnet.chain.robinhood.com')

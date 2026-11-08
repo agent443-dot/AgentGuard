@@ -14,20 +14,27 @@ import { prepareEvmKill } from './kill.js'
 import type { EvmPlan } from './plan.js'
 import { onChain, phantomEvm, type Eip1193 } from './wallet.js'
 
-/** What the build fixed for one EVM chain: its id, the Allowance Module and the dollar token. */
+/** What the build fixed for one EVM chain: its id, the module, the dollar token, the hot wallet. */
 export interface EvmChain {
   name: string
   chainId: number
   rpc: string
   module: Address
   usd: Address
+  hot?: Address
 }
 
 const address = z
   .string()
   .refine((value) => isAddress(value), 'not an EVM address')
   .transform((value) => getAddress(value))
-const evmLink = z.object({ action: z.literal('kill'), safe: address, hot: address, issued })
+// `hot` is optional, and only ever checked against the hot wallet the page was built for.
+const evmLink = z.object({
+  action: z.literal('kill'),
+  safe: address,
+  hot: address.optional(),
+  issued,
+})
 
 export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   const parsed = evmLink.safeParse(query)
@@ -37,6 +44,22 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   }
   if (expired(parsed.data.issued)) {
     show('Nothing to sign', [EXPIRED], 'stop')
+    return
+  }
+  const hot = chain.hot && getAddress(chain.hot)
+  if (!hot) {
+    show('Nothing to sign', [`This page knows no hot wallet for ${chain.name}.`], 'stop')
+    return
+  }
+  if (parsed.data.hot && parsed.data.hot !== hot) {
+    show(
+      'Nothing to sign',
+      [
+        `The link names ${parsed.data.hot} as the hot wallet, but this page only kills ${hot}. ` +
+          'Do not sign anything from this link.',
+      ],
+      'stop',
+    )
     return
   }
   const wallet = phantomEvm()
@@ -65,7 +88,7 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   show('Checking the chain…', [])
   const plan = await prepareEvmKill(
     client,
-    { ...parsed.data, cluster: chain.name, module: chain.module, usd: chain.usd },
+    { safe: parsed.data.safe, hot, cluster: chain.name, module: chain.module, usd: chain.usd },
     account!,
   )
   await run(client, wallet, account!, plan)

@@ -21,7 +21,11 @@ afterEach(() => s.server.close())
 const now = () => Math.floor(Date.now() / 1000)
 
 async function open(
-  options: Parameters<typeof mockPhantomEvm>[1] & { account?: `0x${string}`; issued?: number } = {},
+  options: Parameters<typeof mockPhantomEvm>[1] & {
+    account?: `0x${string}`
+    hot?: `0x${string}`
+    issued?: number
+  } = {},
 ) {
   const page = await browser.newPage()
   await page.addInitScript(mockPhantomEvm(options.account ?? s.state.owners[0]!, options))
@@ -29,7 +33,7 @@ async function open(
     action: 'kill',
     cluster: 'evm-localnet',
     safe: s.state.safe,
-    hot: s.state.hot,
+    hot: options.hot ?? s.state.hot,
     issued: String(options.issued ?? now()),
   }
   await page.goto(`${s.server.origin}/?${new URLSearchParams(query)}`)
@@ -108,6 +112,14 @@ describe('the kill page on an EVM chain', () => {
     const page = await open({ issued: now() - 16 * 60 })
     await settled(page, 'Nothing to sign')
     expect(await lines(page)).toEqual(['This link expired. Use /kill in Telegram for a fresh one.'])
+  })
+
+  it('kills the hot wallet the page was built for, and refuses a link naming another', async () => {
+    const other = getAddress('0x00000000000000000000000000000000000a11ce')
+    const page = await open({ hot: other })
+    await settled(page, 'Nothing to sign')
+    expect((await lines(page)).join(' ')).toContain(`names ${other} as the hot wallet`)
+    expect(s.sent).toEqual([])
   })
 
   it('refuses a link whose Safe is not an address', async () => {

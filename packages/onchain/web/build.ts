@@ -2,6 +2,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { CHAINS, getAddress, type ChainId } from '@agentguard/shared'
 import { build } from 'esbuild'
+import { isAddress } from 'viem'
 import { isPublicKey } from './src/plan.js'
 
 /**
@@ -26,20 +27,30 @@ export function rpcUrls(env: NodeJS.ProcessEnv = process.env): Record<string, st
 }
 
 /**
- * The EVM clusters: the chain id Phantom must be on, and the module and token from the verified
- * addresses in shared. A link names the cluster only. The tests' evm-localnet stands in for
- * Robinhood testnet, with its id and addresses.
+ * The EVM clusters: the chain id Phantom must be on, the module and token from the verified
+ * addresses in shared, and the hot wallet whose delegate entry the kill removes. A link names the
+ * cluster and the Safe only. The tests' evm-localnet stands in for Robinhood testnet, with its id
+ * and addresses.
  */
 export function evmChains(env: NodeJS.ProcessEnv = process.env) {
-  const chain = (id: ChainId) => ({
-    chainId: Number(id.split(':')[1]),
-    module: getAddress(id, 'allowanceModule')!,
-    usd: getAddress(id, 'usd')!,
-  })
+  const chain = (id: ChainId, hotVar: string) => {
+    const hot = env[hotVar]
+    if (hot && !isAddress(hot)) {
+      throw new Error(`${hotVar} is not an EVM address: ${hot}`)
+    }
+    return {
+      chainId: Number(id.split(':')[1]),
+      module: getAddress(id, 'allowanceModule')!,
+      usd: getAddress(id, 'usd')!,
+      ...(hot ? { hot } : {}),
+    }
+  }
   return {
-    'robinhood-testnet': chain(CHAINS.robinhoodTestnet),
-    robinhood: chain(CHAINS.robinhood),
-    ...(env['EVM_LOCALNET_RPC'] ? { 'evm-localnet': chain(CHAINS.robinhoodTestnet) } : {}),
+    'robinhood-testnet': chain(CHAINS.robinhoodTestnet, 'ROBINHOOD_HOT_WALLET_TESTNET'),
+    robinhood: chain(CHAINS.robinhood, 'ROBINHOOD_HOT_WALLET_MAINNET'),
+    ...(env['EVM_LOCALNET_RPC']
+      ? { 'evm-localnet': chain(CHAINS.robinhoodTestnet, 'EVM_HOT_WALLET_LOCALNET') }
+      : {}),
   }
 }
 

@@ -112,7 +112,10 @@ export async function stageEvm() {
 
   const dist = await mkdtemp(join(tmpdir(), 'agentguard-sign-evm-'))
   const server = await serve(dist, { '/evm-rpc': rpc, '/evm-wallet': send })
-  await buildPage(dist, { EVM_LOCALNET_RPC: `${server.origin}/evm-rpc` })
+  await buildPage(dist, {
+    EVM_LOCALNET_RPC: `${server.origin}/evm-rpc`,
+    EVM_HOT_WALLET_LOCALNET: state.hot,
+  })
   return { state, sent, server }
 }
 
