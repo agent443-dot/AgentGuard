@@ -7,7 +7,8 @@ import { formatUsd, parseUsd } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
 import { failure, guarded, text } from './result.js'
 
-const DESCRIPTION = `Send USDC from the agent's wallet to an address, through AgentGuard.
+const DESCRIPTION = `Send dollars from the agent's wallet to an address, through AgentGuard. The token is the chain's dollar stablecoin: USDC, or USDG on Robinhood Chain.
+Amounts are in USD; one token is one dollar.
 AgentGuard checks every transfer against the owner's policy. A transfer may be rejected (for example, a recipient that is not on the allowed list), or may need the owner to approve it on Telegram first.
 - If the result says pending_approval: tell the user the transfer is waiting for their approval, then poll check_intent with the intent id. Do not send the same transfer again while it is pending.
 - If it was rejected: explain the reasons to the user. Do not retry the same transfer.
@@ -31,12 +32,12 @@ const inputSchema = {
 
 export function registerTransfer(
   server: McpServer,
-  { guard, log, defaultChain, usdc }: ToolDeps,
+  { guard, log, defaultChain, usd }: ToolDeps,
 ): void {
   server.registerTool(
     'transfer',
     {
-      title: 'Transfer USDC',
+      title: 'Transfer dollars',
       description: DESCRIPTION,
       inputSchema,
       annotations: { openWorldHint: true },
@@ -49,22 +50,22 @@ export function registerTransfer(
       if (amount.atomic === 0n) {
         return failure('amountUsd: a transfer must be more than zero.')
       }
-      const token = usdc(chain)
+      const token = usd(chain)
       if (token === undefined) {
         return failure(
-          `This server has no USDC address for ${chainName(chain)} (${chain}), so transfers there are not possible. The owner has to configure it.`,
+          `This server has no dollar token for ${chainName(chain)} (${chain}), so transfers there are not possible. The owner has to configure it.`,
         )
       }
       return guarded(log, async () => {
         const result = await guard.transfer({
           chain,
-          token,
+          token: token.address,
           amount: amount.atomic.toString(),
           recipient: to,
           reason,
         })
         const lines = [
-          `Transfer of ${formatUsd(amount.atomic)} USDC to ${to} on ${chainName(chain)} (${chain}): ${result.status}.`,
+          `Transfer of ${formatUsd(amount.atomic)} ${token.symbol} to ${to} on ${chainName(chain)} (${chain}): ${result.status}.`,
           `Intent id: ${result.intentId}`,
         ]
         if (result.txId !== undefined) {

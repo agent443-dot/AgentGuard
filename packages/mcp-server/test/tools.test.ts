@@ -100,8 +100,8 @@ describe('transfer', () => {
     expect(result.text).toMatch(/more than zero/)
   })
 
-  it('refuses a chain whose USDC address is not configured', async () => {
-    const client = await connect(fakeGuard({}), { usdc: () => undefined })
+  it('refuses a chain whose dollar token is not configured', async () => {
+    const client = await connect(fakeGuard({}), { usd: () => undefined })
     const result = await call(client, 'transfer', {
       to: '0xabc',
       amountUsd: '1',
@@ -109,7 +109,7 @@ describe('transfer', () => {
       chain: CHAINS.base,
     })
     expect(result.isError).toBe(true)
-    expect(result.text).toMatch(/no USDC address for Base mainnet \(eip155:8453\)/)
+    expect(result.text).toMatch(/no dollar token for Base mainnet \(eip155:8453\)/)
   })
 
   it('sends a Base Sepolia transfer with the verified Base Sepolia USDC', async () => {
@@ -133,11 +133,39 @@ describe('transfer', () => {
     expect(result.text).toMatch(/Transaction id: 0xhash/)
   })
 
+  it('pays USDG on Robinhood Chain and says so', async () => {
+    const transfer = vi.fn(async (_input: TransferInput) => ({
+      intentId: INTENT_ID,
+      status: 'executed' as const,
+      txId: '0xrh',
+      rejectReasons: [],
+    }))
+    const client = await connect(fakeGuard({ transfer }))
+    const to = '0x' + 'cd'.repeat(20)
+    const result = await call(client, 'transfer', {
+      to,
+      amountUsd: '3',
+      reason: 'r',
+      chain: CHAINS.robinhoodTestnet,
+    })
+    expect(transfer.mock.calls[0]?.[0]).toMatchObject({
+      chain: 'eip155:46630',
+      token: ADDRESSES[CHAINS.robinhoodTestnet]?.usd?.address,
+      amount: '3000000',
+    })
+    expect(result.text).toMatch(
+      /\$3\.00 USDG to 0xcd.* on Robinhood Chain testnet \(eip155:46630\): executed/,
+    )
+    expect(result.text).not.toMatch(/USDC/)
+  })
+
   it('names every supported chain in the transfer schema', async () => {
     const { tools } = await (await connect(fakeGuard({}))).listTools()
     const chain = JSON.stringify(tools.find((tool) => tool.name === 'transfer')?.inputSchema)
     expect(chain).toContain('eip155:84532 (Base Sepolia)')
     expect(chain).toContain(`${CHAINS.solanaDevnet} (Solana devnet)`)
+    expect(chain).toContain('eip155:46630 (Robinhood Chain testnet)')
+    expect(chain).toContain('eip155:4663 (Robinhood Chain)')
   })
 
   it('refuses a chain it does not know', async () => {
@@ -329,6 +357,26 @@ describe('get_budget', () => {
     expect((await call(older, 'get_budget')).text).not.toMatch(/Chains you can pay on/)
   })
 
+  it('labels each hot wallet balance with its chain dollar', async () => {
+    const client = await connect(
+      fakeGuard({
+        budget: async () => ({
+          spentToday: '0',
+          dailyMax: '1',
+          perTxMax: '1',
+          hotWalletBalances: {
+            [CHAINS.robinhoodTestnet]: '4000000',
+            [CHAINS.baseSepolia]: '1000000',
+          },
+          paused: false,
+        }),
+      }),
+    )
+    const { text } = await call(client, 'get_budget')
+    expect(text).toContain('Robinhood Chain testnet (eip155:46630): $4.00 USDG')
+    expect(text).toContain('Base Sepolia (eip155:84532): $1.00 USDC')
+  })
+
   it('says plainly when the owner has paused payments', async () => {
     const client = await connect(
       fakeGuard({
@@ -395,6 +443,23 @@ describe('check_intent', () => {
     expect(text).toMatch(/: approved\./)
     expect(text).toMatch(
       /call paid_fetch again with exactly the same url, method, headers and body/i,
+    )
+  })
+
+  it('names the dollar of the chain the intent is on', async () => {
+    const client = await connect(
+      fakeGuard({
+        intent: async () => ({
+          ...intent,
+          chain: CHAINS.robinhood,
+          status: 'executed',
+          rejectReasons: [],
+        }),
+      }),
+    )
+    const { text } = await call(client, 'check_intent', { intentId: INTENT_ID })
+    expect(text).toMatch(
+      /\$2\.00 USDG, x402 payment to api\.test, on Robinhood Chain \(eip155:4663\)/,
     )
   })
 
