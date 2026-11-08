@@ -48,6 +48,16 @@ export const configSchema = z.object({
   BASE_USDC: optional(evmAddress),
   BASE_ALLOWANCE_MODULE: optional(evmAddress),
 
+  /**
+   * Robinhood Chain is off unless this names it (CR-007). Its USDG and Allowance Module come from
+   * shared/addresses.ts only, so there is no env value for either.
+   */
+  ROBINHOOD_CHAIN: optional(z.enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])),
+  ROBINHOOD_RPC_URL: optional(z.url()),
+  ROBINHOOD_SAFE_ADDRESS: optional(evmAddress),
+  /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
+  ROBINHOOD_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
+
   /** Offline chains that move no money. For local development only. */
   GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
   EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),

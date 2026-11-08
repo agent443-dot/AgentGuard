@@ -50,6 +50,7 @@ describe('requirePersistentDb', () => {
   it.each([
     ['Solana mainnet', { SOLANA_CHAIN: CHAINS.solanaMainnet }],
     ['Base mainnet', { BASE_CHAIN: CHAINS.base }],
+    ['Robinhood Chain mainnet', { ROBINHOOD_CHAIN: CHAINS.robinhood }],
   ])('refuses to start on %s with the database in the repo', (_case, chain) => {
     expect(() => requirePersistentDb(loadConfig({ ...env, ...chain }), places)).toThrow(
       /^invalid configuration: DATABASE_URL is inside the repository/,

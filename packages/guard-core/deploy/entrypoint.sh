@@ -31,7 +31,12 @@ if [ -n "${BASE_HOT_WALLET_KEY:-}" ]; then
   chown "$uid:$gid" "$dir/base-hot"
   export BASE_HOT_WALLET_KEY_FILE="$dir/base-hot"
 fi
-unset SOLANA_HOT_WALLET_KEYPAIR_JSON BASE_HOT_WALLET_KEY
+if [ -n "${ROBINHOOD_HOT_WALLET_KEY:-}" ]; then
+  printf '%s\n' "$ROBINHOOD_HOT_WALLET_KEY" >"$dir/robinhood-hot"
+  chown "$uid:$gid" "$dir/robinhood-hot"
+  export ROBINHOOD_HOT_WALLET_KEY_FILE="$dir/robinhood-hot"
+fi
+unset SOLANA_HOT_WALLET_KEYPAIR_JSON BASE_HOT_WALLET_KEY ROBINHOOD_HOT_WALLET_KEY
 
 # Fly mounts the database volume owned by root.
 if [ -d "$data" ]; then
