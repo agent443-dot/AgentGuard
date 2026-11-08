@@ -12,7 +12,8 @@
     "dev:check": "tsx src/dev-check.ts",
     "paywall": "tsx --env-file=.env src/devnet-paywall.ts",
     "paywall:base": "PAYWALL_EVM_CHAIN=eip155:84532 tsx --env-file=.env src/evm-paywall.ts",
-    "paywall:robinhood": "PAYWALL_EVM_CHAIN=eip155:46630 tsx --env-file=.env src/evm-paywall.ts"
+    "paywall:robinhood": "PAYWALL_EVM_CHAIN=eip155:46630 tsx --env-file=.env src/evm-paywall.ts",
+    "paywall:robinhood-mainnet": "PAYWALL_EVM_CHAIN=eip155:4663 tsx --env-file=.env src/evm-paywall.ts"
   },
   "devDependencies": {
     "@agentguard/guard-core": "workspace:*",

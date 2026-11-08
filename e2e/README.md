@@ -96,6 +96,10 @@ USDC on Base Sepolia, Paxos USDG on Robinhood Chain testnet (CR-007). It refuses
 `DOMAIN_SEPARATOR` before serving. USDG has no `version()`, so its version is "1", proven the same
 way.
 
+`paywall:robinhood-mainnet` serves real USDG on Robinhood Chain (4663) for the owner's pilot. It
+pays `PAYWALL_ROBINHOOD_PAY_TO`, the owner's own address, so the money returns to him, and it refuses
+a fee payer key from `.env`: the key must come from `PAYWALL_EVM_KEY_FILE`.
+
 On Robinhood Chain testnet the steps are the same with `paywall:robinhood`, port 8792,
 `PAYWALL_ROBINHOOD_PAY_TO`, Robinhood testnet ETH for the fee payer, and guard-core running with
 `ROBINHOOD_CHAIN=eip155:46630`. The settled transaction is on explorer.testnet.chain.robinhood.com.
