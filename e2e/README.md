@@ -85,17 +85,23 @@ after the transfer run in HUMAN-11 works.
    `"status":"pending_approval"`. Approve on Telegram, then run step 4 again: it redeems the
    approval and returns `"status":"executed"`.
 
-## The x402 path on Base Sepolia (owner's machine, HUMAN-12)
+## The x402 path on Base Sepolia (owner's machine, HUMAN-12) and Robinhood Chain testnet
 
-`pnpm --filter @agentguard/e2e paywall:base` (`src/base-paywall.ts`) is the Base counterpart of the
-devnet paywall. It is its own facilitator through the x402 SDK's `ExactEvmScheme`: it verifies the
-EIP-3009 authorization the guard signed, then settles it on Base Sepolia, paying the gas from its own
-key. It reads the token's `decimals`, `name` and `version` from the chain. It refuses a token that is
-not 6 decimals, and it quotes the EIP-712 domain the token itself reports, so the guard's signer has
-nothing to guess.
+`pnpm --filter @agentguard/e2e paywall:base` and `paywall:robinhood` (`src/evm-paywall.ts`) are the
+EVM counterparts of the devnet paywall. Each is its own facilitator through the x402 SDK's
+`ExactEvmScheme`: it verifies the EIP-3009 authorization the guard signed, then settles it, paying
+the gas from its own key. The token is the chain's dollar in `shared/addresses.ts` and nothing else:
+USDC on Base Sepolia, Paxos USDG on Robinhood Chain testnet (CR-007). It refuses a token that is not
+6 decimals. It quotes the EIP-712 domain the token reports, and checks it against the token's own
+`DOMAIN_SEPARATOR` before serving. USDG has no `version()`, so its version is "1", proven the same
+way.
+
+On Robinhood Chain testnet the steps are the same with `paywall:robinhood`, port 8792,
+`PAYWALL_ROBINHOOD_PAY_TO`, Robinhood testnet ETH for the fee payer, and guard-core running with
+`ROBINHOOD_CHAIN=eip155:46630`. The settled transaction is on explorer.testnet.chain.robinhood.com.
 
 1. In `e2e/.env`, set `PAYWALL_EVM_KEY` (a testnet key with Base Sepolia ETH) and
-   `PAYWALL_BASE_PAY_TO`. Until CR-005 lands, also set `PAYWALL_BASE_USDC`, taken from Circle.
+   `PAYWALL_BASE_PAY_TO`.
 2. Make sure guard-core runs with `BASE_CHAIN=eip155:84532` and its Base settings, and that the
    agent's policy allows `eip155:84532`, the Base Sepolia USDC, and the domain `127.0.0.1`.
 3. In another window: `pnpm --filter @agentguard/e2e paywall:base`.
