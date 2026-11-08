@@ -39,10 +39,12 @@ beforeEach(async () => {
 })
 afterEach(() => s.server.close())
 
-const kill = () => ({
+const now = () => Math.floor(Date.now() / 1000)
+const kill = (issued = now()) => ({
   action: 'kill',
   multisig: multisigPda.toBase58(),
   hot: s.c.hotWallet.publicKey.toBase58(),
+  issued: String(issued),
 })
 
 describe('the kill page', () => {
@@ -60,6 +62,8 @@ describe('the kill page', () => {
     expect(await lines(page)).toEqual([
       `The spending limit ${limit.toBase58()} is gone.`,
       'The hot wallet can no longer draw from the vault.',
+      'In Telegram, check /status that guard-core is paused, or run /kill → Kill everything if ' +
+        'you have not.',
     ])
   })
 
@@ -115,6 +119,30 @@ describe('the kill page', () => {
       expect(await lines(page)).toEqual(['cluster: unknown cluster'])
     },
   )
+
+  it('refuses a kill link older than 15 minutes, so a stale button cannot fire', async () => {
+    const page = await s.open(browser, kill(now() - 15 * 60 - 1))
+    await expect.poll(() => heading(page).textContent()).toBe('Nothing to sign')
+    expect(await lines(page)).toEqual(['This link expired. Use /kill in Telegram for a fresh one.'])
+    expect(s.server.signed).toEqual([])
+    expect(s.c.svm.getAccount(limit)).not.toBeNull()
+  })
+
+  it('accepts one just inside the 15 minutes', async () => {
+    const page = await s.open(browser, kill(now() - 14 * 60))
+    await expect.poll(() => heading(page).textContent(), { timeout: 20_000 }).toBe('Killed')
+  })
+
+  it.each([
+    ['without issued', { issued: undefined }],
+    ['issued in the future', { issued: String(Math.floor(Date.now() / 1000) + 3600) }],
+    ['with issued not a number', { issued: 'soon' }],
+  ])('refuses a kill link %s', async (_case, change) => {
+    const { issued, ...rest } = { ...kill(), ...change }
+    const page = await s.open(browser, issued === undefined ? rest : { ...rest, issued })
+    await expect.poll(() => heading(page).textContent()).toBe('This link is not valid')
+    expect(s.server.signed).toEqual([])
+  })
 
   it('refuses a link that does not name two Solana addresses', async () => {
     const page = await s.open(browser, { action: 'kill', multisig: 'nope', hot: 'nope' })

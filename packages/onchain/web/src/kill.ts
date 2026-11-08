@@ -70,6 +70,9 @@ export async function prepareKill(
         : [
             `The spending limit ${limit.toBase58()} is gone.`,
             'The hot wallet can no longer draw from the vault.',
+            // Removing the limit does not pause guard-core; only the bot's kill does.
+            'In Telegram, check /status that guard-core is paused, or run /kill → Kill everything if ' +
+              'you have not.',
           ],
   }
 }
