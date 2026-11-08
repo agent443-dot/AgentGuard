@@ -23,13 +23,15 @@ import {
   type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { baseSepolia, robinhoodTestnet } from 'viem/chains'
+import { baseSepolia, robinhood, robinhoodTestnet } from 'viem/chains'
+import { readFileSync } from 'node:fs'
 import { z } from 'zod'
 
 // The EVM counterpart of devnet-paywall.ts: a paid API that is its own facilitator. It verifies the
 // EIP-3009 authorization the guard signed and settles it itself, so the x402 path is proven without
-// trusting a public endpoint. The fee payer needs the testnet's ETH. PAYWALL_EVM_CHAIN picks Base
-// Sepolia (HUMAN-12) or Robinhood Chain testnet (CR-007), each with its own pay-to, port and RPC.
+// trusting a public endpoint. The fee payer needs the chain's ETH. PAYWALL_EVM_CHAIN picks Base
+// Sepolia (HUMAN-12), Robinhood Chain testnet (CR-007) or Robinhood Chain mainnet for the owner's
+// real-money pilot, which pays real USDG to PAYWALL_ROBINHOOD_PAY_TO: the owner's own address.
 
 const address = z.string().refine((value) => isAddress(value), 'not an EVM address')
 const amount = z
@@ -38,15 +40,21 @@ const amount = z
   .default('500000')
 const env = z
   .object({
-    PAYWALL_EVM_CHAIN: z.enum([CHAINS.baseSepolia, CHAINS.robinhoodTestnet]),
-    PAYWALL_EVM_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    PAYWALL_EVM_CHAIN: z.enum([CHAINS.baseSepolia, CHAINS.robinhoodTestnet, CHAINS.robinhood]),
+    PAYWALL_EVM_KEY: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/)
+      .optional()
+      .or(z.literal('')),
+    // A file holding the fee payer's key. Required on mainnet, where the key must not sit in .env.
+    PAYWALL_EVM_KEY_FILE: z.string().min(1).optional().or(z.literal('')),
     PAYWALL_AMOUNT: amount,
     PAYWALL_BASE_PAY_TO: address.optional().or(z.literal('')),
     PAYWALL_BASE_PORT: z.coerce.number().int().positive().default(8791),
     BASE_RPC_URL: z.url().default('https://sepolia.base.org'),
     PAYWALL_ROBINHOOD_PAY_TO: address.optional().or(z.literal('')),
     PAYWALL_ROBINHOOD_PORT: z.coerce.number().int().positive().default(8792),
-    ROBINHOOD_RPC_URL: z.url().default('https://rpc.testnet.chain.robinhood.com'),
+    ROBINHOOD_RPC_URL: z.url().optional().or(z.literal('')),
   })
   .safeParse(process.env)
 if (!env.success) {
@@ -58,24 +66,30 @@ if (!env.success) {
 const config = env.data
 
 const network = config.PAYWALL_EVM_CHAIN
-const robinhood = network === CHAINS.robinhoodTestnet
-const site: { chain: Chain; payTo: string | undefined; port: number; rpcUrl: string } = robinhood
-  ? {
-      chain: robinhoodTestnet,
-      payTo: config.PAYWALL_ROBINHOOD_PAY_TO,
-      port: config.PAYWALL_ROBINHOOD_PORT,
-      rpcUrl: config.ROBINHOOD_RPC_URL,
-    }
-  : {
-      chain: baseSepolia,
-      payTo: config.PAYWALL_BASE_PAY_TO,
-      port: config.PAYWALL_BASE_PORT,
-      rpcUrl: config.BASE_RPC_URL,
-    }
+const mainnet = network === CHAINS.robinhood
+const robinhoodChain = mainnet ? robinhood : robinhoodTestnet
+const site: { chain: Chain; payTo: string | undefined; port: number; rpcUrl: string } =
+  network !== CHAINS.baseSepolia
+    ? {
+        chain: robinhoodChain,
+        payTo: config.PAYWALL_ROBINHOOD_PAY_TO,
+        port: config.PAYWALL_ROBINHOOD_PORT,
+        rpcUrl: config.ROBINHOOD_RPC_URL || robinhoodChain.rpcUrls.default.http[0]!,
+      }
+    : {
+        chain: baseSepolia,
+        payTo: config.PAYWALL_BASE_PAY_TO,
+        port: config.PAYWALL_BASE_PORT,
+        rpcUrl: config.BASE_RPC_URL,
+      }
 if (!site.payTo) {
-  console.error(`set ${robinhood ? 'PAYWALL_ROBINHOOD_PAY_TO' : 'PAYWALL_BASE_PAY_TO'}`)
+  console.error(
+    `set ${network === CHAINS.baseSepolia ? 'PAYWALL_BASE_PAY_TO' : 'PAYWALL_ROBINHOOD_PAY_TO'}`,
+  )
   process.exit(1)
 }
+
+const key = feePayerKey()
 
 // The token is the chain's dollar in shared/addresses.ts and nothing else: on Robinhood Chain every
 // token named USDC is someone else's (CR-007).
@@ -88,7 +102,7 @@ if (listed === undefined || symbol === undefined) {
 const token: Address = getAddress(listed)
 
 const client = createWalletClient({
-  account: privateKeyToAccount(config.PAYWALL_EVM_KEY as Hex),
+  account: privateKeyToAccount(key),
   chain: site.chain,
   transport: http(site.rpcUrl),
 }).extend(publicActions)
@@ -152,6 +166,22 @@ createServer((req, res) => {
       `${requirements.payTo}, fee payer ${feePayer}`,
   )
 })
+
+/** The fee payer's key: from a file on mainnet, where a key in .env is refused, else either. */
+function feePayerKey(): Hex {
+  if (mainnet && config.PAYWALL_EVM_KEY) {
+    console.error('on mainnet the fee payer key comes from PAYWALL_EVM_KEY_FILE, never from .env')
+    process.exit(1)
+  }
+  const raw = config.PAYWALL_EVM_KEY_FILE
+    ? readFileSync(config.PAYWALL_EVM_KEY_FILE, 'utf8').trim()
+    : config.PAYWALL_EVM_KEY
+  if (!raw || !/^0x[0-9a-fA-F]{64}$/.test(raw)) {
+    console.error('set PAYWALL_EVM_KEY_FILE (or, off mainnet, PAYWALL_EVM_KEY) to a 0x key')
+    process.exit(1)
+  }
+  return raw as Hex
+}
 
 /**
  * The EIP-712 domain the guard must sign under, taken from the token and proven against its own

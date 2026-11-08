@@ -45,6 +45,12 @@ Criados em 2026-11-03. Tudo público.
 | Owner antiga (ficheiro)     | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
 | Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
 
+**Robinhood Chain testnet (46630)**
+
+| O quê                  | Endereço                                     |
+| ---------------------- | -------------------------------------------- |
+| Hot wallet (Robinhood) | `0x30E7E36153ee1Ee4eF7d865afE522f09b72f01Ec` |
+
 **O dinheiro vive no cofre, não na owner.** A owner é quem manda; o cofre é onde está o USDC que o
 agente vai gastar sob o teto diário.
 
@@ -1062,7 +1068,12 @@ Depois, no Telegram, `/status` tem de responder normalmente.
 
 ---
 
-## ⏳ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+## ✖️ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain (substituída pela HUMAN-21)
+
+**Parada em 2026-11-08.** A verificação n.º 1 passou (a Phantom está na Robinhood Chain testnet) e a
+hot wallet de testnet foi criada, mas os faucets não chegaram: o oficial só deu ETH à Phantom, a
+Phantom não deixou reenviá-lo para a hot wallet, e não há faucet de USDG confirmado na 46630.
+Decidiste passar diretamente a um piloto pequeno com dinheiro real — a `HUMAN-21`.
 
 **Já podes fazer tudo**: as três páginas da Robinhood Chain (criar a Safe, ligar o teto, kill) estão
 no `main` desde 2026-11-08, cada uma verificada contra a testnet. Faz o passo 2 primeiro, porque o
@@ -1102,6 +1113,29 @@ com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
 7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
    prepara-o), com a hot wallet a começar vazia.
 8. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Phantom para remover o teto.
+
+---
+
+## ⏳ HUMAN-21 — Piloto com dinheiro real na Robinhood Chain (mainnet 4663)
+
+**Decisão tua de 2026-11-08, com o risco aceite** e registado no `LAUNCH.md`: as páginas de assinatura
+da Robinhood Chain e o pagamento x402 em USDG só foram provados contra cópias da rede, nunca ao vivo.
+A perda máxima fica limitada pelo teto (**5 USDG por dia**) mais o que a hot wallet tiver. Na Safe
+ficam uns **10 USDG**, e uns **5 dólares de ETH** para as taxas. O integrator guia-te ao vivo; a ordem:
+
+1. **Uma carteira Phantom nova, com uma frase de recuperação nova**, só para isto — a regra de mainnet.
+   Não a de teste, nem a do dia a dia. Frase em papel, nunca fotografada.
+2. **Uma hot wallet nova de mainnet** (não a `rh-hot.key` de testnet), criada direto para um ficheiro
+   sem a chave aparecer no ecrã, e o endereço dela no Vercel como `ROBINHOOD_HOT_WALLET_MAINNET`.
+3. **Fundos pela ponte Across**: USDC da Solana, Base ou Arbitrum chega como USDG na Robinhood Chain;
+   ETH pelo mesmo caminho. **Antes de mandar seja o que for para a Safe**, confirma que o token
+   recebido é exatamente `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` — há dezenas de cópias.
+4. **Criar a Safe** na página de assinatura, na Phantom nova. Depois mandar **10 USDG** para a Safe.
+5. **Ligar o teto de 5 USDG por dia** (`5000000`) na mesma página.
+6. **Pôr os segredos `ROBINHOOD_*` para a 4663 no Fly** e fazer redeploy do guard-core e do bot.
+7. **A política do agente**: rede 4663, só o USDG de mainnet, **1 USDG por pagamento e 5 por dia**.
+8. **Um pagamento x402** em USDG, com o dinheiro a voltar para uma conta tua.
+9. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Robinhood Chain na Phantom.
 
 ---
 
