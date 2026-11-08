@@ -1062,6 +1062,28 @@ Depois, no Telegram, `/status` tem de responder normalmente.
 
 ---
 
+## ⬜ HUMAN-20 — Primeira corrida na testnet da Robinhood Chain
+
+Depois de as páginas de assinatura da Phantom para a Robinhood Chain (criar a Safe, ligar o teto, kill)
+estarem no `main` — eu aviso-te. É o equivalente da `HUMAN-15` + `HUMAN-17` para a Robinhood Chain,
+com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
+
+1. **A Phantom aceita a Robinhood Chain?** Na tua Phantom de teste, em modo de testnet, confirma que a
+   Robinhood Chain testnet aparece. É a verificação n.º 1: se não aparecer, paramos e repensamos a D4
+   para esta rede.
+2. **Uma hot wallet nova só para a Robinhood Chain**, separada da da Base, criada direto para
+   `~/.agentguard/rh-hot.key` (`0600`) sem a chave aparecer no ecrã. O comando exato vem da Sessão 1.
+3. **ETH e USDG de testnet** — ETH para as taxas na tua conta Phantom e na hot wallet; USDG para a
+   Safe. As fontes oficiais vêm da Sessão 1.
+4. **Criar a Safe** na página de assinatura, na Phantom.
+5. **Ligar o Allowance Module com o teto de 50 USDG**, na mesma página.
+6. **Pôr os segredos da Robinhood no Fly** e fazer redeploy do guard-core.
+7. **Um pagamento x402 em USDG** contra um servidor de pagamentos de teste da Robinhood (o integrator
+   prepara-o), com a hot wallet a começar vazia.
+8. **O kill**: `/kill` → **Confirm** no Telegram, e depois o botão da Phantom para remover o teto.
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
