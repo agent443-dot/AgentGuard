@@ -115,6 +115,7 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
       const state = await readAllowance(client, module, safe, hot, usdc)
       const resetsAtMin = state.lastResetMin + state.resetTimeMin
       return {
+        status: 'active',
         cap: state.amount.toString(),
         spent: state.spent.toString(),
         resetsAt: new Date(Number(resetsAtMin) * 60_000).toISOString(),

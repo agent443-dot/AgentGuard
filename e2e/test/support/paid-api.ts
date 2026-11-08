@@ -19,7 +19,7 @@ export interface Net {
 
 export const SOLANA: Net = {
   chain: CHAINS.solanaDevnet,
-  token: requireAddress(CHAINS.solanaDevnet, 'usdc'),
+  token: requireAddress(CHAINS.solanaDevnet, 'usd'),
   merchant: '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin',
   attacker: 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy',
   extra: { feePayer: 'FeePayer1111111111111111111111111111111111' },
@@ -27,7 +27,7 @@ export const SOLANA: Net = {
 
 export const BASE: Net = {
   chain: CHAINS.baseSepolia,
-  token: requireAddress(CHAINS.baseSepolia, 'usdc'),
+  token: requireAddress(CHAINS.baseSepolia, 'usd'),
   merchant: '0x1111111111111111111111111111111111111111',
   attacker: '0xBAd0000000000000000000000000000000000BAD',
   extra: { name: 'USDC', version: '2' },

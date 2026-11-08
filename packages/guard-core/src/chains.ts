@@ -34,7 +34,7 @@ export async function buildChains(
         rpcUrl,
         hotWalletSecretKey: await readKeypairFile(config.SOLANA_HOT_WALLET_KEYPAIR),
         multisig,
-        mint: requireAddress(chain, 'usdc'),
+        mint: requireAddress(chain, 'usd'),
       }),
     )
   }
@@ -49,7 +49,7 @@ export async function buildChains(
       BASE_USDC: usdcFor(config, chain),
       BASE_ALLOWANCE_MODULE: getAddress(chain, 'allowanceModule') ?? config.BASE_ALLOWANCE_MODULE,
     })
-    const usdcVerified = getAddress(chain, 'usdc') !== undefined
+    const usdcVerified = getAddress(chain, 'usd') !== undefined
     const moduleVerified = getAddress(chain, 'allowanceModule') !== undefined
     await checkEnvContracts(
       values.BASE_RPC_URL,
@@ -83,7 +83,7 @@ export async function buildChains(
  * one resolver for both the adapter and the budget view, so they cannot name different tokens.
  */
 export function usdcFor(config: Config, chain: ChainId): string | undefined {
-  return getAddress(chain, 'usdc') ?? (chain === config.BASE_CHAIN ? config.BASE_USDC : undefined)
+  return getAddress(chain, 'usd') ?? (chain === config.BASE_CHAIN ? config.BASE_USDC : undefined)
 }
 
 /** Every value, or an error naming the absent ones. Names only: one of them is a private key. */

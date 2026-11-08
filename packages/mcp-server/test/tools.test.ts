@@ -50,7 +50,7 @@ describe('transfer', () => {
     })
     expect(transfer).toHaveBeenCalledWith({
       chain: CHAINS.solanaDevnet,
-      token: ADDRESSES[CHAINS.solanaDevnet]?.usdc,
+      token: ADDRESSES[CHAINS.solanaDevnet]?.usd?.address,
       amount: '350000',
       recipient: 'Rcpt',
       reason: 'invoice 7',

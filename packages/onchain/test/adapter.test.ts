@@ -202,6 +202,7 @@ describe('getAllowanceState', () => {
   it('reads cap, spent and the next reset from the spending limit', async () => {
     plantSpendingLimit(c, 100n * USDC, 70n * USDC, 1_793_664_000)
     expect(await c.adapter.getAllowanceState()).toEqual({
+      status: 'active',
       cap: '100000000',
       spent: '30000000',
       resetsAt: '2026-11-04T00:00:00.000Z',

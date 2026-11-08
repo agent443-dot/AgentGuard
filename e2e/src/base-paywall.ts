@@ -50,7 +50,7 @@ if (!env.success) {
 const config = env.data
 
 const network = CHAINS.baseSepolia
-const verified = sharedAddress(network, 'usdc')
+const verified = sharedAddress(network, 'usd')
 const configured = verified ?? (config.PAYWALL_BASE_USDC || undefined)
 if (configured === undefined) {
   console.error('no Base Sepolia USDC: set PAYWALL_BASE_USDC from Circle until CR-005 lands')

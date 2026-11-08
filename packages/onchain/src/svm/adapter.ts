@@ -136,7 +136,7 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
 
     async getAllowanceState(): Promise<AllowanceState> {
       const { cap, spent, resetsAt } = await readSpendingLimit(connection, limit)
-      return { cap, spent, resetsAt, delegate: hotWallet.publicKey.toBase58() }
+      return { status: 'active', cap, spent, resetsAt, delegate: hotWallet.publicKey.toBase58() }
     },
 
     async getHotWalletBalance(token: Address): Promise<Amount> {
