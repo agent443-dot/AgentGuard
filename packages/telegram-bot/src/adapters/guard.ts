@@ -2,16 +2,20 @@ import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import type { ChainStatus } from '../domain/chains.js'
 import type { AgentReport } from '../domain/report.js'
 import { z } from 'zod'
-import { payIntent } from '../http/schemas.js'
+import { mandate, payIntent } from '../http/schemas.js'
 
 export type Decision = 'approve' | 'reject'
 
-export type DecisionResult =
-  | { ok: true; intent: PayIntent }
-  | { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+type Refusal = { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+
+export type DecisionResult = { ok: true; intent: PayIntent } | Refusal
+
+/** The bot only needs to know a decision went through; the mandate itself is not shown again. */
+export type Settled = { ok: true } | Refusal
 
 export interface GuardClient {
   decide(intentId: string, decision: Decision, telegramUserId: number): Promise<DecisionResult>
+  decideMandate(mandateId: string, decision: Decision, telegramUserId: number): Promise<Settled>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
   budget(agentId: string): Promise<Budget | undefined>
@@ -139,6 +143,23 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return { ok: false, reason: conflict.parse(await response.json()).error }
       }
       return { ok: true, intent: payIntent.parse(await ok(response)) }
+    },
+
+    async decideMandate(mandateId, decision, telegramUserId) {
+      const response = await call(
+        options.botToken,
+        'POST',
+        `/v1/bot/mandates/${encodeURIComponent(mandateId)}/decision`,
+        { decision, telegramUserId: String(telegramUserId) },
+      )
+      if (response.status === 404) {
+        return { ok: false, reason: 'not_found' }
+      }
+      if (response.status === 409 || response.status === 410) {
+        return { ok: false, reason: conflict.parse(await response.json()).error }
+      }
+      mandate.parse(await ok(response))
+      return { ok: true }
     },
 
     async setPaused(agentId, paused) {

@@ -1,13 +1,16 @@
 import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { Logger } from 'pino'
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { PostResult } from '../bot/desk.js'
 import { signatureValid, wellFormed } from '../domain/signature.js'
-import { alertEvent, approvalRequest, intentEvent } from './schemas.js'
+import { alertEvent, approvalRequest, intentEvent, mandateRequest } from './schemas.js'
+
+// A body with an intent asks to pay; one with a mandate instead asks for a task budget.
+const approvalOrMandate = z.union([approvalRequest, mandateRequest])
 
 export interface HookHandlers {
-  approvalRequest(request: z.infer<typeof approvalRequest>): Promise<PostResult>
+  approvalRequest(request: z.infer<typeof approvalOrMandate>): Promise<PostResult>
   intentEvent(event: z.infer<typeof intentEvent>): Promise<PostResult>
   /** Left out, the route is not there: a stack without breaker alerts answers 404. */
   alert?(event: z.infer<typeof alertEvent>): Promise<PostResult>
@@ -70,7 +73,7 @@ export async function buildServer({
     }
   }
 
-  app.post('/hooks/approval-request', hook(approvalRequest, handlers.approvalRequest))
+  app.post('/hooks/approval-request', hook(approvalOrMandate, handlers.approvalRequest))
   app.post('/hooks/intent-event', hook(intentEvent, handlers.intentEvent))
   if (handlers.alert !== undefined) {
     app.post('/hooks/alert', hook(alertEvent, handlers.alert))

@@ -25,6 +25,7 @@ export interface BotDeps {
 
 const DECISION = /^(approve|reject):([0-9a-f-]{36})$/
 const RECIPIENT = /^recipient:([0-9a-f-]{36})$/
+const TASK = /^task-(approve|reject):([0-9a-f-]{36})$/
 
 export function createBot({
   token,
@@ -48,24 +49,25 @@ export function createBot({
     }
   })
 
-  bot.callbackQuery(DECISION, async (ctx) => {
-    const [, action, intentId] = ctx.match
-    const message = ctx.callbackQuery.message
-    if (intentId === undefined || message === undefined) {
-      return ctx.answerCallbackQuery()
-    }
-    const text = await desk.decide(
-      intentId,
-      action === 'approve' ? 'approve' : 'reject',
-      ctx.from,
-      {
+  // A payment and a task budget are decided the same way, through their own guard-core route.
+  for (const [pattern, decide] of [
+    [DECISION, desk.decide.bind(desk)],
+    [TASK, desk.decideMandate.bind(desk)],
+  ] as const) {
+    bot.callbackQuery(pattern, async (ctx) => {
+      const [, action, id] = ctx.match
+      const message = ctx.callbackQuery.message
+      if (id === undefined || message === undefined) {
+        return ctx.answerCallbackQuery()
+      }
+      const text = await decide(id, action === 'approve' ? 'approve' : 'reject', ctx.from, {
         chatId: message.chat.id,
         messageId: message.message_id,
         text: 'text' in message ? (message.text ?? '') : '',
-      },
-    )
-    await ctx.answerCallbackQuery({ text })
-  })
+      })
+      await ctx.answerCallbackQuery({ text })
+    })
+  }
 
   bot.callbackQuery(RECIPIENT, (ctx) =>
     ctx.answerCallbackQuery({ text: desk.recipient(ctx.match[1] ?? ''), show_alert: true }),

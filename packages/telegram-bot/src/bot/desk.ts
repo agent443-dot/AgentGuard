@@ -1,18 +1,25 @@
 import type { IntentEvent } from '@agentguard/shared'
 import { type Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
-import type { Decision, GuardClient } from '../adapters/guard.js'
+import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
-import { type Admission, ApprovalBook, EventLog, type MessageRef } from '../domain/replay.js'
+import { mandateSettledText, mandateText } from '../domain/mandate.js'
+import {
+  type Admission,
+  ApprovalBook,
+  EventLog,
+  intentBook,
+  type MessageRef,
+} from '../domain/replay.js'
 import {
   approvalText,
-  breakerText,
   type FlaggedRequest,
   type Outcome,
   settledFallback,
   settledText,
 } from '../domain/text.js'
-import type { ShadowedEvent } from '../http/schemas.js'
+import { breakerText } from '../domain/notices.js'
+import type { MandateRequest, ShadowedEvent } from '../http/schemas.js'
 
 export interface DeskDeps {
   api: Api
@@ -32,6 +39,8 @@ export interface Owner {
 }
 
 export type PostResult = Admission | 'undelivered'
+
+type Pressed = MessageRef & { text: string }
 
 const HTML = { parse_mode: 'HTML' } as const
 
@@ -60,9 +69,25 @@ export function approvalKeyboard(intentId: string, passkeyPage?: string | null):
     .text('Show full recipient', `recipient:${intentId}`)
 }
 
+export function mandateKeyboard(mandateId: string): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('Approve', `task-approve:${mandateId}`)
+    .text('Reject', `task-reject:${mandateId}`)
+}
+
+/** One kind of thing the owner approves: a payment, or a task budget. */
+interface Counter<R extends { approveBefore: string }> {
+  book: ApprovalBook<R>
+  id(request: R): string
+  post(request: R): [string, InlineKeyboard]
+  settled(request: R, outcome: Outcome): string
+  decide(id: string, decision: Decision, owner: number): Promise<Settled>
+}
+
 /** Everything that puts a message in front of the owners or takes one away. */
 export class Desk {
-  readonly book = new ApprovalBook()
+  readonly book = intentBook()
+  readonly #mandates = new ApprovalBook<MandateRequest>((request) => request.mandate.id)
   readonly #events = new EventLog()
   readonly #alerts: Alerts
   readonly #deps: DeskDeps
@@ -74,35 +99,66 @@ export class Desk {
     this.#alerts = new Alerts(deps.notifyAbove)
   }
 
-  async post(request: FlaggedRequest): Promise<PostResult> {
-    const admission = this.book.admit(request, this.#now())
-    if (admission !== 'accepted') {
-      return admission
-    }
-    const id = request.intent.id
-    const keyboard = approvalKeyboard(
-      id,
-      request.passkey === true ? this.#passkeyPage(id) : undefined,
-    )
-    const sent = await this.#broadcast(approvalText(request), keyboard)
-    if (sent.length === 0) {
-      this.book.forget(id)
-      return 'undelivered'
-    }
-    this.book.get(id)?.messages.push(...sent)
-    return 'accepted'
+  readonly #payments: Counter<FlaggedRequest> = {
+    book: this.book,
+    id: (request) => request.intent.id,
+    post: (request) => {
+      const id = request.intent.id
+      const page = request.passkey === true ? this.#passkeyPage(id) : undefined
+      return [approvalText(request), approvalKeyboard(id, page)]
+    },
+    settled: settledText,
+    decide: (id, decision, owner) => this.#deps.guard.decide(id, decision, owner),
+  }
+
+  readonly #tasks: Counter<MandateRequest> = {
+    book: this.#mandates,
+    id: (request) => request.mandate.id,
+    post: (request) => [mandateText(request), mandateKeyboard(request.mandate.id)],
+    settled: mandateSettledText,
+    decide: (id, decision, owner) => this.#deps.guard.decideMandate(id, decision, owner),
+  }
+
+  async post(request: FlaggedRequest | MandateRequest): Promise<PostResult> {
+    return 'mandate' in request
+      ? this.#post(this.#tasks, request)
+      : this.#post(this.#payments, request)
   }
 
   /** Returns the short text shown to the owner who pressed the button. */
-  async decide(
-    intentId: string,
+  async decide(intentId: string, decision: Decision, owner: Owner, pressed: Pressed) {
+    return this.#decide(this.#payments, intentId, decision, owner, pressed)
+  }
+
+  async decideMandate(mandateId: string, decision: Decision, owner: Owner, pressed: Pressed) {
+    return this.#decide(this.#tasks, mandateId, decision, owner, pressed)
+  }
+
+  async #post<R extends { approveBefore: string }>(counter: Counter<R>, request: R) {
+    const admission = counter.book.admit(request, this.#now())
+    if (admission !== 'accepted') {
+      return admission
+    }
+    const id = counter.id(request)
+    const sent = await this.#broadcast(...counter.post(request))
+    if (sent.length === 0) {
+      counter.book.forget(id)
+      return 'undelivered'
+    }
+    counter.book.get(id)?.messages.push(...sent)
+    return 'accepted'
+  }
+
+  async #decide<R extends { approveBefore: string }>(
+    counter: Counter<R>,
+    id: string,
     decision: Decision,
     owner: Owner,
-    pressed: MessageRef & { text: string },
+    pressed: Pressed,
   ): Promise<string> {
     let outcome: Outcome
     try {
-      const result = await this.#deps.guard.decide(intentId, decision, owner.id)
+      const result = await counter.decide(id, decision, owner.id)
       outcome = result.ok
         ? {
             kind: decision === 'approve' ? 'approved' : 'rejected',
@@ -111,11 +167,11 @@ export class Desk {
           }
         : { kind: result.reason }
     } catch (err) {
-      this.#deps.log.error({ err, intentId }, 'decision call failed')
+      this.#deps.log.error({ err, id }, 'decision call failed')
       return 'guard-core did not answer. Nothing was decided: try again.'
     }
-    this.#deps.log.info({ intentId, outcome: outcome.kind, owner: owner.id }, 'owner decision')
-    await this.#settle(intentId, outcome, pressed)
+    this.#deps.log.info({ id, outcome: outcome.kind, owner: owner.id }, 'owner decision')
+    await this.#settle(counter, id, outcome, pressed)
     return ANSWERS[outcome.kind]
   }
 
@@ -125,8 +181,13 @@ export class Desk {
 
   /** Runs on a timer: an unanswered request must not keep live buttons past its deadline. */
   async expire(): Promise<void> {
-    for (const entry of this.book.closeExpired(this.#now())) {
-      await this.#edit(entry.messages, settledText(entry.request, { kind: 'expired' }))
+    await this.#expire(this.#payments)
+    await this.#expire(this.#tasks)
+  }
+
+  async #expire<R extends { approveBefore: string }>(counter: Counter<R>) {
+    for (const entry of counter.book.closeExpired(this.#now())) {
+      await this.#edit(entry.messages, counter.settled(entry.request, { kind: 'expired' }))
     }
   }
 
@@ -172,16 +233,21 @@ export class Desk {
     return sent.length > 0 ? admission : 'undelivered'
   }
 
-  async #settle(intentId: string, outcome: Outcome, pressed: MessageRef & { text: string }) {
-    const entry = this.book.get(intentId)
+  async #settle<R extends { approveBefore: string }>(
+    counter: Counter<R>,
+    id: string,
+    outcome: Outcome,
+    pressed: Pressed,
+  ) {
+    const entry = counter.book.get(id)
     if (entry === undefined) {
       // Posted before a restart: only the pressed message is known, and only as plain text.
       await this.#edit([pressed], settledFallback(pressed.text, outcome))
       return
     }
     // A second owner's press has nothing left to edit: the first one already did it for everyone.
-    if (this.book.close(intentId) !== undefined) {
-      await this.#edit(entry.messages, settledText(entry.request, outcome))
+    if (counter.book.close(id) !== undefined) {
+      await this.#edit(entry.messages, counter.settled(entry.request, outcome))
     }
   }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GuardError, httpGuardClient } from '../src/adapters/guard.js'
-import { INTENT_ID, intent } from './support.js'
+import { INTENT_ID, intent, MANDATE_ID, mandateRequest } from './support.js'
 
 const BOT = 'b'.repeat(32)
 const ADMIN = 'c'.repeat(32)
@@ -35,6 +35,33 @@ describe('httpGuardClient', () => {
     expect(init?.body).toBe(
       JSON.stringify({ intentId: INTENT_ID, decision: 'approve', telegramUserId: '1001' }),
     )
+  })
+
+  it('decides a task budget on its own route, mapping 404, 409 and 410', async () => {
+    const mandate = mandateRequest().mandate
+    const { fetch, guard } = client(
+      json(200, { ...mandate, status: 'active' }),
+      json(404, { error: 'not_found' }),
+      json(409, { error: 'already_decided' }),
+      json(410, { error: 'expired' }),
+    )
+    expect(await guard.decideMandate(MANDATE_ID, 'approve', 1001)).toEqual({ ok: true })
+    const { url, init, headers } = sentTo(fetch)
+    expect(url).toBe(`http://guard/v1/bot/mandates/${MANDATE_ID}/decision`)
+    expect(headers.get('authorization')).toBe(`Bearer ${BOT}`)
+    expect(init?.body).toBe(JSON.stringify({ decision: 'approve', telegramUserId: '1001' }))
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'not_found',
+    })
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'already_decided',
+    })
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'expired',
+    })
   })
 
   it('maps 404 and both kinds of 409', async () => {

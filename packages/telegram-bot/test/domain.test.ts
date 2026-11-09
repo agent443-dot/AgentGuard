@@ -6,7 +6,7 @@ import { ATTACK_CODES, attackCodesIn } from '../src/domain/codes.js'
 import { chainsText, killWarning } from '../src/domain/chains.js'
 import { formatUsd } from '../src/domain/money.js'
 import { explorerUrl } from '../src/domain/explorer.js'
-import { ApprovalBook, EventLog } from '../src/domain/replay.js'
+import { EventLog, intentBook } from '../src/domain/replay.js'
 import { sign, signatureValid } from '../src/domain/signature.js'
 import {
   amountText,
@@ -19,8 +19,8 @@ import {
   settledFallback,
   settledText,
   shortAddress,
-  statusText,
 } from '../src/domain/text.js'
+import { statusText } from '../src/domain/notices.js'
 import { approval, intent, NOW, RECIPIENT, SECRET } from './support.js'
 
 const later = (ms: number) => new Date(NOW.getTime() + ms)
@@ -62,20 +62,20 @@ describe('formatUsd', () => {
 
 describe('ApprovalBook', () => {
   it('admits a request once, then calls it a duplicate', () => {
-    const book = new ApprovalBook()
+    const book = intentBook()
     expect(book.admit(approval(), NOW)).toBe('accepted')
     expect(book.admit(approval(), later(1000))).toBe('duplicate')
   })
 
   it('refuses a request whose window has passed or is longer than guard-core sets', () => {
-    const book = new ApprovalBook()
+    const book = intentBook()
     expect(book.admit(approval({ expiresAt: NOW.toISOString() }), NOW)).toBe('stale')
     expect(book.admit(approval({ expiresAt: later(12 * 60_000).toISOString() }), NOW)).toBe('stale')
     expect(book.admit(approval(), later(10 * 60_000 + 1))).toBe('stale')
   })
 
   it('stays a duplicate after the decision, until the deadline makes it stale', () => {
-    const book = new ApprovalBook()
+    const book = intentBook()
     book.admit(approval(), NOW)
     expect(book.close(approval().intent.id)).toBeDefined()
     expect(book.close(approval().intent.id)).toBeUndefined()
@@ -85,7 +85,7 @@ describe('ApprovalBook', () => {
   })
 
   it('hands back each expired request once', () => {
-    const book = new ApprovalBook()
+    const book = intentBook()
     book.admit(approval(), NOW)
     expect(book.closeExpired(later(1000))).toHaveLength(0)
     expect(book.closeExpired(later(10 * 60_000))).toHaveLength(1)
@@ -94,7 +94,7 @@ describe('ApprovalBook', () => {
   })
 
   it('forgets a request so that it can be sent again', () => {
-    const book = new ApprovalBook()
+    const book = intentBook()
     book.admit(approval(), NOW)
     book.forget(approval().intent.id)
     expect(book.admit(approval(), NOW)).toBe('accepted')
