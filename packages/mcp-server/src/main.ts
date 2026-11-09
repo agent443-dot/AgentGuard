@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { homedir } from 'node:os'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { destination, pino } from 'pino'
 import { httpGuard } from './adapters/guard.js'
@@ -8,8 +9,25 @@ import { startHttp } from './http.js'
 import { usdTokenFor } from './domain/chains.js'
 import { createServer } from './server.js'
 import { checkDefaultChain } from './startup.js'
+import { runSetup } from './setup/run.js'
+import { launchCommand } from './setup/launch.js'
+import { ask, askSecret, writeSecretFile } from './setup/terminal.js'
+import { withTokenFile } from './token-file.js'
 
-const config = loadConfig()
+if (process.argv[2] === 'setup') {
+  const code = await runSetup(process.argv.slice(3), {
+    ask,
+    askSecret,
+    writeSecretFile,
+    out: (text) => process.stdout.write(`${text}\n`),
+    err: (text) => process.stderr.write(`${text}\n`),
+    home: homedir(),
+    launch: launchCommand(import.meta.url),
+  })
+  process.exit(code)
+}
+
+const config = loadConfig(withTokenFile(process.env))
 // stdout carries the MCP protocol in stdio mode, so logs always go to stderr.
 const log = pino({ level: config.LOG_LEVEL }, destination(2))
 

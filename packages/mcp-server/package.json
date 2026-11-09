@@ -6,12 +6,16 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
+  "bin": {
+    "agentguard-mcp": "./dist/main.js"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "start": "tsx src/main.ts",
     "start:env": "tsx --env-file=.env src/main.ts",
+    "setup": "tsx src/main.ts setup",
     "dev": "tsx --env-file=.env src/main.ts",
     "mock-guard": "tsx examples/mock-guard/index.ts",
     "demo": "tsx examples/demo-agent/index.ts",

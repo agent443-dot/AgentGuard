@@ -122,6 +122,7 @@ tells us what the second adapter has to satisfy.
 | MCP-20 | mcp   | review | GC-30          | CR-010 phase 1: `shadowed` and `BREAKER_TRIPPED` texts                                                                                                                                                                             |
 | MCP-21 | mcp   | review | GC-31          | CR-010 phase 2: `start_task`, `mandateId`                                                                                                                                                                                          |
 | MCP-22 | mcp   | review | GC-32          | CR-010 phase 3: `check_intent` notes a signed receipt by intent id once a payment is executed                                                                                                                                      |
+| MCP-23 | mcp   | review | CR-011         | `setup <client>`: prints the command or JSON block; token from a hidden prompt, saved 0600, configs name it via `AGENT_TOKEN_FILE`; `--check` calls get_budget                                                                     |
 
 ## Session 4 — bot (`packages/telegram-bot`, branch `feat/bot`)
 

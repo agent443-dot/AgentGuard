@@ -8,6 +8,29 @@ Source of truth: [`/SPEC.md`](../../SPEC.md).
 
 ## For agent builders
 
+### Quick setup
+
+One command prints what to paste into your MCP client:
+
+```bash
+npx @agentguard/mcp-server setup claude-code     # or claude-desktop, cursor, generic
+pnpm --filter @agentguard/mcp-server run setup claude-code   # from a checkout, until it is on npm
+```
+
+It asks for the AgentGuard URL and the agent id (or takes `--guard-url` and `--agent-id`), then for
+the agent token at a hidden prompt; piped in, the first line of stdin is the token. The token is
+never an argument and is never printed. It is saved to `~/.agentguard/mcp/<agent id>.token`, readable
+by you only, and the output names that file in `AGENT_TOKEN_FILE`:
+
+- `claude-code`: the `claude mcp add … --scope user` command to run;
+- `claude-desktop` and `cursor`: the JSON block for the config file, and where that file is;
+- `generic`: the variables and the command, for any client that starts a stdio server.
+
+`--check` calls `get_budget` with these values first and saves nothing if AgentGuard does not
+accept them. `--name` changes the server's name in the client (default `agentguard`).
+
+The rest of this section does the same by hand.
+
 ### What your agent can and cannot do
 
 The agent **can**:
@@ -139,7 +162,8 @@ routes, `/v1/agent/*`, over HTTPS. The MCP server still runs on the agent's mach
 - **The token goes in the environment only:** `AGENT_TOKEN` in the client config's `env` block, or
   a variable your shell or secret manager sets. Never put it in the URL; a `GUARD_URL` with
   credentials in it (`https://user:token@…`) is refused. Never put it in `args` either, where any
-  process listing shows it. The server reads it only from `AGENT_TOKEN`.
+  process listing shows it. The server reads it only from `AGENT_TOKEN`, or from the file
+  `AGENT_TOKEN_FILE` names, which it refuses if others can read it.
 
 **Claude Desktop.** The token is stored in this file, so keep it readable by your user only:
 
@@ -299,7 +323,8 @@ worth retrying unchanged; only `MANDATE_REQUIRED` asks for the same payment agai
 | ----------------------- | ----------- | ---------------------- | --------------------------------------------------------------------------------------------- |
 | `GUARD_URL`             | yes         |                        | guard-core base URL: `https://`, or `http://` to localhost only                               |
 | `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                 |
-| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                          |
+| `AGENT_TOKEN`           | yes\*       |                        | That agent's guard-core bearer token                                                          |
+| `AGENT_TOKEN_FILE`      | no          |                        | \*A file holding the token instead, mode 600 (`setup` writes it). `AGENT_TOKEN` wins          |
 | `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                   |
 | `BASE_USDC`             | on Base     |                        | USDC contract on Base mainnet, while shared has no verified address for it; ignored elsewhere |
 | `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                             |
