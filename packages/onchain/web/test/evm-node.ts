@@ -26,6 +26,10 @@ const abi = [
   ...allowanceModuleAbi,
   ...parseAbi([
     'function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)',
+    'function getModulesPaginated(address start, uint256 pageSize) view returns (address[] array, address next)',
+    'function getDelegates(address safe, uint48 start, uint8 pageSize) view returns (address[] results, uint48 next)',
+    'function getTokens(address safe, address delegate) view returns (address[])',
+    'function balanceOf(address owner) view returns (uint256)',
   ]),
 ]
 const call = z.object({ from: z.string().optional(), to: z.string(), data: z.string() })
@@ -60,6 +64,11 @@ export async function stageEvm() {
     allowance: [50_000_000n, 1_500_000n, 1440n, 29_000_000n, 3n] as readonly bigint[],
     /** The cap the enable test's link asks for: the only enable the Safe runs. */
     cap: 20_000_000n,
+    /** USDG in the Safe, and what else the proof page must notice: other modules, delegates, tokens. */
+    balance: 100_000_000n,
+    otherModules: [] as Address[],
+    otherDelegates: [] as Address[],
+    otherTokens: [] as Address[],
   }
   const sent: { from: Address; to: Address; data: Hex; value: Hex }[] = []
 
@@ -73,6 +82,21 @@ export async function stageEvm() {
     switch (functionName) {
       case 'getOwners':
         return answer(state.owners)
+      case 'getModulesPaginated':
+        return answer([
+          [...(state.moduleEnabled ? [MODULE] : []), ...state.otherModules],
+          zeroAddress,
+        ])
+      case 'getDelegates':
+        return answer([[...(state.listed ? [state.hot] : []), ...state.otherDelegates], 0])
+      case 'getTokens':
+        return answer([USDG, ...state.otherTokens])
+      case 'balanceOf':
+        return answer(
+          isAddressEqual(to, USDG) && isAddressEqual(args[0] as Address, state.safe)
+            ? state.balance
+            : 0n,
+        )
       case 'getThreshold':
         return answer(state.threshold)
       case 'isModuleEnabled':

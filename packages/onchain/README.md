@@ -236,6 +236,22 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   members or destinations, with a warning shown.
 - **It shows the summary, then asks Phantom right away.** It uses `signAndSendTransaction`, then
   reads the chain until the change is there, and checks it is what was signed.
+- **Proof of cap, for anyone, with no wallet:** `/?action=proof&cluster=<cluster>&multisig=<pda>` on
+  Solana, or `&safe=<address>` on Robinhood. It only reads the chain, through the page's own RPCs.
+  It never loads a wallet, and nothing on the way asks for a signature. The headline is "The most
+  this agent can draw today: X". Below it the page lists:
+  - the vault's owner, its members and threshold (Squads), or its owners and threshold (Safe);
+  - the daily cap, what is left today and when it resets;
+  - the vault's balance, which bounds the headline when it is lower than what is left;
+  - after a kill, "0", with no limit.
+
+  It counts every spending right on the vault, not only the one the agent uses: all of the
+  multisig's Squads spending limits, or all of the Safe's modules and the Allowance Module's
+  delegates and their tokens. If any of them names a key other than the hot wallet the page was
+  built for, another token, or (on Squads) a second limit for the hot wallet, the headline is "Not
+  verified" and the page lists what it found. Squads refills a limit lazily, so a day after the
+  last reset the page counts the full cap. The Allowance Module applies its reset when read.
+
 - **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
   inside Phantom.
 - **The build fixes what a link must not choose:**

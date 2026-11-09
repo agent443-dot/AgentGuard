@@ -7,6 +7,7 @@ import { prepareKill } from './kill.js'
 import { prepareLimit } from './limit.js'
 import { EXPIRED, expired, issued, problems } from './link.js'
 import { isPublicKey, type Plan } from './plan.js'
+import { proveSolana } from './proof.js'
 import { button, link, show, waitFor } from './view.js'
 import { openInPhantom, phantom, type Wallet } from './wallet.js'
 
@@ -36,6 +37,7 @@ const solanaLink = z.discriminatedUnion('action', [
     issued,
   }),
   z.object({ action: z.literal('create'), cluster }),
+  z.object({ action: z.literal('proof'), cluster, multisig: key }),
   z.object({
     action: z.literal('add-limit'),
     cluster,
@@ -73,7 +75,13 @@ function builtHot(cluster: string, named: PublicKey | undefined): PublicKey | st
   return new PublicKey(hot)
 }
 
-function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof solanaLink>) {
+type SolanaLink = z.infer<typeof solanaLink>
+
+function prepare(
+  connection: Connection,
+  owner: PublicKey,
+  request: Exclude<SolanaLink, { action: 'proof' }>,
+) {
   if (request.action === 'create') {
     return prepareCreate(connection, request.cluster, owner)
   }
@@ -106,16 +114,37 @@ async function main() {
     show('This link is not valid', [problems(parsed.error)], 'stop')
     return
   }
+  const connection = new Connection(RPC_URLS[parsed.data.cluster]!, 'confirmed')
+  if (parsed.data.action === 'proof') {
+    await prove(connection, parsed.data)
+    return
+  }
   const wallet = phantom()
   if (!wallet) {
     show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
     link('Open in Phantom', openInPhantom(location.href))
     return
   }
-  const connection = new Connection(RPC_URLS[parsed.data.cluster]!, 'confirmed')
   const owner = new PublicKey((await wallet.connect()).publicKey.toString())
   show('Checking the chain…', [])
   await run(connection, wallet, owner, await prepare(connection, owner, parsed.data))
+}
+
+/** Read-only: anyone can open it, with no wallet, and nothing on the way asks for a signature. */
+async function prove(connection: Connection, request: Extract<SolanaLink, { action: 'proof' }>) {
+  const hot = built(HOT_WALLETS, request.cluster)
+  const usdc = built(USDC_MINTS, request.cluster)
+  if (!hot || !usdc) {
+    show('Not verified', [`This page knows no hot wallet or USDC for ${request.cluster}.`], 'stop')
+    return
+  }
+  show('Reading the chain…', [])
+  const proof = await proveSolana(connection, {
+    ...request,
+    hotWallet: new PublicKey(hot),
+    usdc: new PublicKey(usdc),
+  })
+  show(proof.title, proof.lines, proof.verified ? 'done' : 'stop')
 }
 
 async function run(connection: Connection, wallet: Wallet, owner: PublicKey, plan: Plan) {

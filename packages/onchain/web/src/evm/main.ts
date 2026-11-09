@@ -13,6 +13,7 @@ import { button, link, show, waitFor } from '../view.js'
 import { prepareEvmCreate } from './create.js'
 import { prepareEvmEnable } from './enable.js'
 import { prepareEvmKill } from './kill.js'
+import { proveEvm } from './proof.js'
 import type { EvmPlan } from './plan.js'
 import { onChain, phantomEvm, type Eip1193 } from './wallet.js'
 
@@ -38,6 +39,7 @@ const hot = address.optional()
 const evmLink = z.discriminatedUnion('action', [
   z.object({ action: z.literal('kill'), safe: address, hot, issued }),
   z.object({ action: z.literal('create') }),
+  z.object({ action: z.literal('proof'), safe: address }),
   z.object({
     action: z.literal('enable'),
     safe: address,
@@ -62,17 +64,23 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
     show('This link is not valid', [problems(parsed.error)], 'stop')
     return
   }
-  const wallet = phantomEvm()
-  if (!wallet) {
+  const client = createPublicClient({ transport: http(chain.rpc) }) as PublicClient
+  const proving = parsed.data.action === 'proof'
+  if (!proving && !phantomEvm()) {
     show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
     link('Open in Phantom', openInPhantom(location.href))
     return
   }
-  const client = createPublicClient({ transport: http(chain.rpc) }) as PublicClient
   if ((await client.getChainId()) !== chain.chainId) {
-    show('Nothing to sign', [`This page's RPC for ${chain.name} serves another chain.`], 'stop')
+    const reason = `This page's RPC for ${chain.name} serves another chain.`
+    show(proving ? 'Not verified' : 'Nothing to sign', [reason], 'stop')
     return
   }
+  if (parsed.data.action === 'proof') {
+    await prove(client, chain, parsed.data.safe)
+    return
+  }
+  const wallet = phantomEvm()!
   const [account] = z
     .array(address)
     .min(1)
@@ -86,10 +94,23 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   await run(client, wallet, account!, await prepare(client, chain, parsed.data, account!))
 }
 
+/** Read-only: anyone can open it, with no wallet, and nothing on the way asks for a signature. */
+async function prove(client: PublicClient, chain: EvmChain, safe: Address) {
+  if (!chain.hot) {
+    show('Not verified', [`This page knows no hot wallet for ${chain.name}.`], 'stop')
+    return
+  }
+  show('Reading the chain…', [])
+  const { module, usd, symbol } = chain
+  const hot = getAddress(chain.hot)
+  const proof = await proveEvm(client, { cluster: chain.name, safe, hot, module, usd, symbol })
+  show(proof.title, proof.lines, proof.verified ? 'done' : 'stop')
+}
+
 function prepare(
   client: PublicClient,
   chain: EvmChain,
-  request: EvmLink,
+  request: Exclude<EvmLink, { action: 'proof' }>,
   owner: Address,
 ): Promise<EvmPlan> {
   if (request.action === 'create') {
