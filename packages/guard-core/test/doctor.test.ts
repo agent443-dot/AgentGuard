@@ -34,7 +34,10 @@ describe('the doctor', () => {
     expect(checks['database']?.status).toBe('ok')
     expect(checks[`${CHAIN}:allowance`]?.status).toBe('ok')
     expect(checks[`${CHAIN}:gas`]?.status).toBe('ok')
-    expect(checks[`${CHAIN}:balance`]?.message).toContain('1000000')
+    expect(checks[`${CHAIN}:balance`]?.message).toBe(
+      'The hot wallet on Solana devnet holds 1.00 USDC.',
+    )
+    expect(checks[`${CHAIN}:allowance`]?.message).not.toContain(CHAIN)
     expect(checks['bot']?.status).toBe('ok')
     expect(d.db.select().from(schema.auditLog).all()).toEqual([])
   })
@@ -65,6 +68,7 @@ describe('the doctor', () => {
     )
     const check = (await byId(d))[`${CHAIN}:allowance`]
     expect(check?.status).toBe('fail')
+    expect(check?.message).toBe('guard-core could not read this from Solana devnet.')
     expect(JSON.stringify(check)).not.toMatch(/SECRET|https?:/)
   })
 

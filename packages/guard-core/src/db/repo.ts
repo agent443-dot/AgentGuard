@@ -6,7 +6,7 @@ import type {
   PolicyDecision,
   RejectCode,
 } from '@agentguard/shared'
-import { and, eq, gt, gte, isNull, like, lte, sql } from 'drizzle-orm'
+import { and, eq, gt, gte, isNotNull, isNull, like, lte, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
 import type { StoredPolicy } from '../domain/policy.js'
 import type { Db } from './client.js'
@@ -107,6 +107,11 @@ export function agentIds(db: Db): string[] {
     .orderBy(agents.id)
     .all()
     .map((row) => row.id)
+}
+
+export function revokedAgentIds(db: Db): Set<string> {
+  const rows = db.select({ id: agents.id }).from(agents).where(isNotNull(agents.revokedAt)).all()
+  return new Set(rows.map((row) => row.id))
 }
 
 export function getIntent(db: Db, id: string): PayIntent | undefined {

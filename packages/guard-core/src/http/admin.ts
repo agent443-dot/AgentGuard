@@ -184,7 +184,12 @@ export function adminRoutes(
 
     app.get('/report', async (request) => {
       const { from, to } = period(request.query, now)
-      return { agents: summarise(repo.agentIds(db), repo.intentsBetween(db, from, to)) }
+      const intents = repo.intentsBetween(db, from, to)
+      // A revoked agent is listed only for the window it was still active in.
+      const revoked = repo.revokedAgentIds(db)
+      const active = new Set(intents.map((intent) => intent.agentId))
+      const ids = repo.agentIds(db).filter((id) => !revoked.has(id) || active.has(id))
+      return { agents: summarise(ids, intents) }
     })
 
     app.get('/receipts', async (request) => {

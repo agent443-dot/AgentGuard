@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { schema } from '../src/db/client.js'
 import {
   ADMIN_TOKEN,
   CHAIN,
@@ -70,6 +71,17 @@ describe('GET /v1/admin/report', () => {
     expect((await report(h)).json().agents).toEqual([
       { agentId: 'agent-1', spent: '0', payments: 0, refused: {}, domains: [] },
     ])
+  })
+
+  it('leaves out a revoked agent with nothing in the period, and keeps one that paid', async () => {
+    const h = await harness()
+    await transfer(h, '1000000')
+    h.db.update(schema.agents).set({ revokedAt: NOW.toISOString() }).run()
+    expect((await report(h)).json().agents.map((a: { agentId: string }) => a.agentId)).toEqual([
+      'agent-1',
+    ])
+    h.clock.now = new Date(NOW.getTime() + 8 * 86_400_000)
+    expect((await report(h)).json().agents).toEqual([])
   })
 
   it('counts only what falls in the period, the last seven days by default', async () => {
