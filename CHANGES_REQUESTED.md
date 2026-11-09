@@ -426,3 +426,62 @@ integrator before any session writes code, since every package imports those typ
 - **Blast radius:** shared (`AllowanceState`), SPEC (the type and the admin chains route), onchain
   (both adapters' `getAllowanceState`, the stub), guard-core (the stub chain), bot (the chains
   line). The policy engine, the amounts and the agent API do not change.
+
+### CR-009 — An AgentGuard token on Robinhood Chain, for governance and holder benefits
+
+- **From:** integrator, for the owner
+- **Date:** 2026-11-09
+- **Status:** proposed. The owner wants it. He has not yet approved the details below.
+- **What:** a new, separate onchain layer beside the guard, which never touches the money path:
+  1. **The token.** An ERC-20 on Robinhood Chain (4663):
+     - OpenZeppelin `ERC20` + `ERC20Permit` + `ERC20Votes`;
+     - the whole fixed supply minted once at deployment, with no mint afterwards;
+     - no blacklist, pause or fee, and no owner role;
+     - verified on the explorer.
+
+     The owner deploys it from a **new wallet**, never the vault-owner Phantom account (D4).
+     `ERC20Votes` lets holders vote with no token held in escrow.
+
+  2. **Governance**, through an OpenZeppelin `Governor` with a `TimelockController`. Its scope is
+     only what the network shares, never anyone's funds:
+     - the public registry of trusted x402 APIs (item 3): its admission rules, the minimum stake,
+       and delisting;
+     - a grants treasury, funded from the token supply, for bug bounties and contributors;
+     - recommended defaults: policy templates, which chains come next.
+
+     Governance cannot reach a vault, a guard deployment or a key. Everyone self-hosts (D7), so
+     there is nothing for it to control there.
+
+  3. **A registry of x402 APIs, backed by stake.** A provider stakes the token to list a domain.
+     Governance can delist and slash a provider that overcharges, fails to deliver or attacks
+     agents, and part of the slash goes to whoever reported it. A self-hosted guard can opt in:
+     "allow domains in the registry with a stake ≥ X", instead of a hand-written
+     `allowedDomains`. That is the token's main use: it bonds the trust the network shares.
+  4. **Holder benefits that are not financial:**
+     - votes;
+     - curating the registry;
+     - bug bounties partly paid in the token;
+     - later, a discount on or access to the hosted service, if one comes (D7).
+
+     There is **no revenue share, no buyback promise and no yield**, because each of those makes a
+     security more likely in law.
+- **Why:** the owner wants the token to have a purpose in the network now that the code is public.
+  Securing the domain allowlist is the hardest step for new users, and it is the one place a stake
+  adds real security.
+- **What stays as it is:**
+  - every payment, cap and vault stays in USDC or USDG;
+  - the daily loss bound does not depend on the token's price;
+  - the guard runs the same with or without the registry;
+  - the open-source code does not require the token.
+- **Blast radius:**
+  - onchain: a new `contracts/` area with the token, the Governor, the Timelock and the registry,
+    plus Foundry tests and an audit before mainnet;
+  - shared: registry and token addresses, once deployed;
+  - guard-core: an optional allowlist source, which needs its own CR when the time comes;
+  - docs: an ADR;
+  - none of it is on the launch path.
+- **Before deployment:**
+  - the owner fixes the allocation (team, vesting, community, treasury, liquidity);
+  - he gets legal advice: in Brazil, the CVM may treat a token bought with an expectation of profit
+    as a security;
+  - he chooses the governance parameters: quorum, voting period, timelock delay.
