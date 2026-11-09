@@ -32,6 +32,8 @@ export const approvalRequest = z.object({
   intent: payIntent,
   // A guard-core older than the flags sends none, which reads as no flag.
   flags: z.array(z.enum(APPROVAL_FLAGS)).max(APPROVAL_FLAGS.length).default([]),
+  // The last executed payment to this domain, sent with any flag.
+  pinned: z.object({ recipient: opaque, amount: atomic }).optional(),
   simulation: z.object({
     summary: z.string().max(1000),
     balanceChanges: z

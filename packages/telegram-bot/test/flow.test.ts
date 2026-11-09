@@ -420,6 +420,34 @@ describe('approval flags', () => {
     ])
   })
 
+  it('names the factor and both addresses when guard-core sends the pinned payment', async () => {
+    const { calls, deliver } = await harness()
+    const pinned = { recipient: 'OldPayTo1111111111111111111111111111111111', amount: '5000000' }
+    await deliver('/hooks/approval-request', {
+      ...approval(),
+      flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'],
+      pinned,
+    })
+    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
+    expect(text.split('\n').slice(0, 2)).toEqual([
+      '⚠️ <b>This API asks to pay a different address than last time: ' +
+        '<code>OldPay…1111</code> → <code>9xQeWv…VFin</code>.</b>',
+      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+    ])
+  })
+
+  it('keeps the plain wording when the pinned amount gives no factor', async () => {
+    const { calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', {
+      ...approval(),
+      flags: ['PRICE_JUMP'],
+      pinned: { recipient: RECIPIENT, amount: '0' },
+    })
+    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toMatch(
+      /^⚠️ <b>Price jump: this API asks for much more than its last payment\.<\/b>/,
+    )
+  })
+
   it('reads a request without flags as having none, and refuses an unknown one', async () => {
     const { calls, deliver } = await harness()
     await deliver('/hooks/approval-request', approval())
