@@ -494,7 +494,8 @@ integrator before any session writes code, since every package imports those typ
   v0.6. Built in three phases on the package branches, none merged before Solana's mainnet launch.
 - **Why:** the cap bounds the worst day, but inside it the owner still trusts every API the agent
   pays and every approval tap. These close the remaining gaps one by one, each without a new
-  contract and each backward compatible: a policy written before v0.6 behaves exactly as before.
+  contract and each backward compatible: a policy written before v0.6 keeps every limit it had. The
+  defaults only add protection (the breaker, pinning), never let a refused payment through.
 - **What** (all amounts atomic strings, all percentages and counts integers, no floats):
 
   1. **Recipient and price pinning (x402).** guard-core remembers, per agent and domain, the chain,

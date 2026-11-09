@@ -78,7 +78,7 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
-  // v0.6 (CR-010). Optional on PUT; omitted means the default, so a v0.5 policy behaves as before.
+  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
   mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
   priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
   maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
@@ -261,7 +261,7 @@ open a mandate rather than to pay (then intent is absent).
 - v0.6 (2026-11-09): CR-010, approved by the owner. Recipient and price pinning for x402, task
   budgets (mandates), a circuit breaker, shadow mode, passkey approvals above PASSKEY_ABOVE, signed
   receipts, an admin report, and the bot's alert webhook. Every new Policy field is optional with a
-  default that keeps v0.5 behaviour.
+  default that only adds protection: a v0.5 policy keeps every limit it had.
 - v0.5 (2026-11-08): CR-007 and CR-008, approved by the owner.
   CR-007: Robinhood Chain (eip155:4663, testnet eip155:46630) comes after Solana and before Base. Its
   dollar is Paxos USDG, so each chain's dollar is `usd: { address, symbol }` instead of `usdc`; the
