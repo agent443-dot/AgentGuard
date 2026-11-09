@@ -20,8 +20,8 @@ Owner vault (Squads multisig or Safe, owned by the owner's Phantom wallet)
 The most a day can cost is capped onchain at the daily cap plus whatever sits in the hot wallet,
 even if the offchain guard has a bug.
 
-Launch chains: Solana and Robinhood Chain mainnet (USDG). Base Sepolia is for development, and Base
-mainnet comes next.
+Live on Robinhood Chain mainnet (USDG). Solana mainnet (USDC) follows, then Base. Base Sepolia is for
+development.
 
 **Run your own:** [`docs/self-host.md`](./docs/self-host.md). **Connect an agent:** "For agent
 builders" in [`packages/mcp-server/README.md`](./packages/mcp-server/README.md). **Report a
@@ -100,10 +100,10 @@ Per-package commands: `pnpm --filter @agentguard/guard-core test`.
 
 ## Status
 
-Pre-launch. A real-money pilot ran on Robinhood Chain mainnet on 2026-11-09, end to end: a Safe, an
-allowance, an x402 payment and the kill. Solana ran on devnet the same way, and its mainnet setup is
-next. Open work, and what has to
-happen before caps go up, are in [`LAUNCH.md`](./LAUNCH.md). The task board is
+Launched on 2026-11-09 on Robinhood Chain mainnet, after a real-money pilot there ran end to end:
+a Safe, an allowance, an x402 payment and the kill. Solana mainnet follows, and Base after it. The
+release report is [`docs/final-report.md`](./docs/final-report.md). Open work, and what has to happen
+before caps go up, are in [`LAUNCH.md`](./LAUNCH.md). The task board is
 [`coordination/BOARD.md`](./coordination/BOARD.md). AI sessions build this repository under the rules
 in [`CLAUDE.md`](./CLAUDE.md), and `coordination/` is their shared workspace.
 

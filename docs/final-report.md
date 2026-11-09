@@ -1,27 +1,31 @@
 # Final report (INT-9)
 
-> **DRAFT, 2026-11-04, against `main` at `5b377a2`.** Not the final report. It closes once Base has
-> run live (HUMAN-12), the Ledger path has run on real hardware, and the owner has answered D1–D6 in
-> `LAUNCH.md`. Until then, every "open" below is open.
+> **Final, 2026-11-09.** Written for the launch of the open-source, self-hosted release (D7, D8),
+> with Robinhood Chain live that day and Solana the day after (D6). Base comes later. Decisions are
+> in `LAUNCH.md` §1, and what is still open is in §2.
 
 AgentGuard puts a policy, a simulation and an owner on Telegram between an AI agent and its money.
 The agent never holds a key. It asks guard-core, through MCP, to pay. guard-core checks the request
 against the owner's policy and simulates it. Above a threshold it asks the owner. Only then does it
 sign with a hot wallet that can draw no more than a daily cap set onchain.
 
+Each user runs their own copy (`docs/self-host.md`): their own vault, their own Phantom wallet as its
+only owner, their own guard-core and bot, and their own signing page. Nothing in the path belongs to
+us.
+
 ## What works
 
-| Area                    | Solana                                                                   | Base                                                                          |
-| ----------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Onchain cap             | Squads v4 spending limit, hot wallet as the only destination             | Safe Allowance Module 0.1.1. The delegate can send to any address (risk 1)    |
-| Cap proven              | LiteSVM against the real program: cap, cap + 1, daily refill, after kill | Foundry, on a Base mainnet fork with the official module (EVM-6)              |
-| Transfer and x402       | Live on devnet (HUMAN-11), and again from an empty hot wallet (HUMAN-13) | Live on Base Sepolia (HUMAN-13): auto, approved, and from an empty hot wallet |
-| Attack suite            | 24 cases, stub and devnet (INT-5)                                        | 15 cases on the stub chain (INT-6)                                            |
-| Signing gate            | Transaction inspection, then a simulation of the exact transfer          | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`       |
-| Kill                    | The spending limit is removed, signed by the owner                       | `removeDelegate(hot, true)`, proven on the fork                               |
-| Owner signs with Ledger | Built, proven against a fake device (SVM-9)                              | Built (EVM-9, #41), proven against a fake device. Real hardware is open       |
+| Area              | Robinhood Chain (live)                                      | Solana (next)                                                            | Base (later)                                                                  |
+| ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Onchain cap       | Safe Allowance Module 0.1.1. The delegate can send anywhere | Squads v4 spending limit, hot wallet as the only destination             | Safe Allowance Module 0.1.1. The delegate can send anywhere                   |
+| Cap proven        | Live on mainnet: the cap set and read back from the chain   | LiteSVM against the real program: cap, cap + 1, daily refill, after kill | Foundry, on a Base mainnet fork with the official module (EVM-6)              |
+| Transfer and x402 | Live on mainnet: 0.50 USDG paid over x402 (HUMAN-21)        | Live on devnet (HUMAN-11), and again from an empty hot wallet (HUMAN-13) | Live on Base Sepolia (HUMAN-13): auto, approved, and from an empty hot wallet |
+| Attack suite      | 15 cases on the stub chain (INT-6)                          | 24 cases, stub and devnet (INT-5)                                        | 15 cases on the stub chain (INT-6)                                            |
+| Signing gate      | `TransferWithAuthorization` only, every field checked       | Transaction inspection, then a simulation of the exact transfer          | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`       |
+| Owner in Phantom  | Create, enable and kill signed on mainnet, through the page | Create, add limit and kill signed on devnet (HUMAN-15)                   | Not run                                                                       |
+| Kill              | `/kill`, then the owner's Phantom kill removed the delegate | `/kill`, then the owner's Phantom kill removed the limit, on devnet      | `removeDelegate(hot, true)`, proven on the fork                               |
 
-Across both chains, guard-core has:
+Across all chains, guard-core has:
 
 - a deny-all policy per agent;
 - per-transaction and daily limits;
@@ -35,57 +39,67 @@ On the bot:
 - only listed owners may act;
 - hook requests are HMAC-signed, and replays and stale requests are refused;
 - the chain is named in every message, with explorer links;
-- attack alerts are throttled.
+- kill buttons expire, and attack alerts are throttled.
 
 The MCP server exposes four tools: `transfer`, `paid_fetch`, `check_intent` and `get_budget`. Content
 returned by `paid_fetch` is marked as data, not instructions.
 
+The owner signs on a static page they deploy themselves (ADR 003). It builds from `main` only, has a
+strict Content-Security-Policy, and reads each result back from the chain.
+
 ## Test results
 
-`pnpm check` (lint, typecheck, tests) on `5b377a2`, all passing:
+`pnpm test` on `main` at `c0b29ca`, all passing:
 
 | Package      | Tests   |
 | ------------ | ------- |
-| guard-core   | 269     |
-| telegram-bot | 105     |
-| mcp-server   | 123     |
-| onchain      | 159     |
+| guard-core   | 298     |
+| onchain      | 217     |
+| mcp-server   | 168     |
+| telegram-bot | 148     |
 | e2e          | 53      |
-| **Total**    | **709** |
+| **Total**    | **884** |
 
 Coverage on guard-core's `domain/` meets the 90% threshold. CI also runs:
 
+- lint, format and typecheck;
 - the Foundry tests for `packages/onchain`;
-- a probe that the public Base Sepolia RPC supports `eth_simulateV1`.
+- the signing page in a real Chromium, with Phantom faked;
+- a check that no secret pattern reaches a Docker build context, and that both images build;
+- probes of public endpoints: Base Sepolia's `eth_simulateV1`, and the Squads v4 program on Solana
+  mainnet, which must be the binary the tests run.
 
-Two mutations of the guard each made the e2e suite fail, so it detects real regressions.
+What only a person ran, recorded in `coordination/HUMAN_TODO.md` and `docs/security-review.md`:
 
-What only a person ran, recorded in `coordination/HUMAN_TODO.md`:
+- HUMAN-11 and HUMAN-15, the full stack on Solana devnet with real Telegram and Phantom;
+- HUMAN-12 and HUMAN-13, the Safe and the full stack on Base Sepolia, from an empty hot wallet;
+- HUMAN-21, the Robinhood Chain mainnet pilot with real money, end to end;
+- INT-7, the deployed review on Fly: a revoked token refused live, the logs searched for secrets
+  across a payment, an approval and a kill, and a backup restored and checked against the live guard.
 
-- HUMAN-11, the full stack on Solana devnet with real Telegram;
-- the devnet attack cases in INT-5;
-- HUMAN-12 and HUMAN-13, the Safe and the full stack on Base Sepolia, plus a Solana re-check. Both
-  chains paid from an empty hot wallet, drawing from the Safe or the vault.
+Live runs found real bugs, each fixed with a test:
 
-The first live Base run found a real bug: the simulation ran before the top-up, so an empty hot wallet
-could never pay, on either chain. The fix is in #63, and the tests now start from an empty hot wallet.
+- the simulation ran before the top-up, so an empty hot wallet could never pay (#63);
+- the bot on Fly was older than `main` and lacked the Robinhood kill button. Deploys now follow CI
+  on `main` (#118, #124);
+- the bot offered a Phantom kill button for a Solana limit already removed. It now offers one only
+  for a limit that still exists (#116).
 
 ## Known risks
 
-1. **On Base, a stolen hot key can send the day's cap to any address** without guard-core seeing
-   it. On Solana it can only move the cap into the hot wallet. The loss bound is the same
-   (cap + hot wallet balance), but the path differs. This bears on D6.
-2. **The Base hot key is read raw from the environment** (`HOT_WALLET_PRIVATE_KEY`). Solana's comes
-   from a file. Open until the owner decides D5 (`docs/security-review.md`).
-3. **The Ledger message hash is unproven on real hardware.** If the formula does not match the
-   Solana app, the owner would see a mismatch on every signature, including the kill. This is a
-   launch blocker (`LAUNCH.md`).
+1. **On the Safe chains, a stolen hot key can send the day's cap to any address** without
+   guard-core seeing it. On Solana it can only move the cap into the hot wallet. The loss bound is
+   the same (cap + hot wallet balance), but the path differs.
+2. **The owner key is in a software wallet** (D4, risk accepted). It can move the whole vault, so
+   the vault holds only what the agents need for the coming days. The same Phantom wallet owns both
+   vaults.
+3. **The signing page is a trust root.** Whoever can redeploy it can show a harmless summary of a
+   harmful transaction. Each user deploys their own, from their own protected `main`.
 4. **Rate limits count per socket address.** guard-core, the bot hooks and the MCP HTTP endpoint
-   each have one, but behind a proxy every client shares the proxy's address. The host chosen in
-   HUMAN-7 needs its own per-client limit in front.
-5. **Single process, in-memory rate limits, SQLite.** This is fine for one guard. The database must
-   be on a persistent volume, or the day's spend resets on redeploy. guard-core refuses to start on
-   mainnet with an unsafe database location.
+   each have one, but behind a proxy every client shares the proxy's address.
+5. **Single process, in-memory rate limits, SQLite.** This is fine for one guard. The database is on
+   a persistent volume with daily snapshots, and guard-core refuses to start on mainnet with an
+   unsafe database location. A backup schedule off the volume is still open.
 6. **Not reachable from runtime, but in the lockfile:** one high-severity advisory (`bigint-buffer`,
    through `@solana/spl-token`, no patch) and several moderate ones. Each is triaged in
    `docs/security-review.md`.
@@ -95,15 +109,11 @@ could never pay, on either chain. The fix is in #63, and the tests now start fro
 
 ## Before raising caps
 
-Start mainnet with a low cap (D1), and raise it only after each of these holds:
+Launch at 20 a day per chain (D1), and go to 50 only after each of these holds:
 
-- [ ] The Ledger path runs on real hardware on devnet: hashes match, and the kill lands (`LAUNCH.md`).
-- [ ] The kill has been rehearsed end to end on mainnet with a small cap, timed from the Telegram
-      `/kill` to the transaction confirming.
-- [ ] The hot key is in the secrets manager (D5), delivered as a file, on both chains.
-- [ ] The deployment review is done (TLS, what fronts each service, the persistent volume, backups).
-- [ ] A week on mainnet at the starting cap, with no unexplained intent in the audit log and no
-      alert the owner could not account for.
-- [ ] For Base: HUMAN-12 has passed, the Base addresses in `shared/addresses.ts` are confirmed
-      (CR-005), and the owner has accepted risk 1 in writing (D6).
-- [ ] The owner's written go-ahead (HUMAN-8).
+- [ ] Two to three weeks on mainnet at the starting cap, with no unexplained intent in the audit log
+      and no alert the owner could not account for.
+- [ ] The kill rehearsed on Solana mainnet, timed from `/kill` to the transaction confirming.
+- [ ] A backup schedule that copies the database off the Fly volume.
+- [ ] The hot keys in a KMS (D5), once the cap rises.
+- [ ] For Base: the Base addresses confirmed live (CR-005) and its own pilot, as Robinhood Chain had.
