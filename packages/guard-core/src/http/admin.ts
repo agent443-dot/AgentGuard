@@ -4,7 +4,10 @@ import * as repo from '../db/repo.js'
 import { budget } from '../service/budget.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
-import { agentIdParam, policyBody } from './schemas.js'
+import { revokeMandate } from '../db/mandates.js'
+import { openMandate } from '../service/mandates.js'
+import { mandateReply } from './mandates.js'
+import { agentIdParam, intentIdParam, mandateRequest, policyBody } from './schemas.js'
 
 export function adminRoutes(deps: PaymentDeps) {
   const { db, now } = deps
@@ -42,6 +45,25 @@ export function adminRoutes(deps: PaymentDeps) {
         }),
       ),
     }))
+
+    // The owner's own mandates start active: there is nobody else to ask.
+    app.post('/mandates', async (request, reply) =>
+      mandateReply(reply, await openMandate(deps, mandateRequest.parse(request.body), true)),
+    )
+
+    app.post('/mandates/:id/revoke', async (request) => {
+      const { id } = intentIdParam.parse(request.params)
+      const mandate = revokeMandate(db, id)
+      if (mandate === undefined) {
+        throw new HttpError(404, 'not_found')
+      }
+      repo.audit(
+        db,
+        { event: 'mandate_revoked', agentId: mandate.agentId, detail: { mandateId: id } },
+        now(),
+      )
+      return mandate
+    })
 
     app.put('/policy/:agentId', async (request) => {
       const { agentId } = agentIdParam.parse(request.params)

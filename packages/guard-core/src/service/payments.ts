@@ -5,9 +5,11 @@ import { randomUUID } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
 import { admit } from '../db/breaker.js'
+import { addMandateSpend, expireMandates, getMandate } from '../db/mandates.js'
 import { getPin } from '../db/pins.js'
 import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
+import { mandateReasons } from '../domain/mandate.js'
 import { pinFlags } from '../domain/pinning.js'
 import { evaluate, POLICY_DEFAULTS } from '../domain/policy.js'
 import { askOwner, expirePending, expiresAt } from './approvals.js'
@@ -28,7 +30,15 @@ export interface PaymentDeps {
 
 export type Terms = Pick<
   PayIntent,
-  'agentId' | 'kind' | 'chain' | 'token' | 'amount' | 'recipient' | 'reason' | 'domain'
+  | 'agentId'
+  | 'kind'
+  | 'chain'
+  | 'token'
+  | 'amount'
+  | 'recipient'
+  | 'reason'
+  | 'domain'
+  | 'mandateId'
 >
 
 export function newIntent(terms: Terms, now: Date): PayIntent {
@@ -75,6 +85,13 @@ export async function clear(
     : repo.spentToday(db, intent.agentId, day)
   const verdict = evaluate(intent, policy, spent)
   const reasons = [...verdict.reasons]
+  const mandate = intent.mandateId === undefined ? undefined : getMandate(db, intent.mandateId)
+  const required = policy.requireMandate ?? POLICY_DEFAULTS.requireMandate
+  for (const reason of mandateReasons(intent, mandate, required, now())) {
+    if (!reasons.includes(reason)) {
+      reasons.push(reason)
+    }
+  }
   if (adapter === undefined && !reasons.includes('CHAIN_NOT_ALLOWED')) {
     reasons.push('CHAIN_NOT_ALLOWED')
   }
@@ -224,6 +241,9 @@ export async function fund(deps: PaymentDeps, adapter: ChainAdapter, intent: Pay
  */
 export function recordSpend(deps: PaymentDeps, intent: PayIntent): void {
   repo.addSpend(deps.db, intent.agentId, intent.chain, repo.utcDay(deps.now()), intent.amount)
+  if (intent.mandateId !== undefined) {
+    addMandateSpend(deps.db, intent.mandateId, intent.amount)
+  }
 }
 
 export function finish(
@@ -255,6 +275,7 @@ export function finish(
 
 /** Expires what the owner and the agents left waiting, and tells the bot about each one. */
 export function sweep(deps: PaymentDeps): number {
+  expireMandates(deps.db, deps.now())
   const expired = expirePending(deps.db, deps.now())
   for (const id of expired) {
     const intent = repo.getIntent(deps.db, id)

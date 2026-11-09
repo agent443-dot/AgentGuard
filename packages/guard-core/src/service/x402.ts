@@ -65,6 +65,7 @@ export async function paidFetch(
     agentId: request.agentId,
     kind: 'x402' as const,
     domain: url.hostname,
+    ...(request.mandateId === undefined ? {} : { mandateId: request.mandateId }),
     // The query string is left out: it often carries the API's own credentials, and this text goes
     // to the owner's Telegram.
     reason: `${request.method} ${url.origin}${url.pathname}`.slice(0, 500),

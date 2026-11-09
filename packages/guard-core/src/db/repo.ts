@@ -76,11 +76,12 @@ export function pauseAll(db: Db, now: string): number {
 type IntentRow = typeof intents.$inferSelect
 
 function toIntent(row: IntentRow): PayIntent {
-  const { domain, txId, ...rest } = row
+  const { domain, txId, mandateId, ...rest } = row
   return {
     ...rest,
     ...(domain === null ? {} : { domain }),
     ...(txId === null ? {} : { txId }),
+    ...(mandateId === null ? {} : { mandateId }),
   }
 }
 
@@ -90,7 +91,12 @@ export function getIntent(db: Db, id: string): PayIntent | undefined {
 }
 
 export function saveIntent(db: Db, intent: PayIntent): void {
-  const row = { ...intent, domain: intent.domain ?? null, txId: intent.txId ?? null }
+  const row = {
+    ...intent,
+    domain: intent.domain ?? null,
+    txId: intent.txId ?? null,
+    mandateId: intent.mandateId ?? null,
+  }
   db.insert(intents).values(row).onConflictDoUpdate({ target: intents.id, set: row }).run()
 }
 

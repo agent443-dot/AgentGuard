@@ -7,7 +7,15 @@ import { transfer } from '../service/transfer.js'
 import { paidFetch, type X402Deps } from '../service/x402.js'
 import { HttpError } from './errors.js'
 import { windowLimiter } from './limiter.js'
-import { agentIdParam, intentIdParam, transferRequest, x402FetchRequest } from './schemas.js'
+import { openMandate } from '../service/mandates.js'
+import { mandateReply } from './mandates.js'
+import {
+  agentIdParam,
+  intentIdParam,
+  mandateRequest,
+  transferRequest,
+  x402FetchRequest,
+} from './schemas.js'
 
 export function agentRoutes(
   deps: X402Deps,
@@ -78,6 +86,14 @@ export function agentRoutes(
         }
         throw error
       }
+    })
+
+    app.post('/mandates', async (request, reply) => {
+      const body = mandateRequest.parse(request.body)
+      if (body.agentId !== request.agentId) {
+        throw new HttpError(403, 'forbidden')
+      }
+      return mandateReply(reply, await openMandate(deps, body, false))
     })
 
     app.get('/intents/:id', async (request, reply) => {

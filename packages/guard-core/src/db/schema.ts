@@ -1,5 +1,6 @@
 import type {
   Address,
+  Mandate,
   Amount,
   ChainId,
   IntentStatus,
@@ -85,6 +86,8 @@ export const intents = sqliteTable(
     status: text('status').$type<IntentStatus>().notNull(),
     rejectReasons: text('reject_reasons', { mode: 'json' }).$type<RejectCode[]>().notNull(),
     txId: text('tx_id'),
+    /** The task budget this payment counts against, if any. */
+    mandateId: text('mandate_id'),
     createdAt: text('created_at').notNull(),
     expiresAt: text('expires_at').notNull(),
   },
@@ -148,4 +151,37 @@ export const clearedPayments = sqliteTable(
     at: text('at').notNull(),
   },
   (t) => [index('cleared_payments_agent_at').on(t.agentId, t.at)],
+)
+
+/**
+ * A budget for one task, inside the policy. A payment that names one must also fit it, and its
+ * spend is counted here as well as in the day's total.
+ */
+export const mandates = sqliteTable(
+  'mandates',
+  {
+    id: text('id').primaryKey(),
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agents.id),
+    budget: text('budget').$type<Amount>().notNull(),
+    spent: text('spent')
+      .$type<Amount>()
+      .notNull()
+      .default(sql`'0'`),
+    domains: text('domains', { mode: 'json' }).$type<string[]>().notNull(),
+    recipients: text('recipients', { mode: 'json' }).$type<Address[]>().notNull(),
+    /** Agent-provided. Shown to the owner, never read back into a decision. */
+    reason: text('reason').notNull(),
+    status: text('status').$type<Mandate['status']>().notNull(),
+    /** How long it runs once active. The clock starts when the owner approves, not when asked. */
+    ttlSeconds: integer('ttl_seconds').notNull(),
+    createdAt: text('created_at').notNull(),
+    /** While pending, the owner's deadline; once active, the end of the task. */
+    expiresAt: text('expires_at').notNull(),
+  },
+  (t) => [
+    index('mandates_agent_status').on(t.agentId, t.status),
+    index('mandates_expires_at').on(t.expiresAt),
+  ],
 )

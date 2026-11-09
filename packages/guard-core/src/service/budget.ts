@@ -1,4 +1,5 @@
 import type { Amount, BudgetView, ChainId, Policy } from '@agentguard/shared'
+import { activeMandates } from '../db/mandates.js'
 import * as repo from '../db/repo.js'
 import type { PaymentDeps } from './payments.js'
 
@@ -13,7 +14,7 @@ export async function budget(deps: PaymentDeps, policy: Policy): Promise<BudgetV
     spentToday: repo.spentToday(deps.db, policy.agentId, day),
     // What shadow mode would have paid, so the owner sees an agent's habits before funding it.
     shadowSpentToday: repo.shadowSpentToday(deps.db, policy.agentId, day),
-    mandates: [],
+    mandates: activeMandates(deps.db, policy.agentId, deps.now()),
     dailyMax: policy.dailyMax,
     perTxMax: policy.perTxMax,
     hotWalletBalances: await hotWalletBalances(deps, policy.chains),

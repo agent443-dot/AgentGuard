@@ -40,6 +40,7 @@ export const x402FetchRequest = z.object({
   body: z.string().max(1_000_000).optional(),
   /** The agent's own ceiling for this call. The tighter of this and the policy applies. */
   maxAmount: atomicAmount.optional(),
+  mandateId: z.uuid().optional(),
 })
 
 export const transferRequest = z.object({
@@ -49,6 +50,22 @@ export const transferRequest = z.object({
   amount: atomicAmount,
   recipient: address,
   reason,
+  mandateId: z.uuid().optional(),
+})
+
+/** A task budget. Its lists are bounded like the policy's, and it lives between a minute and a day. */
+export const mandateRequest = z.object({
+  agentId,
+  budget: atomicAmount.refine((value) => value !== '0', 'a budget of zero pays nothing'),
+  domains: z.array(z.string().min(1).max(253)).max(64),
+  recipients: z.array(address).max(64).default([]),
+  ttlSeconds: z.number().int().min(60).max(86_400),
+  reason,
+})
+
+export const mandateDecision = z.object({
+  decision: z.enum(['approve', 'reject']),
+  telegramUserId: z.string().min(1).max(32),
 })
 
 export const botDecisionRequest = z.object({
