@@ -136,7 +136,7 @@ export function registerOwner(
     }
     return guarded(ctx, log, async () => {
       const { code, expiresAt } = await admin.enrolCode()
-      const link = `${guardPublicUrl.replace(/\/+$/, '')}/owner/enrol?code=${encodeURIComponent(code)}`
+      const link = `${guardPublicUrl.replace(/\/+$/, '')}/owner/enrol#code=${encodeURIComponent(code)}`
       log.info({ owner: ctx.from?.id }, 'passkey enrol link issued')
       // A failure is logged without the error: it would carry the link and its code.
       try {
