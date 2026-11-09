@@ -6,7 +6,8 @@ const { chromium } = require('playwright')
 
 const ROOT = path.resolve(__dirname, '../../../..')
 const OUT = path.resolve(__dirname, '..')
-const SITE = 'file://' + path.join(ROOT, 'site/index.html')
+// AG_SITE renders another copy of the page, e.g. the one on main: git show origin/main:site/index.html
+const SITE = 'file://' + (process.env.AG_SITE || path.join(ROOT, 'site/index.html'))
 const CSS = fs.readFileSync(path.join(__dirname, 'brand.css'), 'utf8')
 const FONTS =
   'https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap'
