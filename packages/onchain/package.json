@@ -52,7 +52,7 @@
   "devDependencies": {
     "bs58": "^6.0.0",
     "buffer": "6.0.3",
-    "esbuild": "0.25.12",
+    "esbuild": "0.28.1",
     "litesvm": "1.6.1",
     "playwright": "1.63.0",
     "tsx": "^4.23.15"
