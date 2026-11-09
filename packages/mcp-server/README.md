@@ -193,7 +193,7 @@ leaves the token in your shell history.
 | `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd?, mandateId? }` | Fetches the URL, paying an x402 request if any             |
 | `transfer`     | `{ to, amountUsd, reason, chain?, mandateId? }`                | Sends the chain's dollar to an address                     |
 | `get_budget`   | `{}`                                                           | Spend today, limits, chains, task budgets, pause, balances |
-| `start_task`   | `{ budgetUsd, domains, minutes, reason }`                      | Opens a task budget and returns its `mandateId`            |
+| `start_task`   | `{ budgetUsd, domains, recipients?, minutes, reason }`         | Opens a task budget and returns its `mandateId`            |
 | `check_intent` | `{ intentId }`                                                 | The current status of one payment                          |
 
 - **Amounts are decimal strings** such as `"0.25"`, never JSON numbers: a number has already been
@@ -212,7 +212,7 @@ leaves the token in your shell history.
 ### Task budgets
 
 For a task that will pay more than once, the agent opens one budget for the whole task with
-`start_task`: the most it may spend, the websites it may pay, and how long it stays open (at most a
+`start_task`: the most it may spend, the websites and transfer recipients it may pay, and how long it stays open (at most a
 day). It then passes the returned `mandateId` to each `paid_fetch` and `transfer` for that task.
 
 - A budget lives inside the policy and never raises it: a payment must fit both.
@@ -241,6 +241,7 @@ owner has 10 minutes to answer on Telegram.
 | `rejected` | The owner said no; do not retry                                                     | The owner said no; do not retry                                                                                                          |
 | `expired`  | No answer in time; nothing moved                                                    | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
 | `failed`   | Approved, but sending failed                                                        | Approved, but paying failed                                                                                                              |
+| `shadowed` | Shadow mode: nothing was paid; this is what it would have cost                      | Shadow mode: nothing was paid; the body shown is the site's unpaid answer                                                                |
 
 The tool results already tell the model this. A client that drives the tools without a model should
 follow the same steps; [`examples/demo-agent`](./examples/demo-agent/index.ts) does.
@@ -251,22 +252,26 @@ Every result starts with the outcome. A tool error (`isError: true`) means the c
 decision. A rejection is a decision, not an error.
 
 **Reject codes.** A `rejected` payment lists one or more codes, each explained in the result. None is
-worth retrying unchanged.
+worth retrying unchanged; only `MANDATE_REQUIRED` asks for the same payment again, with a `mandateId`.
 
-| Code                                                                                                                               | Meaning                                                     | What the agent should do                |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
-| `PAUSED`                                                                                                                           | The owner paused payments                                   | Tell the user; wait for the owner       |
-| `PER_TX_EXCEEDED`                                                                                                                  | Above the per-payment limit, or above `maxAmountUsd`        | Pay less, or ask the owner              |
-| `DAILY_EXCEEDED`                                                                                                                   | Would pass today's limit                                    | Wait until 00:00 UTC, or ask the owner  |
-| `RECIPIENT_NOT_ALLOWED`                                                                                                            | The recipient is not on the allowlist                       | Ask the owner to allow it               |
-| `DOMAIN_NOT_ALLOWED`                                                                                                               | The website is not on the allowlist                         | Ask the owner to allow it               |
-| `CHAIN_NOT_ALLOWED`, `TOKEN_NOT_ALLOWED`                                                                                           | The policy does not allow this chain or token               | Use an allowed chain, or ask the owner  |
-| `OWNER_REJECTED`                                                                                                                   | The owner pressed Reject                                    | Do not retry                            |
-| `APPROVAL_TIMEOUT`                                                                                                                 | The owner did not answer, or the approval was not redeemed  | Ask the user before trying again        |
-| `INVALID_402`                                                                                                                      | The website's payment request was malformed or unsafe       | Do not pay this site; tell the user     |
-| `SIM_FAILED`, `SIM_UNEXPECTED_EFFECT`                                                                                              | In simulation the transaction failed, or did more than pay  | Do not retry; tell the user             |
-| `APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`                                                                      | Base: the payment would grant standing authority over funds | Do not pay this site; it may be hostile |
-| `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`, `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED` | Solana: the transaction would do more than transfer         | Do not pay this site; it may be hostile |
+| Code                                                                                                                               | Meaning                                                                                                | What the agent should do                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `PAUSED`                                                                                                                           | The owner paused payments                                                                              | Tell the user; wait for the owner                                        |
+| `PER_TX_EXCEEDED`                                                                                                                  | Above the per-payment limit, or above `maxAmountUsd`                                                   | Pay less, or ask the owner                                               |
+| `DAILY_EXCEEDED`                                                                                                                   | Would pass today's limit                                                                               | Wait until 00:00 UTC, or ask the owner                                   |
+| `RECIPIENT_NOT_ALLOWED`                                                                                                            | The recipient is not on the allowlist                                                                  | Ask the owner to allow it                                                |
+| `DOMAIN_NOT_ALLOWED`                                                                                                               | The website is not on the allowlist                                                                    | Ask the owner to allow it                                                |
+| `CHAIN_NOT_ALLOWED`, `TOKEN_NOT_ALLOWED`                                                                                           | The policy does not allow this chain or token                                                          | Use an allowed chain, or ask the owner                                   |
+| `OWNER_REJECTED`                                                                                                                   | The owner pressed Reject                                                                               | Do not retry                                                             |
+| `MANDATE_REQUIRED`                                                                                                                 | The owner requires every payment to belong to a task budget                                            | Open one with `start_task`, then repeat the payment with its `mandateId` |
+| `MANDATE_EXCEEDED`                                                                                                                 | The payment does not fit the task budget: too little left, or a website or recipient it does not cover | Stop and tell the user; open another budget only if they agree           |
+| `MANDATE_EXPIRED`                                                                                                                  | The task budget expired, or the owner closed it                                                        | Stop and tell the user; open a new budget only if they still want it     |
+| `BREAKER_TRIPPED`                                                                                                                  | Too many payments in one minute, so AgentGuard paused the agent                                        | Stop paying and tell the user; the owner must resume the agent           |
+| `APPROVAL_TIMEOUT`                                                                                                                 | The owner did not answer, or the approval was not redeemed                                             | Ask the user before trying again                                         |
+| `INVALID_402`                                                                                                                      | The website's payment request was malformed or unsafe                                                  | Do not pay this site; tell the user                                      |
+| `SIM_FAILED`, `SIM_UNEXPECTED_EFFECT`                                                                                              | In simulation the transaction failed, or did more than pay                                             | Do not retry; tell the user                                              |
+| `APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`                                                                      | Base: the payment would grant standing authority over funds                                            | Do not pay this site; it may be hostile                                  |
+| `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`, `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED` | Solana: the transaction would do more than transfer                                                    | Do not pay this site; it may be hostile                                  |
 
 **Tool errors.**
 

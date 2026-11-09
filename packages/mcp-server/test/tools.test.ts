@@ -301,6 +301,24 @@ describe('paid_fetch', () => {
     expect(text).toMatch(/DOMAIN_NOT_ALLOWED/)
   })
 
+  it('fences the unpaid 402 of a shadowed fetch and says nothing was paid', async () => {
+    const client = await connect(
+      fakeGuard({
+        fetch: async () => ({
+          intentId: INTENT_ID,
+          status: 'shadowed',
+          rejectReasons: [],
+          response: { status: 402, headers: {}, body: '{"accepts":[]}' },
+        }),
+      }),
+    )
+    const result = await call(client, 'paid_fetch', { url: 'https://api.test/x' })
+    expect(result.texts[0]).toMatch(/: shadowed\./)
+    expect(result.texts[0]).toMatch(/unpaid answer, not the paid content/)
+    expect(result.texts[0]).toMatch(/HTTP 402/)
+    expect(result.texts[1]).toMatch(/^<untrusted-content id=/)
+  })
+
   it('serializes a body that is not a string', async () => {
     const client = await connect(
       fakeGuard({
@@ -462,6 +480,16 @@ describe('check_intent', () => {
     expect(text).toMatch(
       /\$2\.00 USDG, x402 payment to api\.test, on Robinhood Chain \(eip155:4663\)/,
     )
+  })
+
+  it('reports a shadowed payment with what it would have cost', async () => {
+    const client = await connect(
+      fakeGuard({ intent: async () => ({ ...intent, status: 'shadowed', rejectReasons: [] }) }),
+    )
+    const { text } = await call(client, 'check_intent', { intentId: INTENT_ID })
+    expect(text).toMatch(/: shadowed\./)
+    expect(text).toMatch(/\$2\.00 USDC, x402 payment to api\.test/)
+    expect(text).toMatch(/nothing was paid and no money moved/)
   })
 
   it('refuses an id that is not a uuid', async () => {

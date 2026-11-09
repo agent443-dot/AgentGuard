@@ -5,7 +5,7 @@ import { formatAmount, formatUsd, parseUsd } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
 import { failure, guarded, text } from './result.js'
 
-const DESCRIPTION = `Open a task budget before a task that will need payments: a dollar amount the task may spend, the websites it may pay, and how long it lasts.
+const DESCRIPTION = `Open a task budget before a task that will need payments: a dollar amount the task may spend, the websites and transfer recipients it may pay, and how long it lasts.
 Open one budget per task, not one per payment, and pass its mandateId to every paid_fetch and transfer for that task. Payments must also fit the owner's policy; a budget never raises it.
 A large budget may need the owner's approval first: if the result says pending_approval, tell the user, then call get_budget until the budget is listed as open. Do not pay with it before then.`
 
@@ -24,15 +24,23 @@ const inputSchema = {
     .describe('Most the whole task may spend, in USD, as a decimal string like "5.00".'),
   domains: z
     .array(hostname)
-    .min(1)
     .max(32)
-    .describe('Hostnames the task may pay through paid_fetch, like ["api.example.com"].'),
+    .describe(
+      'Hostnames the task may pay through paid_fetch, like ["api.example.com"]. Empty for a task that only transfers.',
+    ),
   minutes: z
     .number()
     .int()
     .min(1)
     .max(MAX_MINUTES)
     .describe(`How long the budget stays open, in minutes, at most ${MAX_MINUTES}.`),
+  recipients: z
+    .array(z.string().min(1).max(128))
+    .max(32)
+    .optional()
+    .describe(
+      'Addresses the task may pay with transfer, a subset of the allowed recipients. Leave out for a task that only uses paid_fetch.',
+    ),
   reason: z.string().min(1).max(500).describe('What the task is. Shown to the owner.'),
 }
 
@@ -45,7 +53,7 @@ export function registerStartTask(server: McpServer, { guard, log }: ToolDeps): 
       inputSchema,
       annotations: { openWorldHint: false },
     },
-    async ({ budgetUsd, domains, minutes, reason }) => {
+    async ({ budgetUsd, domains, recipients, minutes, reason }) => {
       const budget = parseUsd(budgetUsd)
       if (!budget.ok) {
         return failure(`budgetUsd: ${budget.error}`)
@@ -53,10 +61,14 @@ export function registerStartTask(server: McpServer, { guard, log }: ToolDeps): 
       if (budget.atomic === 0n) {
         return failure('budgetUsd: a task budget must be more than zero.')
       }
+      if (domains.length === 0 && (recipients ?? []).length === 0) {
+        return failure('A task budget needs at least one website in domains or one recipient.')
+      }
       return guarded(log, async () => {
         const mandate = await guard.startTask({
           budget: budget.atomic.toString(),
           domains,
+          ...(recipients === undefined ? {} : { recipients }),
           ttlSeconds: minutes * 60,
           reason,
         })
@@ -81,6 +93,7 @@ function describeMandate(mandate: Mandate, asked: string): string {
     `Task budget ${mandate.id}: ${mandate.status}.`,
     `mandateId: ${mandate.id}`,
     `Budget: ${formatAmount(mandate.budget)} (asked for ${asked}), for ${listOf(mandate.domains)}.`,
+    ...(mandate.recipients.length > 0 ? [`Transfers to: ${listOf(mandate.recipients)}.`] : []),
     `Expires ${mandate.expiresAt}.`,
     NEXT_STEP[mandate.status],
   ].join('\n')

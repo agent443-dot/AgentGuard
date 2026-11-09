@@ -8,6 +8,7 @@ const intentStatus = z.enum([
   'executed',
   'failed',
   'expired',
+  'shadowed',
 ])
 
 const rejectReasons = z.array(z.string()).default([])
@@ -105,6 +106,7 @@ export interface TransferInput {
 export interface MandateInput {
   budget: string
   domains: string[]
+  recipients?: string[]
   ttlSeconds: number
   reason: string
 }

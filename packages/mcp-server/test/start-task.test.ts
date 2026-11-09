@@ -42,6 +42,36 @@ describe('start_task', () => {
     expect(result.text).toMatch(/Pass this mandateId to every paid_fetch and transfer/)
   })
 
+  it('passes recipients for a task that transfers, with no website needed', async () => {
+    const startTask = vi.fn(async (_input: MandateInput) => ({
+      ...MANDATE,
+      domains: [],
+      recipients: ['Rcpt1'],
+    }))
+    const client = await connect(fakeGuard({ startTask }))
+    const { text } = await call(client, 'start_task', {
+      budgetUsd: '10',
+      domains: [],
+      recipients: ['Rcpt1'],
+      minutes: 15,
+      reason: 'pay the invoice',
+    })
+    expect(startTask.mock.calls[0]?.[0]).toMatchObject({ domains: [], recipients: ['Rcpt1'] })
+    expect(text).toMatch(/Transfers to: Rcpt1\./)
+  })
+
+  it('leaves recipients out when the agent gives none', async () => {
+    const startTask = vi.fn(async (_input: MandateInput) => MANDATE)
+    const client = await connect(fakeGuard({ startTask }))
+    await call(client, 'start_task', {
+      budgetUsd: '1',
+      domains: ['a.test'],
+      minutes: 5,
+      reason: 'r',
+    })
+    expect(startTask.mock.calls[0]?.[0]).not.toHaveProperty('recipients')
+  })
+
   it('tells the model to wait for the owner when the budget needs approval', async () => {
     const client = await connect(
       fakeGuard({ startTask: async () => ({ ...MANDATE, status: 'pending_approval' }) }),
@@ -60,7 +90,7 @@ describe('start_task', () => {
     ['a negative budget', { budgetUsd: '-1' }],
     ['a zero budget', { budgetUsd: '0' }],
     ['a rounded budget', { budgetUsd: '0.0000001' }],
-    ['no domains', { domains: [] }],
+    ['neither a website nor a recipient', { domains: [] }],
     ['a URL instead of a hostname', { domains: ['https://api.weather.test/x'] }],
     ['a fractional duration', { minutes: 1.5 }],
     ['a duration over a day', { minutes: 24 * 60 + 1 }],
