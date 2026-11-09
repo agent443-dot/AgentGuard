@@ -8,6 +8,8 @@ Read /SPEC.md before anything. SPEC is the source of truth for interfaces.
 - Anything addressed to the HUMAN OWNER is in Portuguese: chat replies to him, questions, status updates,
   requests for him to do something, and /coordination/HUMAN_TODO.md.
 - Never mix: no Portuguese inside the product, no English when asking the owner to do something.
+- One exception: `docs/self-host.pt-BR.md`, a translation of `docs/self-host.md` (ADR 004). Keep the two
+  in step in the same PR.
 
 ## Roles
 - manager: owns /coordination, talks to the human owner, assigns tasks, never writes product code

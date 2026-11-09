@@ -20,6 +20,20 @@ with the code by its tests; this page gives the order. If something goes wrong, 
 - On each chain you run: the chain's dollar for the vault, and a little of the native token for
   fees. USDC on Solana, USDG on Robinhood Chain.
 
+## The quick way: the wizard
+
+`pnpm --filter create-agentguard start` runs steps 2 to 6 for you, one question at a time:
+
+- it makes the keys and writes them under `~/.agentguard/`;
+- it creates the Fly apps and deploys the signing page;
+- it prints each Phantom link and reads the result from the chain;
+- it creates your first agent in shadow mode.
+
+`--dry-run` prints every command and runs none. If it stops, run it again: it continues where it
+stopped. What it does and what it never does with your keys:
+[`packages/create-agentguard/README.md`](../packages/create-agentguard/README.md). The rest of this
+page is the same setup by hand, and what the wizard does at each step.
+
 ## How the money is protected
 
 ```
