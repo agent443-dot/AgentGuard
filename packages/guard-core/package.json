@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Policy engine, simulation, signer, x402 client, HTTP API and DB.",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
