@@ -89,6 +89,14 @@ export function utcTime(at: Date | string): string {
 /** A guard-core that predates the flags sends none. */
 export type FlaggedRequest = ApprovalRequest & { unknownFlags?: readonly string[] }
 
+const PASSKEY_LINE =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; " +
+  'a Telegram tap can only reject it.'
+
+const PASSKEY_NO_LINK =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; this bot " +
+  'has no link to it (GUARD_PUBLIC_URL is not set). A Telegram tap can only reject it.'
+
 /**
  * How many times the pinned amount, in bigint to one decimal. Rounded down, so anything not exact
  * says "more than": a factor that reads exact but is not would understate the jump.
@@ -130,7 +138,8 @@ function flagLines(flag: ApprovalFlag, { intent, pinned, flags = [] }: FlaggedRe
 }
 
 /** A flag is why this payment is in front of the owner at all, so it comes first. */
-export function approvalText(request: FlaggedRequest): string {
+/** linked: whether the message carries a button to guard-core's passkey page. */
+export function approvalText(request: FlaggedRequest, linked = true): string {
   const flags = (request.flags ?? []).flatMap((flag) => {
     const [warning, ...detail] = flagLines(flag, request)
     return [`⚠️ <b>${warning}</b>`, ...detail]
@@ -139,15 +148,8 @@ export function approvalText(request: FlaggedRequest): string {
     (flag) => `⚠️ <b>guard-core flagged this payment:</b> <code>${escapeHtml(flag)}</code>`,
   )
   flags.push(...unknown)
-  return [...flags, '<b>Approval needed</b>', ...details(request, false)].join('\n')
-}
-
-export function breakerText(agentId: string, detail: string): string {
-  const id = `<code>${escapeHtml(agentId)}</code>`
-  return [
-    `<b>Circuit breaker tripped</b> for ${id}: paused. /resume ${id} when you have looked.`,
-    ...(detail === '' ? [] : [`guard-core says: <i>${escapeHtml(detail)}</i>`]),
-  ].join('\n')
+  const passkey = request.passkey === true ? [linked ? PASSKEY_LINE : PASSKEY_NO_LINK] : []
+  return [...flags, '<b>Approval needed</b>', ...passkey, ...details(request, false)].join('\n')
 }
 
 export function settledText(request: ApprovalRequest, outcome: Outcome): string {
@@ -181,7 +183,7 @@ function destination(intent: PayIntent): string {
     : 'Domain: none, direct transfer'
 }
 
-function outcomeLine(outcome: Outcome): string {
+export function outcomeLine(outcome: Outcome): string {
   switch (outcome.kind) {
     case 'approved':
       return `<b>Approved</b> by ${escapeHtml(outcome.by)} at ${utcTime(outcome.at)}`
@@ -259,30 +261,6 @@ export function budgetText(
     'Hot wallets:',
     ...(wallets.length > 0 ? wallets : ['  (none reported)']),
     `Paused: ${budget.paused ? 'yes' : 'no'}`,
-  ].join('\n')
-}
-
-// Telegram refuses a message over 4096 characters, and /status adds the chains after this.
-const PENDING_LIMIT = 2000
-
-export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string {
-  const lines: string[] = []
-  let length = 0
-  for (const { intent, approveBefore } of pending) {
-    const line =
-      `• <code>${escapeHtml(intent.agentId)}</code> ${amountText(intent)} on ` +
-      `${chainName(intent.chain)}, expires ${utcTime(approveBefore)}`
-    if (length + line.length > PENDING_LIMIT) {
-      lines.push(`…and ${pending.length - lines.length} more. Each one is in the chat above.`)
-      break
-    }
-    lines.push(line)
-    length += line.length + 1
-  }
-  return [
-    `guard-core: ${guardUp ? 'reachable' : '<b>unreachable</b>'}`,
-    `Pending approvals: ${pending.length}`,
-    ...lines,
   ].join('\n')
 }
 

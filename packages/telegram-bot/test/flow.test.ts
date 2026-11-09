@@ -3,8 +3,11 @@ import { buildServer } from '../src/http/server.js'
 import { sign } from '../src/domain/signature.js'
 import {
   approval,
+  command,
   fakeGuard,
   INTENT_ID,
+  MANDATE_ID,
+  mandateRequest,
   intent,
   NOW,
   OTHER_OWNER,
@@ -390,6 +393,19 @@ describe('breaker alerts', () => {
     const { deliver } = await harness({ fail: () => true })
     expect((await deliver('/hooks/alert', alert())).statusCode).toBe(502)
   })
+
+  it('tells every owner a passkey was added and what to do if it was not them', async () => {
+    const { calls, deliver } = await harness()
+    const enrolled = { kind: 'passkey_enrolled', detail: 'id abc', sentAt: NOW.toISOString() }
+    expect((await deliver('/hooks/alert', enrolled)).statusCode).toBe(200)
+    expect((await deliver('/hooks/alert', enrolled)).statusCode).toBe(409)
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toBe(
+      '<b>A passkey was added</b> for approvals. If it was not you, run /kill and remove it on the ' +
+        'machine.\nguard-core says: <i>id abc</i>',
+    )
+  })
 })
 
 describe('shadow mode events', () => {
@@ -459,5 +475,177 @@ describe('approval flags', () => {
       '⚠️ <b>guard-core flagged this payment:</b> <code>ODD&lt;b&gt;</code>',
       '<b>Approval needed</b>',
     ])
+  })
+})
+
+describe('passkey approvals', () => {
+  const buttons = (call: { payload: Record<string, unknown> } | undefined) =>
+    (
+      call?.payload['reply_markup'] as {
+        inline_keyboard: { text: string; url?: string; callback_data?: string }[][]
+      }
+    ).inline_keyboard.flat()
+
+  it('links to the passkey page instead of an Approve button, and keeps Reject', async () => {
+    const { calls, deliver } = await harness({ guardPublicUrl: 'https://guard.example/' })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted)).toEqual([
+      { text: 'Approve with passkey', url: `https://guard.example/owner/approve/${INTENT_ID}` },
+      { text: 'Reject', callback_data: `reject:${INTENT_ID}` },
+      { text: 'Show full recipient', callback_data: `recipient:${INTENT_ID}` },
+    ])
+    expect(posted?.payload['text']).toContain('🔑 <b>Passkey required.</b>')
+    expect(posted?.payload['text']).toContain('a Telegram tap can only reject it')
+  })
+
+  it('offers no way to approve without the passkey page configured, and says why', async () => {
+    const { calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted).map((button) => button.text)).toEqual(['Reject', 'Show full recipient'])
+    expect(posted?.payload['text']).toContain('(GUARD_PUBLIC_URL is not set)')
+  })
+
+  it('does not even ask guard-core when an Approve button is pressed for a passkey payment', async () => {
+    const { bot, guard, calls, deliver } = await harness({
+      guardPublicUrl: 'https://guard.example',
+    })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    await bot.handleUpdate(press(OWNER, `approve:${INTENT_ID}`))
+    expect(guard.decide).not.toHaveBeenCalled()
+    expect(sent(calls, 'answerCallbackQuery')[0]?.payload['text']).toBe(
+      'This one needs your passkey: use Approve with passkey.',
+    )
+  })
+
+  it('settles the messages when the payment was approved on the passkey page', async () => {
+    let now = NOW
+    const { desk, calls, deliver } = await harness({
+      guardPublicUrl: 'https://guard.example',
+      now: () => now,
+    })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    await deliver('/hooks/intent-event', {
+      intent: intent({ status: 'executed', txId: 'sig' }),
+      sentAt: NOW.toISOString(),
+    })
+    const edits = sent(calls, 'editMessageText')
+    expect(edits).toHaveLength(2)
+    expect(edits[0]?.payload['text']).toMatch(/^<b>Approved<\/b> by passkey/)
+
+    // Its deadline passing later changes nothing: it is no longer open.
+    now = new Date(NOW.getTime() + 600_000)
+    await desk.expire()
+    expect(sent(calls, 'editMessageText')).toHaveLength(2)
+  })
+
+  it('settles the messages as rejected when guard-core rejected it', async () => {
+    const { calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', approval())
+    await deliver('/hooks/intent-event', {
+      intent: intent({ status: 'rejected', rejectReasons: ['OWNER_REJECTED'] }),
+      sentAt: NOW.toISOString(),
+    })
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toMatch(
+      /^<b>Rejected<\/b> by guard-core/,
+    )
+  })
+
+  it('keeps the Approve button for a request that needs no passkey', async () => {
+    const { calls, deliver } = await harness({ guardPublicUrl: 'https://guard.example' })
+    await deliver('/hooks/approval-request', approval())
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted)[0]).toEqual({ text: 'Approve', callback_data: `approve:${INTENT_ID}` })
+    expect(posted?.payload['text']).not.toContain('Passkey')
+  })
+})
+
+describe('task budget approvals', () => {
+  it('asks every owner, and settles it through the mandate route on one press', async () => {
+    const { bot, guard, calls, deliver } = await harness()
+    expect((await deliver('/hooks/approval-request', mandateRequest())).statusCode).toBe(200)
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toBe(
+      [
+        '<b>Task budget requested</b>',
+        'Agent <code>research-agent</code> asks for a task budget of <b>$25.00</b> for 90 min.',
+        'Domains: <code>api.example.com</code>, <code>data.example.org</code>',
+        'Expires: 2026-11-03 12:10:00 UTC',
+        '',
+        'agent says: <i>Compile the &lt;b&gt;Q3&lt;/b&gt; report</i>',
+      ].join('\n'),
+    )
+    expect(JSON.stringify(posted[0]?.payload['reply_markup'])).toContain(
+      `task-approve:${MANDATE_ID}`,
+    )
+
+    await bot.handleUpdate(press(OWNER, `task-approve:${MANDATE_ID}`))
+    expect(guard.decideMandate).toHaveBeenCalledWith(MANDATE_ID, 'approve', OWNER.id)
+    expect(guard.decide).not.toHaveBeenCalled()
+    const edits = sent(calls, 'editMessageText')
+    expect(edits).toHaveLength(2)
+    expect(edits[0]?.payload['text']).toMatch(/^<b>Approved<\/b> by @ana/)
+    expect(edits[0]?.payload['reply_markup']).toBeUndefined()
+  })
+
+  it('counts the open ones in /status, after the pending approvals', async () => {
+    const { bot, calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', mandateRequest())
+    await bot.handleUpdate(command(OWNER, '/status'))
+    const status = String(sent(calls, 'sendMessage').at(-1)?.payload['text'])
+    expect(status).toContain('Pending approvals: 0\nPending task budgets: 1')
+  })
+
+  it('lists recipients in full, and at most ten of anything', async () => {
+    const { calls, deliver } = await harness()
+    const domains = Array.from({ length: 64 }, (_, i) => `api${i}.${'x'.repeat(240)}.com`)
+    await deliver('/hooks/approval-request', mandateRequest({ recipients: [RECIPIENT], domains }))
+    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
+    expect(text).toContain(`Recipients: <code>${RECIPIENT}</code>`)
+    expect(text).toContain(', and 54 more')
+    expect(text.length).toBeLessThan(4096)
+  })
+
+  it('says no duration when guard-core does not send one, never the approval deadline', async () => {
+    const { calls, deliver } = await harness()
+    const { ttlSeconds: _ttl, ...request } = mandateRequest()
+    await deliver('/hooks/approval-request', request)
+    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toContain(
+      'asks for a task budget of <b>$25.00</b>.',
+    )
+  })
+
+  it('refuses a replay and a request whose window has passed, like a payment', async () => {
+    const { deliver } = await harness()
+    expect((await deliver('/hooks/approval-request', mandateRequest())).statusCode).toBe(200)
+    expect((await deliver('/hooks/approval-request', mandateRequest())).statusCode).toBe(409)
+    const late = { ...mandateRequest(), approveBefore: NOW.toISOString() }
+    expect((await deliver('/hooks/approval-request', late)).statusCode).toBe(410)
+  })
+
+  it('expires unanswered, saying no budget was opened', async () => {
+    let now = NOW
+    const { desk, calls, deliver } = await harness({ now: () => now })
+    await deliver('/hooks/approval-request', mandateRequest())
+    now = new Date(NOW.getTime() + 600_000)
+    await desk.expire()
+    const edits = sent(calls, 'editMessageText')
+    expect(edits).toHaveLength(2)
+    expect(edits[0]?.payload['text']).toMatch(
+      /^<b>Expired<\/b>: not answered in time\. No task budget was opened\./,
+    )
+  })
+
+  it('tells the owner when guard-core no longer has it', async () => {
+    const decideMandate = vi.fn().mockResolvedValue({ ok: false, reason: 'not_found' })
+    const { bot, calls, deliver } = await harness({ guard: fakeGuard({ decideMandate }) })
+    await deliver('/hooks/approval-request', mandateRequest())
+    await bot.handleUpdate(press(OWNER, `task-reject:${MANDATE_ID}`))
+    expect(decideMandate).toHaveBeenCalledWith(MANDATE_ID, 'reject', OWNER.id)
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toMatch(
+      /^<b>Unknown request<\/b>: guard-core has no record of it\./,
+    )
   })
 })

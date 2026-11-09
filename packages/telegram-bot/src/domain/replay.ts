@@ -1,6 +1,11 @@
 import type { ApprovalRequest } from '@agentguard/shared'
 import { APPROVAL_TTL_MS } from '@agentguard/shared'
 
+/** Anything the owner approves within a window guard-core sets. */
+interface Approvable {
+  approveBefore: string
+}
+
 export type Admission = 'accepted' | 'stale' | 'duplicate'
 
 export interface MessageRef {
@@ -8,8 +13,8 @@ export interface MessageRef {
   messageId: number
 }
 
-export interface Pending {
-  request: ApprovalRequest
+export interface Pending<R extends Approvable = ApprovalRequest> {
+  request: R
   deadline: number
   messages: MessageRef[]
   open: boolean
@@ -22,15 +27,20 @@ export const CLOCK_SKEW_MS = 60_000
 export const EVENT_WINDOW_MS = 5 * 60_000
 
 /**
- * Approval requests the bot has posted, keyed by intent id. The signature proves guard-core wrote a
+ * Approval requests the bot has posted, keyed by intent id (or mandate id). The signature proves guard-core wrote a
  * body, not that it is sending it now, so a captured request is refused once its window has passed
  * (stale) and while it is still open (duplicate). An entry is dropped only after its deadline, when
  * the stale check alone covers it.
  */
-export class ApprovalBook {
-  readonly #entries = new Map<string, Pending>()
+export class ApprovalBook<R extends Approvable = ApprovalRequest> {
+  readonly #entries = new Map<string, Pending<R>>()
+  readonly #key: (request: R) => string
 
-  admit(request: ApprovalRequest, now: Date): Admission {
+  constructor(key: (request: R) => string) {
+    this.#key = key
+  }
+
+  admit(request: R, now: Date): Admission {
     this.#prune(now)
     const deadline = Date.parse(request.approveBefore)
     const left = deadline - now.getTime()
@@ -38,25 +48,26 @@ export class ApprovalBook {
     if (Number.isNaN(deadline) || left <= 0 || left > APPROVAL_TTL_MS + CLOCK_SKEW_MS) {
       return 'stale'
     }
-    if (this.#entries.has(request.intent.id)) {
+    const id = this.#key(request)
+    if (this.#entries.has(id)) {
       return 'duplicate'
     }
-    this.#entries.set(request.intent.id, { request, deadline, messages: [], open: true })
+    this.#entries.set(id, { request, deadline, messages: [], open: true })
     return 'accepted'
   }
 
   /** For a request that never reached anyone: guard-core may send it again. */
-  forget(intentId: string): void {
-    this.#entries.delete(intentId)
+  forget(id: string): void {
+    this.#entries.delete(id)
   }
 
-  get(intentId: string): Pending | undefined {
-    return this.#entries.get(intentId)
+  get(id: string): Pending<R> | undefined {
+    return this.#entries.get(id)
   }
 
   /** Returns the entry only to the first caller, so two owners pressing at once edit once. */
-  close(intentId: string): Pending | undefined {
-    const entry = this.#entries.get(intentId)
+  close(id: string): Pending<R> | undefined {
+    const entry = this.#entries.get(id)
     if (!entry?.open) {
       return undefined
     }
@@ -64,11 +75,11 @@ export class ApprovalBook {
     return entry
   }
 
-  open(): Pending[] {
+  open(): Pending<R>[] {
     return [...this.#entries.values()].filter((entry) => entry.open)
   }
 
-  closeExpired(now: Date): Pending[] {
+  closeExpired(now: Date): Pending<R>[] {
     const expired = this.open().filter((entry) => entry.deadline <= now.getTime())
     for (const entry of expired) {
       entry.open = false
@@ -85,6 +96,8 @@ export class ApprovalBook {
     }
   }
 }
+
+export const intentBook = () => new ApprovalBook<ApprovalRequest>((request) => request.intent.id)
 
 /** Replay protection for intent events, which carry their send time instead of a deadline. */
 export class EventLog {
