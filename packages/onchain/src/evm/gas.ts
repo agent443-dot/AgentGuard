@@ -1,5 +1,5 @@
+import type { HotWalletGas } from '@agentguard/shared'
 import type { Address, PublicClient } from 'viem'
-import type { HotWalletGas } from '../svm/gas.js'
 
 // One executeAllowanceTransfer or token transfer, with room to spare. On Robinhood Chain, an
 // Arbitrum chain, the gas a transaction uses includes its share of the L1 data cost, so the figure

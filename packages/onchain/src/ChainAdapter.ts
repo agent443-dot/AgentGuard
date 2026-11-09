@@ -3,13 +3,13 @@ import type {
   AllowanceState,
   Amount,
   ChainId,
+  HotWalletGas,
   PayIntent,
   RejectCode,
   SimulationResult,
   TxId,
 } from '@agentguard/shared'
 import type { PaymentRequirements, SchemeNetworkClient } from '@x402/core/types'
-import type { HotWalletGas } from './svm/gas.js'
 
 /** The transaction only the owner can sign: it zeroes the spend limit and removes the delegate. */
 export interface KillTx {
