@@ -1,10 +1,18 @@
-import type { ApprovalRequest, IntentEvent } from '@agentguard/shared'
+import type { IntentEvent } from '@agentguard/shared'
 import { type Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { type Admission, ApprovalBook, EventLog, type MessageRef } from '../domain/replay.js'
-import { approvalText, type Outcome, settledFallback, settledText } from '../domain/text.js'
+import {
+  approvalText,
+  breakerText,
+  type FlaggedRequest,
+  type Outcome,
+  settledFallback,
+  settledText,
+} from '../domain/text.js'
+import type { ShadowedEvent } from '../http/schemas.js'
 
 export interface DeskDeps {
   api: Api
@@ -56,7 +64,7 @@ export class Desk {
     this.#alerts = new Alerts(deps.notifyAbove)
   }
 
-  async post(request: ApprovalRequest): Promise<PostResult> {
+  async post(request: FlaggedRequest): Promise<PostResult> {
     const admission = this.book.admit(request, this.#now())
     if (admission !== 'accepted') {
       return admission
@@ -115,14 +123,26 @@ export class Desk {
     }
   }
 
-  async event({ intent, sentAt }: IntentEvent): Promise<Admission> {
+  async event({ intent, sentAt }: IntentEvent | ShadowedEvent): Promise<Admission> {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
-    if (admission === 'accepted') {
+    // Shadow mode signs nothing: /budget sums what it would have spent, the chat stays quiet.
+    if (admission === 'accepted' && intent.status !== 'shadowed') {
       for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }
     }
     return admission
+  }
+
+  /** A tripped breaker has already paused the agent; the owner only needs to know and look. */
+  async alert(event: { kind: 'breaker_tripped'; agentId: string; detail: string; sentAt: string }) {
+    const key = `${event.kind}:${event.agentId}:${event.sentAt}`
+    const admission = this.#events.admit(key, event.sentAt, this.#now())
+    if (admission !== 'accepted') {
+      return admission
+    }
+    const sent = await this.#broadcast(breakerText(event.agentId, event.detail))
+    return sent.length > 0 ? admission : 'undelivered'
   }
 
   async #settle(intentId: string, outcome: Outcome, pressed: MessageRef & { text: string }) {

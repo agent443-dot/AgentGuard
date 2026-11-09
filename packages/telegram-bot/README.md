@@ -33,6 +33,7 @@ Both are signed: `X-Guard-Signature` is the hex HMAC-SHA256 of the exact request
 | ------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `POST /hooks/approval-request` | `{ intent, simulation, approveBefore }` | 200 posted, 401 bad signature, 400 bad body, 409 duplicate, 410 stale, 502 no owner reachable |
 | `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-004)           | same                                                                                          |
+| `POST /hooks/alert`            | `{ kind, agentId, detail, sentAt }`     | same                                                                                          |
 
 **Before the body is read.** A request to `/hooks/*` whose `X-Guard-Signature` is missing or is not
 64 hex characters is answered 401 in Fastify's `onRequest` hook, so its body is never read. A
@@ -44,9 +45,23 @@ request and an intent event). The hooks still bind to `127.0.0.1` by default.
 **Replay.** A valid signature proves guard-core wrote a body, not that it is sending it now. An
 approval request is refused once `approveBefore` has passed, or if it claims a window longer than
 guard-core's 10 minutes (plus 1 minute of clock skew); while it is open, a second copy of the same
-intent id is a duplicate. Intent events are refused when `sentAt` is more than 5 minutes old, and
-deduplicated on intent id plus status. Both memories are in-process: a replay right after a restart
+intent id is a duplicate. Intent events and alerts are refused when `sentAt` is more than 5 minutes
+old. Intent events are deduplicated on intent id plus status, alerts on kind, agent and `sentAt`. Both memories are in-process: a replay right after a restart
 can post a message again, but its buttons cannot decide anything twice because guard-core answers 409.
+
+## Circuit breaker alert
+
+`kind: "breaker_tripped"` means guard-core has already paused the agent (CR-010). Every owner gets
+"Circuit breaker tripped for `<agent>`: paused. /resume `<agent>` when you have looked.", followed by
+guard-core's detail, escaped. Nothing is throttled: a tripped breaker stays tripped until someone
+resumes the agent.
+
+## Shadow mode
+
+An intent event with status `shadowed` is a payment shadow mode evaluated and would have sent. It is
+accepted and deduplicated like any other event, but it is never a chat message: nothing moved.
+`/budget` shows the day's total as "Would have spent today (shadow mode)" when guard-core reports
+`shadowSpentToday` above zero.
 
 ## Approval message
 
@@ -54,6 +69,11 @@ Sent to every owner: agent, amount in USD, chain, recipient (shortened; **Show f
 shows all of it), domain (or "direct transfer"), the simulation summary, the expiry in UTC, and the
 agent's reason labelled `agent says:`. Everything that came from the agent is HTML-escaped, so it
 cannot pose as the bot's own text.
+
+**Flags.** When guard-core sends a payment to the owner because of a flag (CR-010), the flag comes
+first, above **Approval needed**: "This API asks to pay a different address than last time."
+(`RECIPIENT_CHANGED`) and "Price jump: this API asks for much more than its last payment."
+(`PRICE_JUMP`). A request without `flags` reads as having none; an unknown flag is a 400.
 
 **Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
 transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
@@ -80,7 +100,7 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 | Command             | Does                                                                                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/status`           | Whether guard-core is reachable, the approvals waiting, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")                                                                  |
+| `/status`           | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")              |
 | `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                             |
 | `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                           |
 | `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |

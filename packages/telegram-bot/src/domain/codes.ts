@@ -30,6 +30,15 @@ export const ATTACK_DESCRIPTIONS: Record<AttackCode, string> = {
   HIDDEN_ACCOUNTS_DETECTED: 'address lookup tables hiding which accounts the transaction touches',
 }
 
+/** Why guard-core sends a payment to the owner even below the threshold. */
+export const APPROVAL_FLAGS = ['RECIPIENT_CHANGED', 'PRICE_JUMP'] as const
+export type ApprovalFlag = (typeof APPROVAL_FLAGS)[number]
+
+export const FLAG_DESCRIPTIONS: Record<ApprovalFlag, string> = {
+  RECIPIENT_CHANGED: 'This API asks to pay a different address than last time.',
+  PRICE_JUMP: 'Price jump: this API asks for much more than its last payment.',
+}
+
 export function attackCodesIn(reasons: readonly RejectCode[]): AttackCode[] {
   return reasons.filter((code): code is AttackCode => code in ATTACK_DESCRIPTIONS)
 }

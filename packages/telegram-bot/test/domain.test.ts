@@ -185,6 +185,23 @@ describe('Alerts', () => {
   })
 })
 
+describe('statusText with many pending approvals', () => {
+  it('stays inside one Telegram message, chains included, and says how many it left out', () => {
+    const agentId = '&'.repeat(64)
+    const pending = Array.from({ length: 200 }, () =>
+      approval({ agentId, token: 'T'.repeat(128), amount: '9'.repeat(78) }),
+    )
+    const chains = Array.from({ length: 16 }, () => ({
+      chain: CHAINS.solanaDevnet,
+      allowance: null,
+    }))
+    const text = `${statusText(true, pending)}\n${chainsText(chains)}`
+    expect(text.length).toBeLessThan(4096)
+    expect(text).toContain('Pending approvals: 200')
+    expect(text).toMatch(/…and \d+ more\. Each one is in the chat above\./)
+  })
+})
+
 describe('chainsText', () => {
   it('warns when guard-core runs no chain at all', () => {
     expect(chainsText([])).toContain('none configured')
@@ -339,6 +356,14 @@ describe('message text', () => {
     expect(budget).toContain('Spent today: $2.50 of $50.00')
     expect(budget).toContain('Base: $1.00')
     expect(budget).toContain('Paused: yes')
+    expect(budget).not.toContain('Would have spent')
+    const shadow = { spentToday: '0', dailyMax: '0', perTxMax: '0', hotWalletBalances: {} }
+    expect(budgetText('a1', { ...shadow, paused: false, shadowSpentToday: '7250000' })).toContain(
+      'Would have spent today (shadow mode): $7.25',
+    )
+    expect(budgetText('a1', { ...shadow, paused: false, shadowSpentToday: '0' })).not.toContain(
+      'Would have spent',
+    )
     expect(
       budgetText('a1', {
         spentToday: '0',

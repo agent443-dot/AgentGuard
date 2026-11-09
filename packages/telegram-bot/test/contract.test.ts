@@ -13,6 +13,7 @@ describe('the webhook guard-core sends', () => {
       handlers: {
         approvalRequest: (request) => desk.post(request),
         intentEvent: (event) => desk.event(event),
+        alert: (event) => desk.alert(event),
       },
       logger: silent,
     })
