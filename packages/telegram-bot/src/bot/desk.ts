@@ -1,10 +1,10 @@
-import type { IntentEvent } from '@agentguard/shared'
+import type { AlertEvent, IntentEvent } from '@agentguard/shared'
 import type { Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { mandateSettledText, mandateText } from '../domain/mandate.js'
-import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
+import { breakerText } from '../domain/notices.js'
 import {
   type Admission,
   ApprovalBook,
@@ -19,8 +19,8 @@ import {
   settledFallback,
   settledText,
 } from '../domain/text.js'
-import { breakerText } from '../domain/notices.js'
 import type { MandateRequest, ShadowedEvent } from '../http/schemas.js'
+import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
 
 export interface DeskDeps {
   api: Api
@@ -50,7 +50,7 @@ const ANSWERS: Record<Outcome['kind'], string> = {
   rejected: 'Rejected',
   expired: 'Too late: this request expired. Nothing was paid.',
   already_decided: 'Already decided.',
-  not_found: 'guard-core does not know this intent.',
+  not_found: 'guard-core does not know this request.',
 }
 
 /** One kind of thing the owner approves: a payment, or a task budget. */
@@ -83,7 +83,7 @@ export class Desk {
     post: (request) => {
       const id = request.intent.id
       const page = request.passkey === true ? this.#passkeyPage(id) : undefined
-      return [approvalText(request), approvalKeyboard(id, page)]
+      return [approvalText(request, page !== null), approvalKeyboard(id, page)]
     },
     settled: settledText,
     decide: (id, decision, owner) => this.#deps.guard.decide(id, decision, owner),
@@ -109,6 +109,10 @@ export class Desk {
 
   /** Returns the short text shown to the owner who pressed the button. */
   async decide(intentId: string, decision: Decision, owner: Owner, pressed: Pressed) {
+    // guard-core refuses it too; an old or forged Approve button should not even ask.
+    if (decision === 'approve' && this.book.get(intentId)?.request.passkey === true) {
+      return 'This one needs your passkey: use Approve with passkey.'
+    }
     return this.#decide(this.#payments, intentId, decision, owner, pressed)
   }
 
@@ -184,11 +188,30 @@ export class Desk {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
     // Shadow mode signs nothing: guard-core sums what it would have spent, the chat stays quiet.
     if (admission === 'accepted' && intent.status !== 'shadowed') {
+      await this.#settledElsewhere(intent)
       for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }
     }
     return admission
+  }
+
+  /**
+   * A request still open here was decided without a Telegram press: on the passkey page, or by
+   * guard-core itself. Its messages take the real outcome instead of later reading "expired".
+   */
+  async #settledElsewhere(intent: IntentEvent['intent']) {
+    const entry = this.book.get(intent.id)
+    if (entry === undefined || this.book.close(intent.id) === undefined) {
+      return
+    }
+    const outcome: Outcome =
+      intent.status === 'expired'
+        ? { kind: 'expired' }
+        : intent.status === 'rejected'
+          ? { kind: 'rejected', by: 'guard-core', at: this.#now() }
+          : { kind: 'approved', by: 'passkey', at: this.#now() }
+    await this.#edit(entry.messages, settledText(entry.request, outcome))
   }
 
   /** Null when the bot was not told where guard-core's public page is. */
@@ -205,7 +228,7 @@ export class Desk {
   }
 
   /** A tripped breaker has already paused the agent; the owner only needs to know and look. */
-  async alert(event: { kind: 'breaker_tripped'; agentId: string; detail: string; sentAt: string }) {
+  async alert(event: AlertEvent) {
     const key = `${event.kind}:${event.agentId}:${event.sentAt}`
     const admission = this.#events.admit(key, event.sentAt, this.#now())
     if (admission !== 'accepted') {

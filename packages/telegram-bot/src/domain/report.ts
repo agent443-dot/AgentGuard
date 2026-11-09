@@ -49,19 +49,28 @@ function descending(a: bigint, b: bigint): number {
 
 /** The report as Telegram messages, an agent never split across two. */
 export function reportPages(agents: AgentReport[], from: Date, to: Date): string[] {
-  const header = `<b>Report</b> ${utcTime(from)} to ${utcTime(to)}`
+  const header =
+    `<b>Report</b> ${utcTime(from)} to ${utcTime(to)}\n` +
+    "<i>Spend is each chain's dollar (USDC, or USDG on Robinhood Chain), added up.</i>"
   return agents.length === 0
     ? [`${header}\nNo agent paid or was refused in this period.`]
     : pages(header, agents.map(agentBlock))
 }
 
-/** The key of the weekly report due now, or undefined: one per scheduled hour, never twice. */
+/**
+ * The key of the weekly report due now, or undefined. Due only in the first minute of the scheduled
+ * hour, which the 15-second sweep reaches four times: the sent key stops a repeat within that
+ * minute, and a bot restarted later in the hour, which has lost the key, does not send it again.
+ */
 export function weeklyDue(
   now: Date,
   schedule: ReportSchedule,
   lastSent: string | undefined,
 ): string | undefined {
   const key = now.toISOString().slice(0, 10)
-  const due = now.getUTCDay() === schedule.weekday && now.getUTCHours() === schedule.hourUtc
+  const due =
+    now.getUTCDay() === schedule.weekday &&
+    now.getUTCHours() === schedule.hourUtc &&
+    now.getUTCMinutes() === 0
   return due && key !== lastSent ? key : undefined
 }

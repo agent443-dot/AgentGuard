@@ -87,45 +87,68 @@ export function utcTime(at: Date | string): string {
 }
 
 /** A guard-core that predates the flags sends none. */
-export type FlaggedRequest = ApprovalRequest & {
-  flags?: readonly ApprovalFlag[]
-  pinned?: { recipient: string; amount: string }
-  passkey?: boolean
-}
+export type FlaggedRequest = ApprovalRequest & { unknownFlags?: readonly string[] }
 
 const PASSKEY_LINE =
   "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; " +
   'a Telegram tap can only reject it.'
 
-/** One decimal, in bigint: amounts are atomic units and can exceed what a float holds exactly. */
+const PASSKEY_NO_LINK =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; this bot " +
+  'has no link to it (GUARD_PUBLIC_URL is not set). A Telegram tap can only reject it.'
+
+/**
+ * How many times the pinned amount, in bigint to one decimal. Rounded down, so anything not exact
+ * says "more than": a factor that reads exact but is not would understate the jump.
+ */
 function times(amount: string, pinned: string): string | undefined {
   const base = BigInt(pinned)
   if (base === 0n) {
     return undefined
   }
-  const tenths = (BigInt(amount) * 10n) / base
-  return `${tenths / 10n}.${tenths % 10n}×`
+  const scaled = BigInt(amount) * 10n
+  const tenths = scaled / base
+  const factor = `${tenths / 10n}.${tenths % 10n}×`
+  return scaled % base === 0n ? factor : `more than ${factor}`
 }
 
-function flagLine(flag: ApprovalFlag, { intent, pinned }: FlaggedRequest): string {
-  if (pinned !== undefined && flag === 'RECIPIENT_CHANGED') {
-    return (
-      'This API asks to pay a different address than last time: ' +
-      `<code>${escapeHtml(shortAddress(pinned.recipient))}</code> → ` +
-      `<code>${escapeHtml(shortAddress(intent.recipient))}</code>.`
-    )
+/** The lines for one flag: the first is the warning, the rest its detail. */
+function flagLines(flag: ApprovalFlag, { intent, pinned, flags = [] }: FlaggedRequest): string[] {
+  if (
+    flag === 'RECIPIENT_CHANGED' &&
+    pinned !== undefined &&
+    pinned.recipient !== intent.recipient
+  ) {
+    // In full: a shortened address is what address poisoning imitates.
+    return [
+      FLAG_DESCRIPTIONS[flag],
+      `Last recipient: <code>${escapeHtml(pinned.recipient)}</code>`,
+      `This recipient: <code>${escapeHtml(intent.recipient)}</code>`,
+    ]
   }
-  const factor = pinned === undefined ? undefined : times(intent.amount, pinned.amount)
-  if (factor !== undefined && flag === 'PRICE_JUMP') {
-    return `Price jump: ${factor} the last payment.`
+  // A price against another recipient, chain or token compares nothing alike.
+  const factor =
+    pinned === undefined || flags.includes('RECIPIENT_CHANGED')
+      ? undefined
+      : times(intent.amount, pinned.amount)
+  if (flag === 'PRICE_JUMP' && factor !== undefined) {
+    return [`Price jump: ${factor} the last payment.`]
   }
-  return FLAG_DESCRIPTIONS[flag]
+  return [FLAG_DESCRIPTIONS[flag]]
 }
 
 /** A flag is why this payment is in front of the owner at all, so it comes first. */
-export function approvalText(request: FlaggedRequest): string {
-  const flags = (request.flags ?? []).map((flag) => `⚠️ <b>${flagLine(flag, request)}</b>`)
-  const passkey = request.passkey === true ? [PASSKEY_LINE] : []
+/** linked: whether the message carries a button to guard-core's passkey page. */
+export function approvalText(request: FlaggedRequest, linked = true): string {
+  const flags = (request.flags ?? []).flatMap((flag) => {
+    const [warning, ...detail] = flagLines(flag, request)
+    return [`⚠️ <b>${warning}</b>`, ...detail]
+  })
+  const unknown = (request.unknownFlags ?? []).map(
+    (flag) => `⚠️ <b>guard-core flagged this payment:</b> <code>${escapeHtml(flag)}</code>`,
+  )
+  flags.push(...unknown)
+  const passkey = request.passkey === true ? [linked ? PASSKEY_LINE : PASSKEY_NO_LINK] : []
   return [...flags, '<b>Approval needed</b>', ...passkey, ...details(request, false)].join('\n')
 }
 

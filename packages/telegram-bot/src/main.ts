@@ -14,6 +14,10 @@ const log = pino({
   redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
 })
 
+if (config.GUARD_PUBLIC_URL === undefined) {
+  log.warn('GUARD_PUBLIC_URL is not set: a payment that needs a passkey can only be rejected here')
+}
+
 const guardOptions = {
   url: config.GUARD_URL,
   botToken: config.GUARD_BOT_TOKEN,

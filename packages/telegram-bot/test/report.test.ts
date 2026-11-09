@@ -36,6 +36,7 @@ describe('reportPages', () => {
     expect(page).toBe(
       [
         '<b>Report</b> 2026-11-02 12:00:00 UTC to 2026-11-09 12:00:00 UTC',
+        "<i>Spend is each chain's dollar (USDC, or USDG on Robinhood Chain), added up.</i>",
         '<code>research-agent</code>: $12.50 in 3 payments',
         '  Refused: DAILY_EXCEEDED ×4, DOMAIN_NOT_ALLOWED ×1',
         '  Top domains: b.example $9.00, a.example $1.00, c.example $0.50, d.example $0.20, ' +
@@ -72,8 +73,8 @@ describe('reportPages', () => {
 describe('weeklyDue', () => {
   const monday9 = { weekday: 1, hourUtc: 9 }
 
-  it('is due once in the scheduled hour of the scheduled day', () => {
-    const at = new Date('2026-11-09T09:30:00.000Z')
+  it('is due once, in the first minute of the scheduled hour of the scheduled day', () => {
+    const at = new Date('2026-11-09T09:00:45.000Z')
     expect(weeklyDue(at, monday9, undefined)).toBe('2026-11-09')
     expect(weeklyDue(at, monday9, '2026-11-09')).toBeUndefined()
     expect(weeklyDue(new Date('2026-11-16T09:00:00.000Z'), monday9, '2026-11-09')).toBe(
@@ -83,6 +84,8 @@ describe('weeklyDue', () => {
 
   it('is not due in another hour or on another day', () => {
     expect(weeklyDue(new Date('2026-11-09T10:00:00.000Z'), monday9, undefined)).toBeUndefined()
+    // A bot restarted later in the hour has lost the sent key; it must not send again.
+    expect(weeklyDue(new Date('2026-11-09T09:01:00.000Z'), monday9, undefined)).toBeUndefined()
     expect(weeklyDue(new Date('2026-11-10T09:00:00.000Z'), monday9, undefined)).toBeUndefined()
   })
 })

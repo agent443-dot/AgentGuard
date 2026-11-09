@@ -52,8 +52,11 @@ can post a message again, but its buttons cannot decide anything twice because g
 ## Task budget approval
 
 An approval request with `mandate` and no `intent` is an agent asking for a task budget (CR-010).
-Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes, the
-domains and any recipients it may pay, the expiry, and the agent's reason labelled `agent says:`.
+Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes
+(`ttlSeconds`, counted from approval; left out when guard-core does not send it, never taken from the
+pending mandate's `expiresAt`, which is only the approval deadline), the domains and any recipients it
+may pay (in full, at most ten of each with "and N more"), the expiry, and the agent's reason labelled
+`agent says:`.
 **Approve** and **Reject** call `POST /v1/bot/mandates/:id/decision`; the messages settle and expire
 exactly like a payment's, with the same replay window from `approveBefore`.
 
@@ -79,18 +82,23 @@ agent's reason labelled `agent says:`. Everything that came from the agent is HT
 cannot pose as the bot's own text.
 
 **Flags.** When guard-core sends a payment to the owner because of a flag (CR-010), the flag comes
-first, above **Approval needed**. With `pinned` (the last executed payment to that domain) the line
-is exact: "This API asks to pay a different address than last time: `old` → `new`."
-(`RECIPIENT_CHANGED`) and "Price jump: 2.5× the last payment." (`PRICE_JUMP`, bigint math, one
-decimal). Without `pinned` it falls back to "…a different address than last time." and "Price jump:
-this API asks for much more than its last payment." A request without `flags` reads as having none;
-an unknown flag is a 400.
+first, above **Approval needed**. `RECIPIENT_CHANGED` reads "This API asks to pay a different
+recipient, chain or token than last time."; with `pinned` (the last executed payment to that domain)
+and a new recipient, both recipients follow in full, since a shortened address is what address
+poisoning imitates. `PRICE_JUMP` reads "Price jump: 2.5× the last payment." from `pinned` (bigint, one
+decimal, "more than" when not exact), and the plain "much more than its last payment" without
+`pinned` or next to a recipient change, where the two prices compare nothing alike. A request
+without `flags` reads as having none; a flag the bot does not know is shown as "guard-core flagged
+this payment".
 
 **Passkey.** A request with `passkey: true` can only be approved on guard-core's passkey page
 (CR-010), so it has no **Approve** button. With `GUARD_PUBLIC_URL` set, an **Approve with passkey**
 button opens `<GUARD_PUBLIC_URL>/owner/approve/<intentId>`; without it, there is no way to approve
-from the chat. **Reject** stays a normal button: a stolen Telegram account can still stop a payment,
-never send one. The message says "Passkey required" so the owner knows why.
+from the chat, the message says so, and the bot warns at startup. **Reject** stays a normal button: a
+stolen Telegram account can still stop a payment, never send one. An old or forged **Approve** for such
+a payment is answered in the bot without asking guard-core. When the payment is then approved on the
+passkey page (or guard-core settles it any other way), the intent event closes the request and every
+owner's message shows the real outcome instead of later reading "Expired".
 
 **Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
 transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
@@ -196,9 +204,10 @@ API with `GUARD_ADMIN_TOKEN`, and only owners get an answer, as for every other 
 ## Weekly report
 
 With `REPORT_WEEKDAY` (0 is Sunday) and `REPORT_HOUR_UTC` both set, every owner gets the same report as
-`/report` once in that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
+`/report` in the first minute of that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
 at startup. If guard-core does not answer, the owners are told once to run `/report` later; the bot does
-not retry every tick. The sent marker is in memory, so a restart inside that hour sends it again.
+not retry every tick. The sent marker is in memory, but a bot restarted after that first minute does
+not send it again.
 
 ## Notifications
 

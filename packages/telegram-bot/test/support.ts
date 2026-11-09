@@ -79,9 +79,11 @@ export function mandateRequest(overrides: Record<string, unknown> = {}) {
       reason: 'Compile the <b>Q3</b> report',
       status: 'pending_approval',
       createdAt: NOW.toISOString(),
-      expiresAt: new Date(NOW.getTime() + 90 * 60_000).toISOString(),
+      // Pending: this is the approval deadline, not the end of the budget.
+      expiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
       ...overrides,
     },
+    ttlSeconds: 5400,
     simulation: { summary: 'Opens a task budget', balanceChanges: [] },
     approveBefore: new Date(NOW.getTime() + 600_000).toISOString(),
   }
