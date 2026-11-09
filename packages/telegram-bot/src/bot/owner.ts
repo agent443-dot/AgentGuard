@@ -26,7 +26,7 @@ export const TOKEN_TTL_MS = 60_000
 /** The enrol link's message goes when its code does, at the latest. */
 const ENROL_TTL_MS = 10 * 60_000
 
-const SETUP = 'npx @agentguard/mcp-server setup claude-code'
+const SETUP = 'pnpm --filter @agentguard/mcp-server run setup claude-code'
 
 /**
  * The owner's daily commands, so nobody needs a terminal: agents, policies, mode and the doctor.

@@ -127,7 +127,7 @@ describe('the wizard, against fakes', () => {
       expect(out.join('\n')).not.toContain(secret)
     }
     expect(out).toContain(`Solana hot wallet: ${SOL_HOT}`)
-    expect(out).toContain('  npx @agentguard/mcp-server setup claude-code')
+    expect(out).toContain('  pnpm --filter @agentguard/mcp-server run setup claude-code')
   })
 
   it('creates the agent and puts the preset policy in shadow mode, within the smallest cap', async () => {

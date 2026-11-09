@@ -68,7 +68,7 @@ with a new owner account used for nothing else.
    `fly proxy 18787:8787`, it calls `POST /v1/admin/agents` (or, on a guard-core without that
    route, `create-agent.ts` over `fly ssh console`), `PUT /v1/admin/policy/<agent>` with the preset
    in shadow mode, and the doctor. It ends with the one line for your agent:
-   `npx @agentguard/mcp-server setup claude-code`.
+   `pnpm --filter @agentguard/mcp-server run setup claude-code`.
 
 Each step records its progress in `~/.agentguard/<prefix>.state.json`, so after a failure or a
 Ctrl-C you run it again and it continues where it stopped. The state holds public values only.
