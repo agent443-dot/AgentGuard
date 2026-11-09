@@ -27,12 +27,21 @@ export function loadSvmConfig(env: NodeJS.ProcessEnv = process.env): SvmConfig {
 const keypairFile = z.array(z.number().int().min(0).max(255)).length(64)
 
 export function loadKeypair(path: string): Keypair {
-  // A local file, and the zod schema below is exactly the validation the rule asks for.
-  // eslint-disable-next-line no-restricted-properties
-  const parsed = keypairFile.safeParse(JSON.parse(readFileSync(path, 'utf8')))
+  const parsed = keypairFile.safeParse(parseJson(readFileSync(path, 'utf8')))
   if (!parsed.success) {
     // The path, never the contents: this is the one file that must not reach a log.
     throw new Error(`invalid keypair file: ${path}`)
   }
   return Keypair.fromSecretKey(Uint8Array.from(parsed.data))
+}
+
+/** Malformed JSON gives undefined: the parser's own error quotes the input, here a secret key. */
+function parseJson(text: string): unknown {
+  try {
+    // The zod schema at the caller is exactly the validation the rule asks for.
+    // eslint-disable-next-line no-restricted-properties
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
 }
