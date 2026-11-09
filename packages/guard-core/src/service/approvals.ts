@@ -1,10 +1,12 @@
-import type { PayIntent, SimulationResult } from '@agentguard/shared'
+import type { ApprovalFlag, PayIntent, SimulationResult } from '@agentguard/shared'
 import { APPROVAL_TTL_MS } from '@agentguard/shared'
 import { and, eq, inArray, lte, or } from 'drizzle-orm'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
 import { audit, getIntent, saveIntent } from '../db/repo.js'
 import { intents } from '../db/schema.js'
+import type { Pin } from '../domain/pinning.js'
+import type { PaymentDeps } from './payments.js'
 
 export type Decision = 'approve' | 'reject'
 
@@ -21,9 +23,46 @@ export async function requestApproval(
   bot: BotNotifier,
   intent: PayIntent,
   simulation: SimulationResult,
+  ask: { flags: ApprovalFlag[]; pinned?: Pin; passkey: boolean },
 ): Promise<void> {
   saveIntent(db, { ...intent, status: 'pending_approval' })
-  await bot.requestApproval({ intent, simulation, approveBefore: intent.expiresAt })
+  await bot.requestApproval({
+    intent,
+    simulation,
+    approveBefore: intent.expiresAt,
+    flags: ask.flags,
+    passkey: ask.passkey,
+    ...(ask.pinned === undefined
+      ? {}
+      : { pinned: { recipient: ask.pinned.recipient, amount: ask.pinned.amount } }),
+  })
+}
+
+/** Asks the owner, and keeps the intent pending whether or not the bot heard. */
+export async function askOwner(
+  deps: Pick<PaymentDeps, 'db' | 'bot' | 'now' | 'log'>,
+  intent: PayIntent,
+  simulation: SimulationResult,
+  ask: { flags: ApprovalFlag[]; pinned?: Pin; passkey: boolean },
+): Promise<PayIntent> {
+  const pending: PayIntent = { ...intent, status: 'pending_approval', rejectReasons: [] }
+  try {
+    await requestApproval(deps.db, deps.bot, pending, simulation, ask)
+    audit(
+      deps.db,
+      { event: 'approval_requested', intentId: intent.id, agentId: intent.agentId },
+      deps.now(),
+    )
+  } catch (error) {
+    // The intent is already saved as pending, so the expiry sweep closes it if the bot never hears.
+    deps.log.warn({ err: error, intentId: intent.id }, 'approval webhook failed')
+    audit(
+      deps.db,
+      { event: 'approval_request_failed', intentId: intent.id, agentId: intent.agentId },
+      deps.now(),
+    )
+  }
+  return pending
 }
 
 export type DecisionResult =

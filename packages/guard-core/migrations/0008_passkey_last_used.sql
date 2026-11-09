@@ -1,0 +1,1 @@
+ALTER TABLE `passkeys` ADD `last_used_at` text;

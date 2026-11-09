@@ -42,6 +42,7 @@ export function liteConnection(svm: Svm, rpcEndpoint = 'http://127.0.0.1:0'): Co
     }),
     getAccountInfo: async (address: PublicKey) => account(address),
     getMultipleAccountsInfo: async (addresses: PublicKey[]) => addresses.map(account),
+    getBalance: async (address: PublicKey) => Number(svm.getBalance(address) ?? 0n),
     getMinimumBalanceForRentExemption: async (size: number) =>
       Number(svm.minimumBalanceForRentExemption(BigInt(size))),
     sendTransaction: async (tx: Transaction | VersionedTransaction) => submit(tx),

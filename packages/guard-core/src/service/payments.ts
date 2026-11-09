@@ -1,17 +1,24 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { ChainId, PayIntent, RejectCode, SimulationResult } from '@agentguard/shared'
+import type { ApprovalFlag, ChainId, PayIntent, RejectCode } from '@agentguard/shared'
 import type { FastifyBaseLogger } from 'fastify'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, type KeyObject } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
+import { admit } from '../db/breaker.js'
+import { addMandateSpend, getMandate } from '../db/mandates.js'
+import { getPin } from '../db/pins.js'
+import { ownerApprovalMethod, saveClearance } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
+import { mandateReasons } from '../domain/mandate.js'
+import { pinFlags } from '../domain/pinning.js'
 import { evaluate } from '../domain/policy.js'
-import { checkSimulation } from '../domain/simulation.js'
-import { expirePending, expiresAt, requestApproval } from './approvals.js'
-import { notify } from './events.js'
+import { askOwner, expiresAt } from './approvals.js'
+import { needsPasskey, type PasskeySetup } from './passkeys.js'
+import { issueReceipt, policyHash } from './receipts.js'
+import { simulate } from './simulate.js'
+import { alert, notify } from './events.js'
 import type { Serial } from './serial.js'
-import { redactUrls } from '../domain/redact.js'
 
 export interface PaymentDeps {
   db: Db
@@ -22,11 +29,23 @@ export interface PaymentDeps {
   now: () => Date
   serial: Serial
   log: Pick<FastifyBaseLogger, 'warn' | 'error'>
+  /** Signs a receipt for every executed payment. Receipts are off without it. */
+  receiptKey?: KeyObject
+  /** Set when approvals at or above an amount need the owner's passkey. */
+  passkey?: PasskeySetup
 }
 
 export type Terms = Pick<
   PayIntent,
-  'agentId' | 'kind' | 'chain' | 'token' | 'amount' | 'recipient' | 'reason' | 'domain'
+  | 'agentId'
+  | 'kind'
+  | 'chain'
+  | 'token'
+  | 'amount'
+  | 'recipient'
+  | 'reason'
+  | 'domain'
+  | 'mandateId'
 >
 
 export function newIntent(terms: Terms, now: Date): PayIntent {
@@ -65,19 +84,40 @@ export async function clear(
     return { cleared: false, intent: reject(deps, intent, ['PAUSED']) }
   }
   const adapter = deps.chains.get(intent.chain)
-  const verdict = evaluate(intent, policy, repo.spentToday(db, intent.agentId, repo.utcDay(now())))
+  // In shadow nothing is spent, so the daily max is held against what would have been.
+  const shadow = policy.mode === 'shadow'
+  const day = repo.utcDay(now())
+  const spent = shadow
+    ? repo.shadowSpentToday(db, intent.agentId, day)
+    : repo.spentToday(db, intent.agentId, day)
+  const verdict = evaluate(intent, policy, spent)
   const reasons = [...verdict.reasons]
+  const mandate = intent.mandateId === undefined ? undefined : getMandate(db, intent.mandateId)
+  const required = policy.requireMandate
+  for (const reason of mandateReasons(intent, mandate, required, now())) {
+    if (!reasons.includes(reason)) {
+      reasons.push(reason)
+    }
+  }
   if (adapter === undefined && !reasons.includes('CHAIN_NOT_ALLOWED')) {
     reasons.push('CHAIN_NOT_ALLOWED')
   }
+  const pinned =
+    intent.kind === 'x402' && intent.domain !== undefined
+      ? getPin(db, intent.agentId, intent.domain)
+      : undefined
+  // The owner's approval has already answered a pin's question, so it is not asked again.
+  const flags = ownerApproved ? [] : pinFlags(pinned, intent, policy.priceIncreaseMaxPct)
   repo.audit(
     db,
     {
       event: 'policy_evaluated',
       intentId: intent.id,
       agentId: intent.agentId,
-      decision: reasons.length > 0 ? 'reject' : verdict.decision,
+      decision:
+        reasons.length > 0 ? 'reject' : flags.length > 0 ? 'needs_approval' : verdict.decision,
       reasons,
+      ...(flags.length > 0 ? { detail: { flags } } : {}),
     },
     now(),
   )
@@ -101,59 +141,72 @@ export async function clear(
     return { cleared: false, intent: reject(deps, intent, simReasons) }
   }
 
-  if (verdict.decision === 'needs_approval' && !ownerApproved) {
-    return { cleared: false, intent: await askOwner(deps, intent, simulation) }
+  if (shadow) {
+    return { cleared: false, intent: shadowed(deps, intent, flags) }
+  }
+
+  if ((verdict.decision === 'needs_approval' || flags.length > 0) && !ownerApproved) {
+    const passkey = needsPasskey(deps.passkey, intent)
+    const ask =
+      flags.length > 0 && pinned !== undefined ? { flags, pinned, passkey } : { flags, passkey }
+    return { cleared: false, intent: await askOwner(deps, intent, simulation, ask) }
+  }
+
+  // Last, so it counts only payments that are about to be signed.
+  const limit = policy.maxPaymentsPerMinute
+  if (!admit(db, intent, limit, now())) {
+    return { cleared: false, intent: trip(deps, intent, limit) }
   }
 
   const approved: PayIntent = { ...intent, status: 'approved', rejectReasons: [] }
   repo.saveIntent(db, approved)
+  saveClearance(db, {
+    intentId: intent.id,
+    policyHash: policyHash(policy),
+    simulation: simulation.summary,
+    approvedBy: ownerApproved ? (ownerApprovalMethod(db, intent.id) ?? 'owner') : 'policy',
+  })
   return { cleared: true, intent: approved, adapter }
 }
 
-/** Nothing is signed unless the simulation found nothing to object to. */
-async function simulate(
-  deps: PaymentDeps,
-  adapter: ChainAdapter,
-  intent: PayIntent,
-): Promise<{ simulation?: SimulationResult; reasons: RejectCode[]; error?: string }> {
-  try {
-    const outcome = await adapter.simulate(intent)
-    const reasons =
-      outcome.rejectReasons.length > 0
-        ? outcome.rejectReasons
-        : checkSimulation(outcome.simulation, intent)
-    return { simulation: outcome.simulation, reasons }
-  } catch (thrown) {
-    // Without the adapter's message a SIM_FAILED on a live chain leaves nothing to debug from.
-    const error = String(redactUrls(thrown instanceof Error ? thrown.message : String(thrown)))
-    deps.log.warn({ intentId: intent.id, chain: intent.chain, error }, 'simulation failed')
-    return { reasons: ['SIM_FAILED'], error }
-  }
+/** Shadow mode: everything up to the signature ran and passed. Nothing is sent or told to the bot. */
+function shadowed(deps: PaymentDeps, intent: PayIntent, flags: ApprovalFlag[]): PayIntent {
+  const done: PayIntent = { ...intent, status: 'shadowed', rejectReasons: [] }
+  repo.saveIntent(deps.db, done)
+  repo.audit(
+    deps.db,
+    {
+      event: 'shadowed',
+      intentId: intent.id,
+      agentId: intent.agentId,
+      detail: {
+        chain: intent.chain,
+        amount: intent.amount,
+        ...(flags.length > 0 ? { flags } : {}),
+      },
+    },
+    deps.now(),
+  )
+  return done
 }
 
-async function askOwner(
-  deps: PaymentDeps,
-  intent: PayIntent,
-  simulation: SimulationResult,
-): Promise<PayIntent> {
-  const pending: PayIntent = { ...intent, status: 'pending_approval', rejectReasons: [] }
-  try {
-    await requestApproval(deps.db, deps.bot, pending, simulation)
-    repo.audit(
-      deps.db,
-      { event: 'approval_requested', intentId: intent.id, agentId: intent.agentId },
-      deps.now(),
-    )
-  } catch (error) {
-    // The intent is already saved as pending, so the expiry sweep closes it if the bot never hears.
-    deps.log.warn({ err: error, intentId: intent.id }, 'approval webhook failed')
-    repo.audit(
-      deps.db,
-      { event: 'approval_request_failed', intentId: intent.id, agentId: intent.agentId },
-      deps.now(),
-    )
-  }
-  return pending
+/**
+ * More payments in a minute than the policy allows is how a looping or hijacked agent looks. The
+ * agent stops until the owner resumes it, and the owner hears about it at once.
+ */
+function trip(deps: PaymentDeps, intent: PayIntent, limit: number): PayIntent {
+  repo.setPaused(deps.db, intent.agentId, true, deps.now().toISOString())
+  repo.audit(
+    deps.db,
+    { event: 'breaker_tripped', intentId: intent.id, agentId: intent.agentId, detail: { limit } },
+    deps.now(),
+  )
+  alert(deps, {
+    kind: 'breaker_tripped',
+    agentId: intent.agentId,
+    detail: `more than ${limit} payments within a minute; the agent is paused until the owner resumes it`,
+  })
+  return reject(deps, intent, ['BREAKER_TRIPPED'])
 }
 
 export function reject(deps: PaymentDeps, intent: PayIntent, reasons: RejectCode[]): PayIntent {
@@ -201,6 +254,9 @@ export async function fund(deps: PaymentDeps, adapter: ChainAdapter, intent: Pay
  */
 export function recordSpend(deps: PaymentDeps, intent: PayIntent): void {
   repo.addSpend(deps.db, intent.agentId, intent.chain, repo.utcDay(deps.now()), intent.amount)
+  if (intent.mandateId !== undefined) {
+    addMandateSpend(deps.db, intent.mandateId, intent.amount)
+  }
 }
 
 export function finish(
@@ -226,18 +282,14 @@ export function finish(
     },
     deps.now(),
   )
-  notify(deps, done)
-  return done
-}
-
-/** Expires what the owner and the agents left waiting, and tells the bot about each one. */
-export function sweep(deps: PaymentDeps): number {
-  const expired = expirePending(deps.db, deps.now())
-  for (const id of expired) {
-    const intent = repo.getIntent(deps.db, id)
-    if (intent !== undefined) {
-      notify(deps, intent)
+  if (done.status === 'executed' && deps.receiptKey !== undefined) {
+    // A receipt that cannot be issued must not undo a payment that already happened.
+    try {
+      issueReceipt(deps.db, deps.receiptKey, done, deps.now())
+    } catch (error) {
+      deps.log.error({ err: error, intentId: intent.id }, 'receipt not issued')
     }
   }
-  return expired.length
+  notify(deps, done)
+  return done
 }

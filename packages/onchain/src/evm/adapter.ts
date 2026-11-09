@@ -33,6 +33,7 @@ import {
   type SimulationOutcome,
 } from '../ChainAdapter.js'
 import { chainOf, type EvmChainId } from './config.js'
+import { hotWalletGas } from './gas.js'
 import { checkTypedData } from './gate.js'
 import { allowanceModuleAbi, hasAllowance, readAllowance } from './safe.js'
 import { erc20Abi, simulatePayment, topUpData } from './simulate.js'
@@ -141,6 +142,8 @@ export function evmAdapter(deps: EvmAdapterDeps): ChainAdapter {
       })
       return balance.toString()
     },
+
+    getHotWalletGas: () => hotWalletGas(client, hot),
 
     async topUpHotWallet(amount: Amount): Promise<TxId> {
       const hash = await wallet.sendTransaction({

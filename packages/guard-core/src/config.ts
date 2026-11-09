@@ -10,62 +10,100 @@ function optional<T extends z.ZodType>(schema: T) {
 
 const evmAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'expected a 0x address')
 
-export const configSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(8787),
-  /** Loopback unless set: a deployment opts in to listening beyond this machine. */
-  HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('127.0.0.1'),
-  /**
-   * Set in a deployment to split the routes over two listeners: the agent routes alone on
-   * PUBLIC_HOST:PUBLIC_PORT, behind Fly's TLS, and the admin and bot routes on HOST:PORT, on the
-   * private network. Unset, one listener on HOST:PORT serves everything, as in a local run.
-   */
-  PUBLIC_PORT: optional(z.coerce.number().int().positive()),
-  PUBLIC_HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('0.0.0.0'),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-  DATABASE_URL: z.string().min(1).default('file:./data/guard.db'),
+export const configSchema = z
+  .object({
+    PORT: z.coerce.number().int().positive().default(8787),
+    /** Loopback unless set: a deployment opts in to listening beyond this machine. */
+    HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('127.0.0.1'),
+    /**
+     * Set in a deployment to split the routes over two listeners: the agent routes alone on
+     * PUBLIC_HOST:PUBLIC_PORT, behind Fly's TLS, and the admin and bot routes on HOST:PORT, on the
+     * private network. Unset, one listener on HOST:PORT serves everything, as in a local run.
+     */
+    PUBLIC_PORT: optional(z.coerce.number().int().positive()),
+    PUBLIC_HOST: z.union([z.ipv4(), z.ipv6(), z.hostname()]).default('0.0.0.0'),
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    DATABASE_URL: z.string().min(1).default('file:./data/guard.db'),
 
-  ADMIN_TOKEN: secret,
-  BOT_TOKEN: secret,
+    ADMIN_TOKEN: secret,
+    BOT_TOKEN: secret,
 
-  BOT_URL: z.string().min(1),
-  BOT_WEBHOOK_SECRET: secret,
+    BOT_URL: z.string().min(1),
+    BOT_WEBHOOK_SECRET: secret,
 
-  SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
-  SOLANA_RPC_URL: optional(z.string().min(1)),
-  SOLANA_HOT_WALLET_KEYPAIR: optional(z.string().min(1)),
-  SQUADS_MULTISIG: optional(z.string().min(1)),
+    SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
+    SOLANA_RPC_URL: optional(z.string().min(1)),
+    SOLANA_HOT_WALLET_KEYPAIR: optional(z.string().min(1)),
+    SQUADS_MULTISIG: optional(z.string().min(1)),
 
-  /** Base is off unless this names the chain; then every value below must be present. */
-  BASE_CHAIN: optional(z.enum([CHAINS.baseSepolia, CHAINS.base])),
-  BASE_RPC_URL: optional(z.url()),
-  SAFE_ADDRESS: optional(evmAddress),
-  /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
-  BASE_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
-  // The raw key in the environment is retired. Refused rather than ignored, so an old .env
-  // has to lose the key instead of keeping a copy nobody reads.
-  HOT_WALLET_PRIVATE_KEY: optional(z.never()),
-  /** Only where shared/addresses.ts has no verified value for the chain yet (CR-005). */
-  BASE_USDC: optional(evmAddress),
-  BASE_ALLOWANCE_MODULE: optional(evmAddress),
+    /** Base is off unless this names the chain; then every value below must be present. */
+    BASE_CHAIN: optional(z.enum([CHAINS.baseSepolia, CHAINS.base])),
+    BASE_RPC_URL: optional(z.url()),
+    SAFE_ADDRESS: optional(evmAddress),
+    /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
+    BASE_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
+    // The raw key in the environment is retired. Refused rather than ignored, so an old .env
+    // has to lose the key instead of keeping a copy nobody reads.
+    HOT_WALLET_PRIVATE_KEY: optional(z.never()),
+    /** Only where shared/addresses.ts has no verified value for the chain yet (CR-005). */
+    BASE_USDC: optional(evmAddress),
+    BASE_ALLOWANCE_MODULE: optional(evmAddress),
 
-  /**
-   * Robinhood Chain is off unless this names it (CR-007). Its USDG and Allowance Module come from
-   * shared/addresses.ts only, so there is no env value for either.
-   */
-  ROBINHOOD_CHAIN: optional(z.enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])),
-  ROBINHOOD_RPC_URL: optional(z.url()),
-  ROBINHOOD_SAFE_ADDRESS: optional(evmAddress),
-  /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
-  ROBINHOOD_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
+    /**
+     * Robinhood Chain is off unless this names it (CR-007). Its USDG and Allowance Module come from
+     * shared/addresses.ts only, so there is no env value for either.
+     */
+    ROBINHOOD_CHAIN: optional(z.enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])),
+    ROBINHOOD_RPC_URL: optional(z.url()),
+    ROBINHOOD_SAFE_ADDRESS: optional(evmAddress),
+    /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
+    ROBINHOOD_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
 
-  /** Offline chains that move no money. For local development only. */
-  GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
-  EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),
+    /** An Ed25519 private key in PEM that signs a receipt for every executed payment. Off unset. */
+    RECEIPT_SIGNING_KEY_FILE: optional(z.string().min(1)),
 
-  /** Requests per minute. Per IP on every route, and per agent token on the agent routes. */
-  RATE_LIMIT_PER_IP: z.coerce.number().int().positive().default(120),
-  RATE_LIMIT_PER_AGENT: z.coerce.number().int().positive().default(60),
-})
+    /**
+     * At or above this amount an intent is approved only with the owner's passkey, never by a
+     * Telegram tap alone. PASSKEY_RP_ID and PASSKEY_ORIGIN name guard-core's public address, which
+     * the passkey is bound to. Off unset.
+     */
+    PASSKEY_ABOVE: optional(z.string().regex(/^(0|[1-9]\d*)$/)),
+    PASSKEY_RP_ID: optional(z.hostname()),
+    PASSKEY_ORIGIN: optional(z.url({ protocol: /^https$/ })),
+
+    /** Offline chains that move no money. For local development only. */
+    GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
+    EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),
+
+    /** Requests per minute. Per IP on every route, and per agent token on the agent routes. */
+    RATE_LIMIT_PER_IP: z.coerce.number().int().positive().default(120),
+    RATE_LIMIT_PER_AGENT: z.coerce.number().int().positive().default(60),
+  })
+  // A passkey is bound to an origin and an RP id, and a browser accepts the pair only when the
+  // origin is exactly scheme://host[:port] and its host is the RP id or under it. A mismatch would
+  // pass startup and then refuse every enrolment and approval.
+  .refine(
+    (c) => c.PASSKEY_ORIGIN === undefined || originMatches(c.PASSKEY_ORIGIN, c.PASSKEY_RP_ID),
+    {
+      path: ['PASSKEY_ORIGIN'],
+    },
+  )
+  // A passkey is bound to an address, so turning them on without one would approve nothing.
+  .refine(
+    (c) =>
+      c.PASSKEY_ABOVE === undefined ||
+      (c.PASSKEY_RP_ID !== undefined && c.PASSKEY_ORIGIN !== undefined),
+    { path: ['PASSKEY_RP_ID'] },
+  )
+
+function originMatches(origin: string, rpId: string | undefined): boolean {
+  const url = new URL(origin)
+  return (
+    url.origin === origin &&
+    rpId !== undefined &&
+    (url.hostname === rpId || url.hostname.endsWith(`.${rpId}`))
+  )
+}
 
 export type Config = z.infer<typeof configSchema>
 

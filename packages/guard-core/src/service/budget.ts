@@ -1,4 +1,5 @@
 import type { Amount, BudgetView, ChainId, Policy } from '@agentguard/shared'
+import { activeMandates } from '../db/mandates.js'
 import * as repo from '../db/repo.js'
 import type { PaymentDeps } from './payments.js'
 
@@ -7,9 +8,16 @@ import type { PaymentDeps } from './payments.js'
  * agent learns where it can pay, not the rest of the operator's setup.
  */
 export async function budget(deps: PaymentDeps, policy: Policy): Promise<BudgetView> {
+  const day = repo.utcDay(deps.now())
+  // What the owner weighs before switching an agent live; absent for one that never ran in shadow.
+  const shadow = repo.shadowSummary(deps.db, policy.agentId)
   return {
+    ...(shadow === undefined ? {} : { shadow }),
     chains: policy.chains.filter((chain) => deps.chains.has(chain)),
-    spentToday: repo.spentToday(deps.db, policy.agentId, repo.utcDay(deps.now())),
+    spentToday: repo.spentToday(deps.db, policy.agentId, day),
+    // What shadow mode would have paid, so the owner sees an agent's habits before funding it.
+    shadowSpentToday: repo.shadowSpentToday(deps.db, policy.agentId, day),
+    mandates: activeMandates(deps.db, policy.agentId, deps.now()),
     dailyMax: policy.dailyMax,
     perTxMax: policy.perTxMax,
     hotWalletBalances: await hotWalletBalances(deps, policy.chains),

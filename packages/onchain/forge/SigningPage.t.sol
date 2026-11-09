@@ -16,6 +16,10 @@ interface PageSafe {
     function getOwners() external view returns (address[] memory);
     function getThreshold() external view returns (uint256);
     function isModuleEnabled(address module) external view returns (bool);
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory array, address next);
 }
 
 interface PageModule {
@@ -24,6 +28,11 @@ interface PageModule {
         external
         view
         returns (uint256[5] memory);
+    function getDelegates(address safe, uint48 start, uint8 pageSize)
+        external
+        view
+        returns (address[] memory results, uint48 next);
+    function getTokens(address safe, address delegate) external view returns (address[] memory);
 }
 
 /// The signing page's Safe flows as the exact bytes the page sends for one chain
@@ -71,9 +80,11 @@ abstract contract SigningPageFlows {
         create();
         send(owner, address(safe), "enable");
         requireAllowance(vm.parseJsonUint(fixture, ".cap"));
+        requireProofView(true);
 
         send(owner, address(safe), "kill");
         require(listed() == address(0), "the hot wallet is still a delegate after the kill");
+        requireProofView(false);
         require(module.getTokenAllowance(address(safe), hot, usd)[0] == 0, "the allowance survived the kill");
 
         // After a kill the module is still on, so the page leaves enableModule out.
@@ -101,6 +112,21 @@ abstract contract SigningPageFlows {
         );
         address[] memory owners = safe.getOwners();
         require(owners.length == 1 && owners[0] == owner && safe.getThreshold() == 1, "not the owner's 1-of-1 Safe");
+    }
+
+    /// What the proof page reads to list every spending right: the enabled modules, the module's
+    /// delegates and each delegate's tokens.
+    function requireProofView(bool delegated) private view {
+        (address[] memory modules,) = safe.getModulesPaginated(address(1), 20);
+        require(modules.length == 1 && modules[0] == address(module), "the Safe's modules are not just the Allowance Module");
+        (address[] memory delegates,) = module.getDelegates(address(safe), 0, 50);
+        if (!delegated) {
+            require(delegates.length == 0, "the module still lists a delegate after the kill");
+            return;
+        }
+        require(delegates.length == 1 && delegates[0] == hot, "the module's delegates are not just the hot wallet");
+        address[] memory tokens = module.getTokens(address(safe), hot);
+        require(tokens.length == 1 && tokens[0] == usd, "the hot wallet's tokens are not just USDG");
     }
 
     function requireAllowance(uint256 cap) private view {

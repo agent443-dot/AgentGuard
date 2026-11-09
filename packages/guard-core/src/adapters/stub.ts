@@ -32,6 +32,11 @@ export class StubChain implements ChainAdapter {
     return this.balance.toString()
   }
 
+  /** Offline there is no gas to run out of, so the stub always has enough. */
+  async getHotWalletGas(): Promise<{ balance: Amount; minimum: Amount; symbol: string }> {
+    return { balance: '0', minimum: '0', symbol: 'TEST' }
+  }
+
   async topUpHotWallet(amount: Amount): Promise<string> {
     this.topUps.push(amount)
     this.balance += BigInt(amount)
