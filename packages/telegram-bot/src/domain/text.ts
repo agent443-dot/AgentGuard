@@ -204,11 +204,20 @@ export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string
   ].join('\n')
 }
 
-/** phantom: the chains whose onchain kill the bot offers as a Phantom button. */
+/** A chain guard-core reports with no onchain limit: there is nothing left for Phantom to remove. */
+export function alreadyRemoved(chain: ChainId): string {
+  return `• ${chainName(chain)}: no onchain limit (already removed)`
+}
+
+/**
+ * phantom: the chains whose onchain kill the bot offers as a Phantom button. removed: the chains with
+ * the signing page configured whose limit is already gone, so they get no button.
+ */
 export function killedText(
   pausedAgents: number,
   transactions: number,
   phantom: ChainId[] = [],
+  removed: ChainId[] = [],
 ): string {
   const next =
     transactions > 0
@@ -220,14 +229,13 @@ export function killedText(
     `<b>Kill switch engaged.</b> guard-core has paused ${pausedAgents} ` +
     `${pausedAgents === 1 ? 'agent' : 'agents'} and signs no more payments.`
   const one = phantom.length === 1
-  const onchain =
-    phantom.length > 0
-      ? `<b>The onchain limit is still live on ${phantom.map(chainName).join(' and ')}.</b> ` +
-        `Tap ${one ? 'the Phantom button' : "each chain's Phantom button"} and confirm to remove it. ` +
-        `${one ? 'The button expires' : 'The buttons expire'} in 15 minutes, or when another kill ` +
-        `replaces ${one ? 'it' : 'them'}.`
-      : next
-  return [stopped, onchain].join('\n')
+  const live =
+    `<b>The onchain limit is still live on ${phantom.map(chainName).join(' and ')}.</b> ` +
+    `Tap ${one ? 'the Phantom button' : "each chain's Phantom button"} and confirm to remove it. ` +
+    `${one ? 'The button expires' : 'The buttons expire'} in 15 minutes, or when another kill ` +
+    `replaces ${one ? 'it' : 'them'}.`
+  const onchain = phantom.length > 0 ? [live] : removed.length > 0 ? [] : [next]
+  return [stopped, ...onchain, ...removed.map(alreadyRemoved)].join('\n')
 }
 
 export function ownerTransactionText(tx: OwnerTransaction): string {

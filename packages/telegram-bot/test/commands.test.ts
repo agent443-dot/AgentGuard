@@ -263,6 +263,80 @@ describe('/kill with the signing page configured', () => {
     ])
   })
 
+  describe('a chain whose onchain limit is already gone', () => {
+    const active = {
+      status: 'active' as const,
+      cap: '50000000',
+      spent: '0',
+      resetsAt: NOW.toISOString(),
+      delegate: 'D',
+    }
+    const reporting = (solana: unknown, robinhood: unknown) =>
+      vi.fn().mockResolvedValue([
+        { chain: CHAINS.solanaDevnet, allowance: solana },
+        { chain: CHAINS.robinhoodTestnet, allowance: robinhood },
+      ])
+    const none = { status: 'none', delegate: 'D' }
+
+    it('gets no button on a confirmed kill, and says so', async () => {
+      const chains = reporting(none, active)
+      const { bot, calls } = setup({ guard: fakeGuard({ chains }), phantomKills: BOTH })
+      await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+      const done = sent(calls, 'editMessageText')[0]
+      expect(offerText(done)).toContain(
+        'The onchain limit is still live on Robinhood Chain testnet.',
+      )
+      expect(offerText(done)).toContain('• Solana devnet: no onchain limit (already removed)')
+      expect(phantomButtons(done)).toEqual([
+        { text: 'Open Robinhood Chain testnet kill in Phantom', url: ROBINHOOD(NOW) },
+      ])
+    })
+
+    it('leaves no button at all when every limit is gone', async () => {
+      const chains = reporting(none, none)
+      const { bot, calls } = setup({ guard: fakeGuard({ chains }), phantomKills: BOTH })
+      await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+      const done = sent(calls, 'editMessageText')[0]
+      expect(offerText(done)).toContain('guard-core has paused 2 agents')
+      expect(offerText(done)).toContain(
+        '• Robinhood Chain testnet: no onchain limit (already removed)',
+      )
+      expect(offerText(done)).not.toContain('still live')
+      expect(phantomButtons(done)).toEqual([])
+    })
+
+    it('keeps the button for a chain whose limit could not be read', async () => {
+      const chains = reporting(null, active)
+      const { bot, calls } = setup({ guard: fakeGuard({ chains }), phantomKills: BOTH })
+      await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+      expect(phantomButtons(sent(calls, 'editMessageText')[0])).toHaveLength(2)
+    })
+
+    it('gets no "anyway" button either when the kill fails', async () => {
+      const chains = reporting(active, none)
+      const kill = vi.fn().mockRejectedValue(new Error('down'))
+      const { bot, calls } = setup({ guard: fakeGuard({ kill, chains }), phantomKills: BOTH })
+      await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+      const failed = sent(calls, 'editMessageText')[0]
+      expect(offerText(failed)).toContain(
+        '• Robinhood Chain testnet: no onchain limit (already removed)',
+      )
+      expect(phantomButtons(failed)).toEqual([
+        { text: 'Remove Solana devnet limit anyway (Phantom)', url: PHANTOM(NOW) },
+      ])
+
+      chains.mockResolvedValue([
+        { chain: CHAINS.solanaDevnet, allowance: none },
+        { chain: CHAINS.robinhoodTestnet, allowance: none },
+      ])
+      await bot.handleUpdate(press(OWNER, 'kill:confirm', 12))
+      const last = sent(calls, 'editMessageText').at(-1)
+      expect(offerText(last)).toContain('<b>Kill failed</b>: guard-core did not confirm.')
+      expect(offerText(last)).toContain('• Solana devnet: no onchain limit (already removed)')
+      expect(phantomButtons(last)).toEqual([])
+    })
+  })
+
   it('retires a button after 15 minutes, and not before', async () => {
     let now = NOW
     const { bot, commands, calls } = setup({ phantomKills: KILLS, now: () => now })
