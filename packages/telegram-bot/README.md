@@ -4,7 +4,6 @@ The owner's control surface: approve or reject payments above the threshold, wat
 stop everything. Built on [grammY](https://grammy.dev) (long polling) and Fastify (the hooks
 guard-core calls).
 
-- **Owner:** Session 4 (bot). Tasks BOT-1 .. BOT-7 in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Contract:** [`/SPEC.md`](../../SPEC.md) — webhook and `/v1/bot/decision`. The parts not in the
   SPEC yet are proposed in CR-004 in [`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md).
 

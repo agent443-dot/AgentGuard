@@ -110,7 +110,7 @@ export async function clear(
   return { cleared: true, intent: approved, adapter }
 }
 
-/** GC-2: nothing is signed unless the simulation found nothing to object to. */
+/** Nothing is signed unless the simulation found nothing to object to. */
 async function simulate(
   deps: PaymentDeps,
   adapter: ChainAdapter,

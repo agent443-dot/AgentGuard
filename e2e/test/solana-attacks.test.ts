@@ -6,9 +6,9 @@ import { ATTACKER, CHAIN, MERCHANT, offer, paidApi, type PaidApi } from './suppo
 import { intentIdIn, stack, WEBHOOK_SECRET, type Stack } from './support/stack.js'
 import { STRANGER } from './support/telegram.js'
 
-// INT-5 on the Solana stub chain. Every case must end with nothing paid and the right reject code.
+// Attacks on the Solana stub chain. Each case must end with nothing paid and the right reject code.
 // What the stub cannot prove, and the devnet run must: the onchain cap holding after a drained hot
-// wallet (SVM-8), and the Solana inspection on real transactions (proven in packages/onchain).
+// wallet, and the Solana inspection on real transactions (both proven in packages/onchain).
 
 let s: Stack
 let api: PaidApi
@@ -38,7 +38,7 @@ async function refusedFetch(expected: RejectCode[], args: Record<string, unknown
   return text
 }
 
-describe('malicious 402 responses (INT-5)', () => {
+describe('malicious 402 responses', () => {
   beforeEach(() => start())
 
   it('asking for the whole wallet balance', async () => {
@@ -94,7 +94,7 @@ describe('malicious 402 responses (INT-5)', () => {
   })
 })
 
-describe('policy limits on direct transfers (INT-5)', () => {
+describe('policy limits on direct transfers', () => {
   beforeEach(() => start())
 
   const transfer = (to: string, amountUsd: string) =>
@@ -124,7 +124,7 @@ describe('policy limits on direct transfers (INT-5)', () => {
   })
 })
 
-describe('attacks the chain adapter catches (INT-5)', () => {
+describe('attacks the chain adapter catches', () => {
   // The Solana adapter's own codes, as a hostile transaction would produce them. The detection is
   // proven in packages/onchain; this proves the codes stop the payment and reach the owner.
   class Hostile extends StubChain {
@@ -178,7 +178,7 @@ describe('attacks the chain adapter catches (INT-5)', () => {
   })
 })
 
-describe('the owner channel (INT-5)', () => {
+describe('the owner channel', () => {
   beforeEach(() => start())
 
   async function pending() {
@@ -238,7 +238,7 @@ describe('the owner channel (INT-5)', () => {
   })
 })
 
-describe('prompt injection in a paid response (INT-5)', () => {
+describe('prompt injection in a paid response', () => {
   beforeEach(() => start())
 
   it('comes back fenced as untrusted data, and moves no money by itself', async () => {

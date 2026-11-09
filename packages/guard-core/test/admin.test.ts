@@ -14,7 +14,7 @@ const admin = (url: string, payload: object = {}) =>
     payload,
   })
 
-describe('POST /v1/admin/kill (GC-7)', () => {
+describe('POST /v1/admin/kill', () => {
   it('pauses every agent and returns the owner transaction for each chain', async () => {
     const res = await admin('/v1/admin/kill')
     expect(res.json()).toEqual({

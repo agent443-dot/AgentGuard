@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { offer, paidApi, type PaidApi } from './support/paid-api.js'
 import { intentIdIn, stack, type Stack } from './support/stack.js'
 
-// INT-4 on the Solana stub chain: the five owner-facing flows, driven from the agent's MCP tools to
-// the owner's Telegram and back.
+// The five owner-facing flows on the Solana stub chain, driven from the agent's MCP tools to the
+// owner's Telegram and back.
 
 let s: Stack
 let api: PaidApi
@@ -21,7 +21,7 @@ afterEach(async () => {
 
 const sentTo = () => s.telegram.messages.filter((m) => m.method === 'sendMessage')
 
-describe('Solana flows (INT-4)', () => {
+describe('Solana flows', () => {
   it('pays under the threshold without asking the owner, and returns the body as untrusted', async () => {
     const text = await s.tool('paid_fetch', { url: api.url, maxAmountUsd: '1' })
 

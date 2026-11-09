@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE, offer, paidApi, SOLANA, type PaidApi } from './support/paid-api.js'
 import { intentIdIn, stack, type Stack } from './support/stack.js'
 
-// INT-6 on the Base Sepolia stub chain: the Solana attack suite again, with the EVM codes in place
-// of the Solana ones. What the stub cannot prove, the fork tests in packages/onchain (EVM-6) and
-// the owner's live run (HUMAN-12) do: the Allowance Module cap, and the real signing gate.
+// The Solana attack suite again on the Base Sepolia stub chain, with the EVM codes in place of the
+// Solana ones. What the stub cannot prove, the fork tests in packages/onchain and a live run on
+// Base Sepolia do: the Allowance Module cap, and the real signing gate.
 
 let s: Stack
 let api: PaidApi
@@ -40,7 +40,7 @@ async function refusedFetch(expected: RejectCode[], args: Record<string, unknown
 
 const base = (overrides: Partial<PaymentRequirements> = {}) => offer(overrides, BASE)
 
-describe('malicious 402 responses on Base (INT-6)', () => {
+describe('malicious 402 responses on Base', () => {
   beforeEach(() => start())
 
   it('pays an honest offer, and says it was Base', async () => {
@@ -92,7 +92,7 @@ describe('malicious 402 responses on Base (INT-6)', () => {
   })
 })
 
-describe('attacks the Base adapter catches (INT-6)', () => {
+describe('attacks the Base adapter catches', () => {
   // The EVM adapter's own codes. Detection is proven in packages/onchain (evm-gate and evm-adapter
   // tests, and the fork tests); this proves the codes stop the payment and reach the owner.
   class Hostile extends StubChain {
@@ -147,7 +147,7 @@ describe('attacks the Base adapter catches (INT-6)', () => {
   })
 })
 
-describe('the owner channel on Base (INT-6)', () => {
+describe('the owner channel on Base', () => {
   beforeEach(() => start())
 
   it('asks the owner above the threshold, and redeems the approval once', async () => {

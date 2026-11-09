@@ -41,7 +41,7 @@ export const configSchema = z.object({
   SAFE_ADDRESS: optional(evmAddress),
   /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
   BASE_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
-  // The raw key in the environment is retired (GC-16). Refused rather than ignored, so an old .env
+  // The raw key in the environment is retired. Refused rather than ignored, so an old .env
   // has to lose the key instead of keeping a copy nobody reads.
   HOT_WALLET_PRIVATE_KEY: optional(z.never()),
   /** Only where shared/addresses.ts has no verified value for the chain yet (CR-005). */

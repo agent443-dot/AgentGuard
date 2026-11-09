@@ -27,7 +27,7 @@ const routes = [
   { method: 'POST', url: '/v1/agent/x402/fetch', payload: {} },
 ] as const
 
-describe('revokeAgent (GC-13)', () => {
+describe('revokeAgent', () => {
   it('shuts the token out of every agent route on the next request', async () => {
     const { db, token, app } = await setup()
     const call = (route: (typeof routes)[number]) =>
@@ -51,7 +51,7 @@ describe('revokeAgent (GC-13)', () => {
   })
 })
 
-describe('HOST (GC-12)', () => {
+describe('HOST', () => {
   it('stays on loopback unless set', () => {
     expect(loadConfig(env).HOST).toBe('127.0.0.1')
   })

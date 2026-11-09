@@ -113,7 +113,7 @@ describe('POST /v1/agent/x402/fetch', () => {
   })
 })
 
-describe('malicious 402 responses (GC-10)', () => {
+describe('malicious 402 responses', () => {
   it.each([
     ['the whole balance', offer({ amount: '100000000' }), 'PER_TX_EXCEEDED'],
     [

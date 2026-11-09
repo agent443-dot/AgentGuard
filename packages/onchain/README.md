@@ -4,8 +4,6 @@ The `ChainAdapter` interface guard-core depends on, and its implementations. **N
 the onchain cap is a Squads v4 Spending Limit on Solana and the Safe Allowance Module on Base, both
 audited and already deployed.
 
-- **Owner:** Session 1 (onchain). This session edits only this package.
-- **Tasks:** `SVM-*` and `EVM-*` in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Source of truth:** [`/SPEC.md`](../../SPEC.md).
 
 ## Setting up, end to end
@@ -336,7 +334,7 @@ it there on a different proof (CR-005): the fork test `test_moduleOnSepoliaIsThe
 that its runtime code hash equals the official Base mainnet deployment's. `pnpm check:simulate`
 prints the hash on any chain.
 
-#### Fork tests (EVM-6)
+#### Fork tests
 
 `forge/AllowanceCap.t.sol` proves the same four properties as the Solana cap tests, against the
 official Allowance Module on a Base mainnet fork pinned to a fixed block. A Safe is created through
@@ -368,10 +366,10 @@ with no key, printing only its answer:
 BASE_RPC_URL=https://sepolia.base.org pnpm --filter @agentguard/onchain check:simulate
 ```
 
-### Robinhood Chain (RH-2)
+### Robinhood Chain
 
 The Base adapter serves Robinhood Chain as it is: the same Safe 1.4.1 and Allowance Module 0.1.1, at
-the same addresses with the same code (RH-1, [`docs/robinhood-research.md`](./docs/robinhood-research.md)).
+the same addresses with the same code ([`docs/robinhood-research.md`](./docs/robinhood-research.md)).
 Pass `eip155:46630` (testnet) or `eip155:4663` (mainnet) as the chain. What differs is the token:
 USDG from Paxos, at the one address per chain in `shared/addresses.ts`. Anything else is refused,
 whatever its symbol.
@@ -422,5 +420,5 @@ whatever its symbol.
 
 Do **not** hardcode a guessed address. Read the Allowance Module address from the official Safe
 deployment list and USDC from Circle's official list, then report both in
-[`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md) so the integrator can add them to
+[`/CHANGES_REQUESTED.md`](../../CHANGES_REQUESTED.md) before they are added to
 `packages/shared/src/addresses.ts`.

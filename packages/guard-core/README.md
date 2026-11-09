@@ -3,8 +3,6 @@
 The guard service, and the only component that holds the hot wallet key. It checks every payment
 against the policy, simulates it, asks the owner when needed, and only then signs.
 
-- **Owner:** Session 2 (guard-core). This session edits only this package.
-- **Tasks:** GC-1 .. GC-11 in [`/coordination/BOARD.md`](../../coordination/BOARD.md).
 - **Source of truth:** [`/SPEC.md`](../../SPEC.md): HTTP API, reject codes and the webhook contract.
 
 ## Run it
@@ -54,13 +52,13 @@ the pipeline moves it on.
 
 - **Policy** (`domain/policy.ts`) reports every broken rule, not just the first. A chain with no
   adapter counts as `CHAIN_NOT_ALLOWED`.
-- **Simulation** (GC-2) calls `ChainAdapter.simulate`. Any reject code from the adapter refuses the
+- **Simulation** calls `ChainAdapter.simulate`. Any reject code from the adapter refuses the
   payment, a simulation that throws is `SIM_FAILED`, and a simulation in which the wallet loses more
   of the token than the intent pays is `SIM_UNEXPECTED_EFFECT` on every chain.
 - **Owner approval**: at or above `approvalThreshold`, the intent is saved as `pending_approval`
   before the webhook goes out. Approval answers the threshold only: policy and simulation run again
   right before anything is sent, so a pause or a spent budget in the meantime still refuses it.
-- **Top-up** (GC-5): if the hot wallet holds less than the payment, the shortfall is pulled with
+- **Top-up**: if the hot wallet holds less than the payment, the shortfall is pulled with
   `ChainAdapter.topUpHotWallet`, under the onchain cap.
 - **Spend** is counted once a signed transaction leaves our hands, whether or not we hear that it
   landed. Overcounting only shrinks the day's budget; undercounting would let the agent past it.
@@ -132,8 +130,9 @@ without its payload.
 
 ## Known gaps
 
-- Nothing here has paid on devnet yet: the routes are tested end to end against
-  `adapters/stub.ts`, and onchain's adapter has its own tests. INT-3 runs them together.
+- The routes are tested end to end against `adapters/stub.ts`, and onchain's adapters have their
+  own tests. Live payments ran on Solana devnet, Base Sepolia and Robinhood Chain mainnet; the
+  open items are in [`docs/security-review.md`](../../docs/security-review.md).
 
 ## Layout
 
@@ -182,7 +181,7 @@ Env vars are documented in [`.env.example`](./.env.example).
 `Dockerfile` and `fly.toml` run guard-core as one machine, `agentguard-guard-core`, in the same org
 and region (`gru`) as the bot (`agentguard-bot`, see its README):
 
-- **Two listeners** (GC-22), each with only its own routes registered:
+- **Two listeners**, each with only its own routes registered:
   - **public**, `0.0.0.0:8080` behind Fly's TLS (`force_https`): `/v1/agent/*` and `/health`,
     nothing else. Agents call `https://agentguard-guard-core.fly.dev/v1/agent/...`. The per-IP
     limit keys on `Fly-Client-IP`, the real client, believed on this listener only.

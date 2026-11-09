@@ -8,14 +8,12 @@ import * as schema from './schema.js'
 
 export type Db = ReturnType<typeof openDb>
 
-/**
- * `url` follows the DATABASE_URL form "file:./data/guard.db"; ":memory:" is accepted for tests.
- * WAL keeps the expiry sweep from blocking writes on the request path.
- */
+/** `url` follows the DATABASE_URL form "file:./data/guard.db"; ":memory:" is accepted for tests. */
 export function dbFile(url: string): string {
   return url.startsWith('file:') ? url.slice('file:'.length) : url
 }
 
+/** WAL keeps the expiry sweep from blocking writes on the request path. */
 export function openDb(url: string) {
   const file = dbFile(url)
   if (file !== ':memory:') {

@@ -99,7 +99,7 @@ describe('POST /v1/agent/transfer', () => {
   })
 })
 
-describe('simulation gate (GC-2)', () => {
+describe('simulation gate', () => {
   it('rejects with the adapter codes and sends nothing', async () => {
     vi.spyOn(h.chain, 'simulate').mockResolvedValue({
       simulation: { summary: 'approve', balanceChanges: [] },
@@ -206,7 +206,7 @@ describe('owner approval', () => {
   })
 })
 
-describe('hot wallet top-up (GC-5)', () => {
+describe('hot wallet top-up', () => {
   it('pulls the shortfall from the vault before sending', async () => {
     h.chain.balance = 400_000n
     const res = await h.agent('POST', '/v1/agent/transfer', transfer('1000000'))

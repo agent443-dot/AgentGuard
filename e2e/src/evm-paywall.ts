@@ -30,7 +30,7 @@ import { z } from 'zod'
 // The EVM counterpart of devnet-paywall.ts: a paid API that is its own facilitator. It verifies the
 // EIP-3009 authorization the guard signed and settles it itself, so the x402 path is proven without
 // trusting a public endpoint. The fee payer needs the chain's ETH. PAYWALL_EVM_CHAIN picks Base
-// Sepolia (HUMAN-12), Robinhood Chain testnet (CR-007) or Robinhood Chain mainnet for the owner's
+// Sepolia, Robinhood Chain testnet (CR-007) or Robinhood Chain mainnet for the owner's
 // real-money pilot, which pays real USDG to PAYWALL_ROBINHOOD_PAY_TO: the owner's own address.
 
 const address = z.string().refine((value) => isAddress(value), 'not an EVM address')
@@ -185,7 +185,8 @@ function feePayerKey(): Hex {
 
 /**
  * The EIP-712 domain the guard must sign under, taken from the token and proven against its own
- * DOMAIN_SEPARATOR. USDC reports its version; USDG has no version() and uses "1" (RH-1).
+ * DOMAIN_SEPARATOR. USDC reports its version; USDG has no version() and uses "1", as the chain
+ * confirms.
  */
 async function tokenDomain(): Promise<{ name: string; version: string }> {
   const name = await client.readContract({ address: token, abi: tokenAbi, functionName: 'name' })
