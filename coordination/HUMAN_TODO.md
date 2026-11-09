@@ -79,8 +79,7 @@ abandonado e vazio. O script passou a recusar-se a criar um segundo.
 
 ## ✅ HUMAN-1 — Criar o repositório e dar-me acesso
 
-Feito. O repositório é agora `agent443-dot/AgentGuard` (antes `kikume/AgentGuard`; os links antigos
-redirecionam) e esta sessão já tem acesso de escrita. O branch `main` já
+Feito. O repositório é `agent443-dot/AgentGuard` e esta sessão já tem acesso de escrita. O branch `main` já
 existe e é a base de onde as sessões abrem os `feat/<role>`.
 
 ---
@@ -890,7 +889,7 @@ constrói a transação, mostra-te o que vais assinar e passa-a à Phantom.
 Fica num **projeto Vercel só dela**, separado da landing page, para que nenhuma mudança no site de
 marketing possa tocar no que tu assinas.
 
-1. Em [vercel.com/new](https://vercel.com/new), importa o repositório `kikume/AgentGuard` outra vez,
+1. Em [vercel.com/new](https://vercel.com/new), importa o repositório `agent443-dot/AgentGuard` outra vez,
    como um **projeto novo** (não mexas no projeto da landing page).
 2. Nome do projeto: `agentguard-sign`. Em **Root Directory** escolhe `packages/onchain/web`. Deixa o
    resto como está — o `vercel.json` da pasta já define a instalação, o build e os cabeçalhos de
