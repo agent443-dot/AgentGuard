@@ -4,7 +4,7 @@
 // Usage: node marketing/x/assets/_src/render.cjs [day-NN ...]   (no args renders everything)
 const path = require('path')
 const { chromium } = require('playwright')
-const cards = require('./cards.cjs')
+const cards = [...require('./cards.cjs'), ...require('./cards-2.cjs')]
 
 const here = __dirname
 const assets = path.resolve(here, '..')
