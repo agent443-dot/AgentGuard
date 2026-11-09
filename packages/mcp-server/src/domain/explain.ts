@@ -41,7 +41,7 @@ const NEXT_STEP: Record<IntentStatus, string> = {
 
 /**
  * An x402 payment can only deliver its response to the agent's own request, so an approval is not
- * the end of it: the agent has to repeat the call to redeem it (CR-003).
+ * the end of it: the agent has to repeat the call to redeem it.
  */
 const X402_NEXT_STEP: Partial<Record<IntentStatus, string>> = {
   pending_approval:

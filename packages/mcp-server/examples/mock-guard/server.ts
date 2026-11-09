@@ -13,7 +13,7 @@ import { CHAINS } from '@agentguard/shared'
  *   paid with a fake payment header; under a "/premium" path it costs $2.00 and needs approval.
  * - transfer to a recipient outside `allowedRecipients` is rejected; $1.00 or more needs approval.
  * - after `approveAfterMs` a pending transfer executes, and a pending x402 payment becomes approved.
- *   Repeating the same fetch then redeems that approval once, as CR-003 specifies.
+ *   Repeating the same fetch then redeems that approval once, as guard-core does.
  */
 export interface MockGuardOptions {
   agentId: string

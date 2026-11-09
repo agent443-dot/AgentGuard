@@ -291,7 +291,7 @@ worth retrying unchanged.
 The config is validated at startup; a bad value stops the server with the field name, never the
 value. Logs never contain the tokens. At startup the server also reads the budget, and warns if
 `DEFAULT_CHAIN` is not among the chains guard-core runs and this agent may pay on (`chains` in the
-budget, CR-006), or if `DEFAULT_CHAIN` has no dollar token. It warns rather than refuses to start:
+budget), or if `DEFAULT_CHAIN` has no dollar token. It warns rather than refuses to start:
 guard-core may be down at that moment. Against a guard-core that does not report `chains`, the check
 is skipped.
 

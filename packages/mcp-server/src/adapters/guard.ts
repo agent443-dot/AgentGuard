@@ -14,7 +14,7 @@ const rejectReasons = z.array(z.string()).default([])
 
 export const fetchResult = z
   .object({
-    // CR-003: both are absent when the resource asked for no payment, and intentId is absent when the
+    // Both are absent when the resource asked for no payment, and intentId is absent when the
     // host was refused before an intent existed.
     intentId: z.string().optional(),
     status: intentStatus.optional(),
@@ -42,7 +42,7 @@ export const budget = z.object({
   perTxMax: z.string(),
   hotWalletBalances: z.record(z.string(), z.string()).default({}),
   paused: z.boolean(),
-  // CR-006. Absent means "not reported", per the shared type.
+  // Absent means "not reported", per the shared type.
   chains: z.array(z.string()).optional(),
 }) satisfies z.ZodType<BudgetView>
 

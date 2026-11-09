@@ -79,7 +79,7 @@ describe('httpGuard', () => {
     expect(error.message).toMatch(message)
   })
 
-  it('reads the CR-006 chains from the budget, and accepts a budget without them', async () => {
+  it('reads the allowed chains from the budget, and accepts a budget without them', async () => {
     expect(
       (await stub(200, { ...budget, chains: ['eip155:84532'] }).guard.budget()).chains,
     ).toEqual(['eip155:84532'])
