@@ -1,0 +1,28 @@
+{
+  "name": "create-agentguard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Setup wizard: from nothing to a running self-hosted AgentGuard on Fly.io and Vercel.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "create-agentguard": "./bin/create-agentguard.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@agentguard/shared": "workspace:*",
+    "@solana/web3.js": "^1.99.0",
+    "tsx": "^4.23.15",
+    "viem": "^2.57.16",
+    "zod": "^4.6.7"
+  }
+}
