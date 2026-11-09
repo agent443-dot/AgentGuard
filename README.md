@@ -88,7 +88,7 @@ first branch pushed to an empty repository and only an account with admin rights
 plain `git clone` lands on the wrong branch. Until the default is switched, clone with `main` explicit:
 
 ```bash
-git clone -b main https://github.com/kikume/AgentGuard.git
+git clone -b main https://github.com/agent443-dot/AgentGuard.git
 ```
 
 In a clone you already have, `git checkout main` is enough — the two branches currently point at the

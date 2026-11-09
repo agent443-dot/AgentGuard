@@ -36,7 +36,7 @@ stops guard-core, and one Phantom signature then removes the onchain cap.
 ## 1. Clone and check
 
 ```bash
-git clone https://github.com/kikume/AgentGuard.git ~/AgentGuard
+git clone https://github.com/agent443-dot/AgentGuard.git ~/AgentGuard
 cd ~/AgentGuard && pnpm install && pnpm check
 ```
 
