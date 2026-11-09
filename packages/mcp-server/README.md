@@ -13,9 +13,11 @@ Source of truth: [`/SPEC.md`](../../SPEC.md).
 One command prints what to paste into your MCP client:
 
 ```bash
-npx @agentguard/mcp-server setup claude-code     # or claude-desktop, cursor, generic
-pnpm --filter @agentguard/mcp-server run setup claude-code   # from a checkout, until it is on npm
+pnpm --filter @agentguard/mcp-server run setup claude-code   # or claude-desktop, cursor, generic
 ```
+
+Run it from a checkout with dependencies installed; the config it prints starts the server from that
+checkout. Once the package is on npm, `npx @agentguard/mcp-server setup <client>` will do the same.
 
 It asks for the AgentGuard URL and the agent id (or takes `--guard-url` and `--agent-id`), then for
 the agent token at a hidden prompt; piped in, the first line of stdin is the token. The token is
