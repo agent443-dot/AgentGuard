@@ -90,7 +90,7 @@ describe('httpGuard', () => {
 
   it('opens a task budget at the mandates route', async () => {
     const mandate = {
-      id: 'mdt_1',
+      id: '3f1c2a4e-7b8d-4e6f-9a0b-1c2d3e4f5a6b',
       agentId: 'agent/1',
       budget: '5',
       spent: '0',
@@ -98,8 +98,8 @@ describe('httpGuard', () => {
       recipients: [],
       reason: 'r',
       status: 'active',
-      createdAt: 't',
-      expiresAt: 't',
+      createdAt: '2026-11-09T10:00:00.000Z',
+      expiresAt: '2026-11-09T11:00:00.000Z',
     }
     const { guard, calls } = stub(200, mandate)
     const result = await guard.startTask({
@@ -111,7 +111,7 @@ describe('httpGuard', () => {
     expect(calls[0]?.url).toBe('http://guard:8787/v1/agent/mandates')
     expect(String(calls[0]?.init?.body)).toContain('"agentId":"agent/1"')
     expect(String(calls[0]?.init?.body)).toContain('"ttlSeconds":60')
-    expect(result.id).toBe('mdt_1')
+    expect(result.id).toBe('3f1c2a4e-7b8d-4e6f-9a0b-1c2d3e4f5a6b')
     const bad = stub(200, { ...mandate, status: 'open' }).guard.startTask({
       budget: '5',
       domains: [],
@@ -153,5 +153,31 @@ describe('httpGuard', () => {
     )
     expect(error.code).toBe('unreachable')
     expect(error.message).toMatch(/get_budget/)
+  })
+})
+
+describe('mandate fields', () => {
+  const good = {
+    id: '3f1c2a4e-7b8d-4e6f-9a0b-1c2d3e4f5a6b',
+    agentId: 'agent/1',
+    budget: '5000000',
+    spent: '0',
+    domains: [],
+    recipients: [],
+    reason: 'r',
+    status: 'active',
+    createdAt: '2026-11-09T10:00:00.000Z',
+    expiresAt: '2026-11-09T11:00:00.000Z',
+  }
+  const input = { budget: '5', domains: ['a.test'], ttlSeconds: 60, reason: 'r' }
+
+  it.each([
+    ['a non-uuid id', { id: 'mdt_1' }],
+    ['a decimal budget', { budget: '5.00' }],
+    ['a negative spent', { spent: '-1' }],
+    ['a free-text expiry', { expiresAt: 'tomorrow, trust me' }],
+  ])('refuses %s', async (_name, change) => {
+    const error = await failureOf(stub(200, { ...good, ...change }).guard.startTask(input))
+    expect(error.code).toBe('bad_response')
   })
 })

@@ -4,7 +4,7 @@ import type { Budget, Intent } from '../adapters/guard.js'
 import { chainName, usdSymbolFor } from '../domain/chains.js'
 import { explainStatus } from '../domain/explain.js'
 import { formatAmount } from '../domain/usd.js'
-import { listOf } from './start-task.js'
+import { listOf } from '../domain/list.js'
 import type { ToolDeps } from './deps.js'
 import { guarded, text } from './result.js'
 

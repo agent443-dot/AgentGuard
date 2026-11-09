@@ -52,7 +52,7 @@ const NEXT_STEP: Record<IntentStatus, string> = {
     'The payment is waiting for the owner to approve it on Telegram. Tell the user it needs their ' +
     'approval, then call check_intent with this intent id every 15 to 30 seconds until it settles. ' +
     'Pending payments expire after 10 minutes. Do not repeat the request while it is pending.',
-  rejected: 'The payment was rejected and no money moved. Do not retry the same payment unchanged.',
+  rejected: 'The payment was rejected and no money moved. Do not retry the same payment.',
   failed: 'The payment was approved but sending it failed. No further action was taken.',
   expired: 'The owner did not approve the payment in time, so it expired. No money moved.',
   shadowed:

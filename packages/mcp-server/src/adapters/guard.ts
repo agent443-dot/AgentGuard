@@ -37,17 +37,20 @@ export const transferResult = z.object({
   rejectReasons,
 })
 
+/** An integer count of atomic units, as guard-core sends amounts. */
+const atomic = z.string().regex(/^\d{1,40}$/)
+
 export const mandate = z.object({
-  id: z.string(),
+  id: z.uuid(),
   agentId: z.string(),
-  budget: z.string(),
-  spent: z.string(),
+  budget: atomic,
+  spent: atomic,
   domains: z.array(z.string()),
   recipients: z.array(z.string()),
   reason: z.string(),
   status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
-  createdAt: z.string(),
-  expiresAt: z.string(),
+  createdAt: z.iso.datetime({ offset: true }),
+  expiresAt: z.iso.datetime({ offset: true }),
 }) satisfies z.ZodType<Mandate>
 
 /** Only what proves a receipt exists; the agent has no use for the rest. */

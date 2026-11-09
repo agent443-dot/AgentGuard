@@ -1,13 +1,14 @@
 import type { Mandate } from '@agentguard/shared'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { listOf } from '../domain/list.js'
 import { formatAmount, formatUsd, parseUsd } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
 import { failure, guarded, text } from './result.js'
 
 const DESCRIPTION = `Open a task budget before a task that will need payments: a dollar amount the task may spend, the websites and transfer recipients it may pay, and how long it lasts.
 Open one budget per task, not one per payment, and pass its mandateId to every paid_fetch and transfer for that task. Payments must also fit the owner's policy; a budget never raises it.
-A large budget may need the owner's approval first: if the result says pending_approval, tell the user, then call get_budget until the budget is listed as open. Do not pay with it before then.`
+A large budget may need the owner's approval first: if the result says pending_approval, tell the user, then call get_budget every 15 to 30 seconds until the budget is listed as open. Do not pay with it before then. If it is still not open after 10 minutes, stop checking and tell the user.`
 
 /** A day: long enough for one task, short enough that a forgotten budget does not linger. */
 const MAX_MINUTES = 24 * 60
@@ -82,9 +83,10 @@ const NEXT_STEP: Record<Mandate['status'], string> = {
   active: 'Pass this mandateId to every paid_fetch and transfer for this task.',
   pending_approval:
     'The owner must approve this budget on Telegram first. Tell the user, then call get_budget ' +
-    'until it is listed as open. Do not pay with it before then.',
+    'every 15 to 30 seconds until it is listed as open. Do not pay with it before then. If it is ' +
+    'still not open after 10 minutes, stop checking and tell the user.',
   exhausted: 'This budget is already spent. Open a new one only if the user asks for more.',
-  expired: 'This budget has expired. Open a new one for the remaining work.',
+  expired: 'This budget has expired. Open a new one only if the user still wants the task done.',
   revoked: 'The owner closed this budget. Stop the task and tell the user.',
 }
 
@@ -97,11 +99,4 @@ function describeMandate(mandate: Mandate, asked: string): string {
     `Expires ${mandate.expiresAt}.`,
     NEXT_STEP[mandate.status],
   ].join('\n')
-}
-
-/** guard-core's echo of agent-supplied values is still shown bounded, never in full. */
-export function listOf(values: readonly string[], max = 10): string {
-  const shown = values.slice(0, max).map((value) => value.slice(0, 253))
-  const more = values.length > max ? ` and ${values.length - max} more` : ''
-  return shown.length === 0 ? 'no websites' : `${shown.join(', ')}${more}`
 }
