@@ -82,7 +82,7 @@ export const payIntent = z.object({
 
 export type FetchResult = z.infer<typeof fetchResult>
 export type TransferResult = z.infer<typeof transferResult>
-export type Budget = z.infer<typeof budget>
+export type Budget = BudgetView
 export type Intent = z.infer<typeof payIntent>
 
 export interface FetchInput {
