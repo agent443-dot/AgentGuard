@@ -47,6 +47,7 @@ export function fakeGuard(overrides: Partial<Guard>): Guard {
     budget: unexpected,
     intent: unexpected,
     startTask: unexpected,
+    hasReceipt: () => Promise.resolve(false),
     ...overrides,
   }
 }

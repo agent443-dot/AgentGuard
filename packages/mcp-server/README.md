@@ -234,13 +234,13 @@ owner has 10 minutes to answer on Telegram.
 3. Do **not** repeat the payment while it is pending.
 4. Act on the outcome:
 
-| Status     | `transfer`                              | `paid_fetch`                                                                                                                             |
-| ---------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `approved` | Being sent; keep polling                | Call `paid_fetch` again with **exactly** the same url, method, headers and body. That redeems the approval once and returns the response |
-| `executed` | Done; the result has the transaction id | Done                                                                                                                                     |
-| `rejected` | The owner said no; do not retry         | The owner said no; do not retry                                                                                                          |
-| `expired`  | No answer in time; nothing moved        | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
-| `failed`   | Approved, but sending failed            | Approved, but paying failed                                                                                                              |
+| Status     | `transfer`                                                                          | `paid_fetch`                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `approved` | Being sent; keep polling                                                            | Call `paid_fetch` again with **exactly** the same url, method, headers and body. That redeems the approval once and returns the response |
+| `executed` | Done; the result has the transaction id, and notes a signed receipt if there is one | Done                                                                                                                                     |
+| `rejected` | The owner said no; do not retry                                                     | The owner said no; do not retry                                                                                                          |
+| `expired`  | No answer in time; nothing moved                                                    | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
+| `failed`   | Approved, but sending failed                                                        | Approved, but paying failed                                                                                                              |
 
 The tool results already tell the model this. A client that drives the tools without a model should
 follow the same steps; [`examples/demo-agent`](./examples/demo-agent/index.ts) does.

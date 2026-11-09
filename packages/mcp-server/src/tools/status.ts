@@ -37,8 +37,23 @@ export function registerStatusTools(server: McpServer, { guard, log }: ToolDeps)
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    ({ intentId }) => guarded(log, async () => text(describeIntent(await guard.intent(intentId)))),
+    ({ intentId }) =>
+      guarded(log, async () => {
+        const intent = await guard.intent(intentId)
+        const receipt = intent.status === 'executed' && (await receiptExists(intentId))
+        return text(describeIntent(intent, receipt))
+      }),
   )
+
+  /** A receipt is a footnote: if guard-core cannot say, the intent's own outcome still stands. */
+  async function receiptExists(intentId: string): Promise<boolean> {
+    try {
+      return await guard.hasReceipt(intentId)
+    } catch (error) {
+      log.warn({ err: error }, 'could not check for a receipt')
+      return false
+    }
+  }
 }
 
 function describeBudget(budget: Budget): string {
@@ -87,7 +102,7 @@ function describeBudget(budget: Budget): string {
   return lines.join('\n')
 }
 
-function describeIntent(intent: Intent): string {
+function describeIntent(intent: Intent, receipt: boolean): string {
   const target =
     intent.kind === 'x402'
       ? `x402 payment to ${intent.domain ?? intent.recipient}`
@@ -101,5 +116,10 @@ function describeIntent(intent: Intent): string {
     lines.push(`Transaction id: ${intent.txId}`)
   }
   lines.push(explainStatus(intent.status, intent.rejectReasons, intent.kind))
+  if (receipt) {
+    lines.push(
+      `AgentGuard holds a signed receipt for this payment (intent ${intent.id}). It is for the owner's records; you do not need it.`,
+    )
+  }
   return lines.join('\n')
 }

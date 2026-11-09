@@ -49,6 +49,9 @@ export const mandate = z.object({
   expiresAt: z.string(),
 }) satisfies z.ZodType<Mandate>
 
+/** Only what proves a receipt exists; the agent has no use for the rest. */
+const receipt = z.object({ signature: z.string().min(1) })
+
 export const budget = z.object({
   spentToday: z.string(),
   dailyMax: z.string(),
@@ -113,6 +116,8 @@ export interface Guard {
   budget(): Promise<Budget>
   intent(id: string): Promise<Intent>
   startTask(input: MandateInput): Promise<Mandate>
+  /** Whether guard-core holds a signed receipt for the intent. Its content is for the owner. */
+  hasReceipt(id: string): Promise<boolean>
 }
 
 /** A guard-core call that did not produce a usable answer. `message` is safe to show the model. */
@@ -176,6 +181,17 @@ export function httpGuard(options: HttpGuardOptions): Guard {
     budget: () => call(budget, `/v1/agent/budget/${agent}`),
     intent: (id) => call(payIntent, `/v1/agent/intents/${encodeURIComponent(id)}`),
     startTask: (input) => call(mandate, '/v1/agent/mandates', { agentId, ...input }),
+    hasReceipt: (id) =>
+      call(receipt, `/v1/agent/intents/${encodeURIComponent(id)}/receipt`).then(
+        () => true,
+        (error: unknown) => {
+          // 404 is the documented answer until the intent is executed.
+          if (error instanceof GuardError && error.httpStatus === 404) {
+            return false
+          }
+          throw error
+        },
+      ),
   }
 }
 
