@@ -350,6 +350,7 @@ describe('/passkey enrol', () => {
     expect(text(link)).toBe(
       'Open this on the device that holds your passkey, once, before 2026-11-03 12:10:00 UTC:\n' +
         'https://guard.example/owner/enrol#code=enrol-code-123456\n' +
+        'A code adds your first passkey only; a later one also needs a passkey you already have.\n' +
         'This message deletes itself in 10 minutes.',
     )
     expect(lines.join('')).not.toContain('enrol-code-123456')

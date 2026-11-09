@@ -142,7 +142,9 @@ export function registerOwner(
       try {
         const sent = await ctx.reply(
           `Open this on the device that holds your passkey, once, before ${utcTime(expiresAt)}:\n` +
-            `${escapeHtml(link)}\nThis message deletes itself in 10 minutes.`,
+            `${escapeHtml(link)}\n` +
+            'A code adds your first passkey only; a later one also needs a passkey you already have.\n' +
+            'This message deletes itself in 10 minutes.',
           { ...HTML, link_preview_options: { is_disabled: true } },
         )
         secrets.push({
