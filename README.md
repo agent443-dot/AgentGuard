@@ -4,19 +4,28 @@ A security layer between AI agents and their wallets. An agent can only pay thro
 payment is checked against a policy, simulated, and then auto-approved, sent to the owner on Telegram
 for approval, or rejected.
 
-Funds stay in the owner's **Safe**. The onchain spend limit is enforced by the audited **Safe Allowance
-Module** — there is no custom contract in v0.1. The agent never holds a key: the Guard service signs,
-and only after the checks pass.
+Funds stay in a vault the owner alone controls: a **Squads multisig** on Solana, a **Safe** on EVM
+chains. An audited onchain spend limit lets the guard's hot wallet draw at most a daily cap from it:
+the Squads Spending Limit on Solana, the Safe Allowance Module on EVM chains. There is no custom
+contract. The agent never holds a key: guard-core signs, and only after the checks pass. The owner
+approves and kills from Telegram, and signs vault changes in Phantom.
 
 ```
-Owner Safe (holds funds)
-  └─ Safe Allowance Module: delegate = Guard hot wallet, token = USDC, dailyCap, resetTimeMin = 1440
-       └─ Guard hot wallet (small balance, key held ONLY by guard-core)
+Owner vault (Squads multisig or Safe, owned by the owner's Phantom wallet)
+  └─ onchain daily cap: delegate = guard hot wallet, token = the chain's dollar, 24h period
+       └─ guard hot wallet (small balance, key held ONLY by guard-core)
             └─ pays x402 APIs / transfers, after policy + simulation + (optional) human approval
 ```
 
-Maximum loss per day is capped onchain at `dailyCap` plus whatever sits in the hot wallet, even if the
-offchain Guard has a bug.
+The most a day can cost is capped onchain at the daily cap plus whatever sits in the hot wallet,
+even if the offchain guard has a bug.
+
+Launch chains: Solana and Robinhood Chain mainnet (USDG). Base Sepolia is for development, and Base
+mainnet comes next.
+
+**Run your own:** [`docs/self-host.md`](./docs/self-host.md). **Connect an agent:** "For agent
+builders" in [`packages/mcp-server/README.md`](./packages/mcp-server/README.md). **Report a
+vulnerability:** [`SECURITY.md`](./SECURITY.md).
 
 ## Read these first
 
@@ -30,7 +39,7 @@ offchain Guard has a bug.
 | Package                                            | Owner      | What it does                                                 |
 | -------------------------------------------------- | ---------- | ------------------------------------------------------------ |
 | [`packages/shared`](./packages/shared)             | integrator | Types, zod schemas, verified addresses, constants            |
-| [`packages/onchain`](./packages/onchain)           | Session 1  | Safe + Allowance Module scripts, Foundry fork tests          |
+| [`packages/onchain`](./packages/onchain)           | Session 1  | Squads and Safe adapters, signing page, fork tests           |
 | [`packages/guard-core`](./packages/guard-core)     | Session 2  | Policy engine, simulation, signer, x402 client, HTTP API, DB |
 | [`packages/mcp-server`](./packages/mcp-server)     | Session 3  | MCP server exposing payment tools to agents                  |
 | [`packages/telegram-bot`](./packages/telegram-bot) | Session 4  | Owner approvals and kill switch                              |
@@ -91,5 +100,13 @@ Per-package commands: `pnpm --filter @agentguard/guard-core test`.
 
 ## Status
 
-Scaffold. The packages are empty skeletons; implementation is tracked in
-[`coordination/BOARD.md`](./coordination/BOARD.md).
+Pre-launch. A real-money pilot ran on Robinhood Chain mainnet on 2026-11-09, end to end: a Safe, an
+allowance, an x402 payment and the kill. Solana ran on devnet the same way, and its mainnet setup is
+next. Open work, and what has to
+happen before caps go up, are in [`LAUNCH.md`](./LAUNCH.md). The task board is
+[`coordination/BOARD.md`](./coordination/BOARD.md). AI sessions build this repository under the rules
+in [`CLAUDE.md`](./CLAUDE.md), and `coordination/` is their shared workspace.
+
+## License
+
+[Apache-2.0](./LICENSE).

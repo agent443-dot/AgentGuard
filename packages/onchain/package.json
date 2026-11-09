@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "ChainAdapter for Solana (Squads v4) and Base (Safe Allowance Module).",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

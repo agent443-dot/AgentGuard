@@ -16,6 +16,8 @@ Made by the owner on 2026-11-05, in the integrator session. None of these can be
 | D4  | **Owner key custody**                                                                    | **Phantom**, a software wallet: the owner's choice, against the recommendation of a hardware wallet. The owner key can move the whole vault, so it stays in Phantom and is **never exported to a file**. The owner signs its operations through Phantom, not through this repo's scripts. See the D4 blocker in §2.                                                                                              | **decided, risk accepted** |
 | D5  | **Hot wallet key storage**                                                               | **Fly.io secrets**, written to an in-memory file at startup, delivered as `SOLANA_HOT_WALLET_KEYPAIR`. KMS later, when the cap rises.                                                                                                                                                                                                                                                                            | **decided**                |
 | D6  | **Chain order**                                                                          | **Solana and Robinhood Chain together at launch, then Base.** Changed by the owner on 2026-11-09 after the Robinhood Chain mainnet pilot (HUMAN-21) proved its path with real money: Safe, allowance, x402 payment, kill. Before that: Solana first, then Robinhood Chain (2026-11-07, CR-007), then Base. Robinhood Chain's dollar is USDG. Its Allowance Module lets the delegate send to any address (below). | **decided**                |
+| D7  | **Launch model**                                                                         | **Open source, self-hosted.** Anyone runs their own AgentGuard, with their own vault, Phantom wallet, bot and signing page ([`docs/self-host.md`](docs/self-host.md)). The owner's deployment serves only the owner. A hosted service with one vault per customer is a later product: it needs a CR (SPEC is single-owner) and a legal review. Decided by the owner on 2026-11-09.                               | **decided**                |
+| D8  | **License**                                                                              | **Apache-2.0**, in `LICENSE` and every `package.json`. Decided by the owner on 2026-11-09.                                                                                                                                                                                                                                                                                                                       | **decided**                |
 
 **Base differs from Solana in where the daily allowance can go.** On Solana, the spending limit's
 only destination is the hot wallet: a stolen hot-wallet key can only draw the day's cap into the hot
@@ -231,6 +233,17 @@ Each line can be checked by someone other than its author.
   - Landing page: a draft in `site/` (#34, #36). Its repo links say "coming soon" until the repo is
     public.
   - Bug bounty: not started.
+- [ ] **Open-source release (D7, D8).** Done in the repository: `LICENSE`, `SECURITY.md`,
+      `docs/self-host.md`, and the README rewritten for outside readers. A scan of all 494 commits
+      found no key, token or keypair (2026-11-09). Left for the owner, in GitHub settings, in this
+      order:
+  1. make `main` the default branch;
+  2. protect `main`: PRs only, green CI, no force-push;
+  3. turn on private vulnerability reporting, secret scanning and push protection;
+  4. flip the repository to **public**, last.
+
+  Commit author emails become public with the history.
+
 - [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
 
 ## 3. Deployment shape
