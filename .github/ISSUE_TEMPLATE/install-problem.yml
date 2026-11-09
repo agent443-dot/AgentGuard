@@ -1,0 +1,38 @@
+name: Install problem (beta)
+description: The wizard or the self-host guide stopped, or a step was unclear.
+labels: [beta, install]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying the beta. **Never paste a private key, a recovery phrase, a token or an RPC URL with its key here.** For a security problem, use the private report in SECURITY.md instead.
+  - type: dropdown
+    id: path
+    attributes:
+      label: How were you installing?
+      options:
+        - The wizard (create-agentguard)
+        - By hand, with docs/self-host.md
+        - docker-compose
+    validations:
+      required: true
+  - type: input
+    id: step
+    attributes:
+      label: Where did it stop?
+      description: The wizard's step number and title, or the guide's section.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran and the message you got, with any secrets removed.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Your system
+      description: e.g. Ubuntu 24.04 on WSL2, macOS 15. Node and pnpm versions.

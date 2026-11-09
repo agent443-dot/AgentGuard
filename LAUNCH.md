@@ -300,6 +300,11 @@ Each line can be checked by someone other than its author.
       pre-release review's fixes: "pode lançar" (go ahead and launch). Robinhood Chain launches with
       it; Solana follows on 2026-11-10 (D6).
 
+- [x] **Public beta, v0.1.0-beta.** Released on 2026-11-09 as a GitHub pre-release, with the notes
+      in `CHANGELOG.md`. The README has "Install the beta", the website says "Public beta", and
+      install problems have an issue form. The owner chose to launch without a fresh install on a
+      new account first, so the first users' reports are that test: triage them first.
+
 ## 3. Deployment shape
 
 From `packages/guard-core/fly.toml` and `packages/telegram-bot/fly.toml` (#83, #86). Two Fly apps in

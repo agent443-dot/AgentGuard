@@ -48,6 +48,8 @@ it live with `/mode <agent> live` in Telegram. Then connect the agent from the s
 
 - The same setup by hand: [`docs/self-host.md`](./docs/self-host.md) (em português:
   [`docs/self-host.pt-BR.md`](./docs/self-host.pt-BR.md)).
+- How it works and what it protects against: the technical whitepaper,
+  [`docs/whitepaper.md`](./docs/whitepaper.md).
 - When something goes wrong: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
 - Connect an agent: "For agent builders" in
   [`packages/mcp-server/README.md`](./packages/mcp-server/README.md).

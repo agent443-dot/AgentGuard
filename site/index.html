@@ -233,7 +233,8 @@
       }
       .nav-links {
         display: flex;
-        gap: 34px;
+        gap: 26px;
+        white-space: nowrap;
         font-size: 14.5px;
         color: var(--muted);
       }
@@ -268,9 +269,16 @@
         background: var(--amber);
         box-shadow: 0 0 10px var(--amber);
       }
-      @media (max-width: 960px) {
-        .nav-links,
+      @media (max-width: 1100px) {
         .status-pill {
+          display: none;
+        }
+        .nav-links {
+          gap: 20px;
+        }
+      }
+      @media (max-width: 960px) {
+        .nav-links {
           display: none;
         }
       }
@@ -1666,11 +1674,18 @@
           <a href="#developers">Developers</a>
           <a href="#chains">Chains</a>
           <a href="#roadmap">Roadmap</a>
+          <a
+            href="https://github.com/agent443-dot/AgentGuard/blob/main/docs/whitepaper.md"
+            target="_blank"
+            rel="noopener"
+            >Whitepaper</a
+          >
+          <a href="https://github.com/agent443-dot/AgentGuard" target="_blank" rel="noopener"
+            >GitHub</a
+          >
         </nav>
         <div class="nav-cta">
-          <span class="status-pill"
-            ><span class="dot"></span>Public beta · Robinhood Chain and Solana</span
-          >
+          <span class="status-pill"><span class="dot"></span>Public beta</span>
           <a class="btn btn-primary" href="#how">See it in action</a>
         </div>
       </div>
@@ -2639,6 +2654,11 @@
                   />
                 </svg>
               </a>
+              <a
+                class="btn btn-ghost"
+                href="https://github.com/agent443-dot/AgentGuard/blob/main/docs/whitepaper.md"
+                >Whitepaper</a
+              >
               <a class="btn btn-ghost" href="https://github.com/agent443-dot/AgentGuard">GitHub</a>
             </div>
           </div>
@@ -2722,6 +2742,14 @@
                   target="_blank"
                   rel="noopener"
                   >Self-host guide</a
+                >
+              </li>
+              <li>
+                <a
+                  href="https://github.com/agent443-dot/AgentGuard/blob/main/docs/whitepaper.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Whitepaper</a
                 >
               </li>
               <li>
