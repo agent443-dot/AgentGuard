@@ -79,11 +79,25 @@ vault. The rest of this note follows from that.
   an x402 requirement's `payTo` against the registered one. A domain whose server is compromised
   can't then redirect payments without also controlling the provider key.
 
-**Stake in USDG, not the governance token.** A bond in a stable asset has a predictable cost to the
-lister and a predictable value to slash. A bond in the token makes the bond's value follow the token
-price. It also gives token holders an incentive to slash for profit. The governance token can still
-earn holder benefits, such as a lower listing fee or a share of the slashed funds, without being the
-bond.
+**What the stake is made of.** The stake choice decides who profits from a slash and what a
+bond is worth. It also decides whether the token has a real use. Three options:
+
+|                     | (i) USDG only                                                                                   | (ii) Token only                                                                                                                                                    | (iii) USDG bond + a minimum token stake                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| What is slashed     | USDG                                                                                            | The token                                                                                                                                                          | USDG only. The token stake is returned on exit and never slashed                                                           |
+| Slash-for-profit    | None, if slashed USDG is burned and never sent to the governed treasury                         | **Strong**: burning slashed tokens shrinks supply, so every holder gains from slashing honest providers. Sending them to the treasury is no better                 | None, as in (i)                                                                                                            |
+| Bond value vs price | Stable: listing costs the same in every market                                                  | Follows the price. A crash makes squatting cheap just when the token is weak, and re-tuning the minimum becomes one more governance lever                          | The bond is stable. The token minimum moves with the price, but it only rations who may list or report; it secures nothing |
+| Capture             | Buying votes doesn't change any bond. A captured vote can still slash, up to the cap per action | Worst. A large provider's staked tokens can also vote, unless excluded, against its own slashing. Attackers can buy cheap tokens to list squatted domains at scale | As in (i). The token stake sits in the registry contract, which delegates to nobody, so it never votes                     |
+| Holder benefit      | Weak: votes, curation, fee discounts                                                            | Strong: every provider must buy and lock the token                                                                                                                 | Real: providers and reporters must hold and lock the token, plus fee discounts                                             |
+| Cost                | The simplest contract                                                                           | Simple, but the incentives are wrong                                                                                                                               | Two assets to account for, and more audit surface                                                                          |
+
+**Recommendation:** (iii) if the owner wants a meaningful holder benefit, otherwise (i). Never (ii).
+In both (i) and (iii):
+
+- slashed USDG is burned, beyond the reporter's share;
+- the token stake is held by the registry contract, so it carries no votes;
+- the contract bounds the token minimum to a range set at deploy, so governance can tune it but
+  can't set it to zero or price providers out.
 
 **Flows:**
 
@@ -96,7 +110,8 @@ bond.
   the minimum stake. The bond deters spam reports.
 - **Resolve.** Only the timelock resolves a report: `slash(entry, amount ≤ maxSlashPerAction)` or
   `dismiss(report)`.
-  - A slash pays the reporter's bond back plus a share, and the rest goes to the grants treasury.
+  - A slash pays the reporter's bond back plus a share. The rest is burned (sent to an address
+    nobody controls), never to the governed treasury: voters must not profit from slashing.
   - A dismissal forfeits the reporter's bond to the provider.
   - The cap on each slash limits what a single captured vote can do.
 - **Exit.**
