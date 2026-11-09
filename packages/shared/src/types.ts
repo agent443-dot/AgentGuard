@@ -202,6 +202,10 @@ export interface BudgetView {
    * until guard-core returns it; consumers must treat its absence as "not reported".
    */
   chains?: ChainId[]
+  /** CR-010: what shadow mode would have spent today. Absent from a v0.5 guard-core. */
+  shadowSpentToday?: Amount
+  /** CR-010: the agent's active mandates. Absent from a v0.5 guard-core. */
+  mandates?: Mandate[]
 }
 
 /** One entry of GET /v1/admin/chains (CR-006). */
