@@ -51,6 +51,15 @@ the chain:
 - `/kill` paused guard-core;
 - the owner's kill removed the delegate.
 
+**Robinhood Chain at launch (2026-11-09).** The pilot's Safe carries on, read back with
+`pnpm status:robinhood`:
+
+- the allowance is 20 USDG a day for hot wallet `0x46F5…2204` (D1), with module `0xAA46…091C`;
+- the Safe holds 4.91 USDG, which bounds the day below the cap. The owner tops it up when an agent needs more;
+- agent `fly-agent` has the D2 policy (5 per payment, 20 a day, approval above 1), stays paused,
+  and allows no domain until the owner connects a real agent;
+- `/status` in the bot shows "$0.00 of $20.00 onchain today".
+
 Details and two findings are in docs/security-review.md. The pilot found that the bot on Fly was
 older than `main`. **Before any live run, redeploy every app whose package changed and check the
 image in `fly status`.** Since then, `.github/workflows/deploy.yml` deploys guard-core and the bot
