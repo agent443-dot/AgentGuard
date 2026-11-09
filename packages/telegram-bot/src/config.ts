@@ -68,12 +68,19 @@ export const configSchema = z
     ROBINHOOD_CHAIN: z
       .enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])
       .default(CHAINS.robinhoodTestnet),
+    // The weekly report: both, or neither for no weekly report. 0 is Sunday.
+    REPORT_WEEKDAY: optional(z.coerce.number().int().min(0).max(6)),
+    REPORT_HOUR_UTC: optional(z.coerce.number().int().min(0).max(23)),
     // The page takes the Robinhood hot wallet from its own build, so the link names only the Safe.
     ROBINHOOD_SAFE_ADDRESS: optional(evmAddress),
   })
   // A kill link that names no multisig or hot wallet opens a page that can only refuse it. With the
   // page set, each chain is configured completely or not at all, and at least one chain is.
   .superRefine((config, ctx) => {
+    if ((config.REPORT_WEEKDAY === undefined) !== (config.REPORT_HOUR_UTC === undefined)) {
+      const missing = config.REPORT_WEEKDAY === undefined ? 'REPORT_WEEKDAY' : 'REPORT_HOUR_UTC'
+      ctx.addIssue({ code: 'custom', path: [missing], message: 'set both or neither' })
+    }
     if (config.SIGN_PAGE_URL === undefined) {
       return
     }

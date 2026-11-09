@@ -1,21 +1,28 @@
 import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import type { ChainStatus } from '../domain/chains.js'
+import type { AgentReport } from '../domain/report.js'
 import { z } from 'zod'
 import { payIntent } from '../http/schemas.js'
 
 export type Decision = 'approve' | 'reject'
 
-export type DecisionResult =
-  | { ok: true; intent: PayIntent }
-  | { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+type Refusal = { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+
+export type DecisionResult = { ok: true; intent: PayIntent } | Refusal
+
+/** The bot only needs to know a decision went through; the mandate itself is not shown again. */
+export type Settled = { ok: true } | Refusal
 
 export interface GuardClient {
   decide(intentId: string, decision: Decision, telegramUserId: number): Promise<DecisionResult>
+  decideMandate(mandateId: string, decision: Decision, telegramUserId: number): Promise<Settled>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
   budget(agentId: string): Promise<Budget | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
+  /** Undefined while guard-core has no report route. */
+  report(from: Date, to: Date): Promise<AgentReport[] | undefined>
   healthy(): Promise<boolean>
 }
 
@@ -80,6 +87,22 @@ const budgetView = z.object({
   paused: z.boolean(),
 })
 
+const count = z.number().int().nonnegative()
+
+const report = z.object({
+  agents: z
+    .array(
+      z.object({
+        agentId: z.string().min(1).max(64),
+        spent: atomic,
+        payments: count,
+        refused: z.record(z.string().min(1).max(64), count),
+        domains: z.array(z.object({ domain: z.string().min(1).max(253), spent: atomic })).max(500),
+      }),
+    )
+    .max(1000),
+})
+
 export function httpGuardClient(options: GuardClientOptions): GuardClient {
   const fetchImpl = options.fetch ?? fetch
 
@@ -122,6 +145,27 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
       return { ok: true, intent: payIntent.parse(await ok(response)) }
     },
 
+    async decideMandate(mandateId, decision, telegramUserId) {
+      const response = await call(
+        options.botToken,
+        'POST',
+        `/v1/bot/mandates/${encodeURIComponent(mandateId)}/decision`,
+        { decision, telegramUserId: String(telegramUserId) },
+      )
+      if (response.status === 404) {
+        return { ok: false, reason: 'not_found' }
+      }
+      if (response.status === 409 || response.status === 410) {
+        return { ok: false, reason: conflict.parse(await response.json()).error }
+      }
+      // Only the status: once guard-core has decided, a body the bot cannot read must not make it
+      // tell the owner that nothing was decided.
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
+      return { ok: true }
+    },
+
     async setPaused(agentId, paused) {
       const response = await admin('POST', paused ? '/v1/admin/pause' : '/v1/admin/resume', {
         agentId,
@@ -153,6 +197,15 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return undefined
       }
       return chainList.parse(await ok(response)).chains
+    },
+
+    async report(from, to) {
+      const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })
+      const response = await admin('GET', `/v1/admin/report?${query}`)
+      if (response.status === 404) {
+        return undefined
+      }
+      return report.parse(await ok(response)).agents
     },
 
     async healthy() {
