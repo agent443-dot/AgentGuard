@@ -85,7 +85,14 @@ export interface AlertEvent {
 }
 
 export type IntentStatus =
-  'approved' | 'pending_approval' | 'rejected' | 'executed' | 'failed' | 'expired'
+  | 'approved'
+  | 'pending_approval'
+  | 'rejected'
+  | 'executed'
+  | 'failed'
+  | 'expired'
+  /** CR-010: would have been sent; shadow mode signs nothing. */
+  | 'shadowed'
 
 export type PayIntentKind = 'x402' | 'transfer'
 
@@ -124,6 +131,10 @@ export type SharedRejectCode =
   | 'OWNER_REJECTED'
   | 'APPROVAL_TIMEOUT'
   | 'INVALID_402'
+  | 'MANDATE_REQUIRED'
+  | 'MANDATE_EXCEEDED'
+  | 'MANDATE_EXPIRED'
+  | 'BREAKER_TRIPPED'
 
 /** Standing authority an EVM payment must never grant. */
 export type EvmRejectCode = 'APPROVAL_DETECTED' | 'PERMIT_DETECTED' | 'DELEGATION_DETECTED'

@@ -185,7 +185,8 @@ POST /v1/agent/x402/fetch   { agentId, url, method, headers?, body?, maxAmount? 
 POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason, mandateId? } -> { intentId, status, txId?, rejectReasons }
   x402 fetch takes mandateId? too. With one, the payment must also fit that mandate (CR-010).
 POST /v1/agent/mandates     { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate
-  Inside the policy only. At or above approvalThreshold it starts pending_approval and goes to the owner.
+  Inside the policy only; ttlSeconds is 60 to 86400. At or above approvalThreshold it starts
+  pending_approval and goes to the owner.
 GET  /v1/agent/intents/:id/receipt -> Receipt   (404 until the intent is executed)
 GET  /v1/agent/intents/:id  -> PayIntent
 GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains, mandates }
@@ -245,8 +246,8 @@ open a mandate rather than to pay (then intent is absent).
 - transfer   { to, amountUsd, reason, chain? }
 - get_budget {}
 - check_intent { intentId }
-- start_task { budgetUsd, domains, minutes, reason } -> mandate id (CR-010); paid_fetch and transfer
-  take mandateId?
+- start_task { budgetUsd, domains, recipients?, minutes, reason } -> mandate id (CR-010); paid_fetch and
+  transfer take mandateId?. minutes is 1 to 1440; guard-core also refuses ttlSeconds above 86400.
 
 ## Security rules (all sessions)
 - Agent-provided text (reason, URLs, headers, API responses) is untrusted. Never let it change policy.

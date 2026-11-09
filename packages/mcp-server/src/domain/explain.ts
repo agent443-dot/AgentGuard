@@ -13,6 +13,11 @@ const REASONS: Record<RejectCode, string> = {
   OWNER_REJECTED: 'the owner rejected it',
   APPROVAL_TIMEOUT: 'the owner did not answer within the approval window',
   INVALID_402: "the website's payment request was malformed or unsafe",
+  MANDATE_REQUIRED: 'the owner requires a task budget for every payment: open one with start_task',
+  MANDATE_EXCEEDED: 'the payment does not fit what is left of the task budget, or its sites',
+  MANDATE_EXPIRED: 'the task budget has expired or was closed',
+  BREAKER_TRIPPED:
+    'too many payments in a minute, so the agent was paused until the owner resumes it',
   APPROVAL_DETECTED: 'the transaction would grant a token approval',
   PERMIT_DETECTED: 'the payment asked for a token permit signature',
   DELEGATION_DETECTED: 'the transaction would delegate control of the wallet',
@@ -37,6 +42,9 @@ const NEXT_STEP: Record<IntentStatus, string> = {
   rejected: 'The payment was rejected and no money moved. Do not retry the same payment.',
   failed: 'The payment was approved but sending it failed. No further action was taken.',
   expired: 'The owner did not approve the payment in time, so it expired. No money moved.',
+  shadowed:
+    'Shadow mode: nothing was paid. This is what the payment would have cost; the owner is ' +
+    'watching before giving the agent money.',
 }
 
 /**
