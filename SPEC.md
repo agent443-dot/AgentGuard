@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.6 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.7 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -157,6 +157,8 @@ interface ChainAdapter {
   getAllowanceState(): Promise<AllowanceState>
   topUpHotWallet(amount: Amount): Promise<string>  // returns txId
   getHotWalletBalance(token: string): Promise<Amount>
+  getHotWalletGas(): Promise<{ balance: Amount; minimum: Amount; symbol: string }>  // CR-011: native
+                                                   // coin, and what a few draws need
   buildKillTx(): Promise<{ description: string; payload: unknown }>  // owner signs this
   simulate(intent: PayIntent): Promise<SimulationOutcome>
   send(intent: PayIntent): Promise<string>         // returns txId
@@ -207,6 +209,13 @@ POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chai
   A chain whose kill tx could not be built stays in the list with payload: null and a description
   telling the owner to remove the spend limit by hand: that chain's allowance is still live.
 GET/PUT /v1/admin/policy/:agentId  Policy
+POST /v1/admin/agents { agentId } -> { agentId, token }   (CR-011) the token once; only its hash is
+  kept. The new agent gets a deny-all policy with mode "shadow". 409 { error: "exists" }.
+GET  /v1/admin/agents -> { agents: { agentId, paused, mode }[] }
+POST /v1/admin/agents/:id/revoke -> { agentId, revoked: true }   cuts it off at its next request
+GET  /v1/admin/doctor -> { checks: { id, status: "ok" | "warn" | "fail", message, fix? }[] }
+  Plain-English checks, never a secret: database writable, each chain's allowance readable, each
+  hot wallet's gas (getHotWalletGas) and token balance, the bot reachable, the last backup's age.
 POST /v1/admin/mandates { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate (active)
 POST /v1/admin/mandates/:id/revoke -> Mandate
 GET  /v1/admin/receipts?from&to -> { receipts: Receipt[] }
@@ -263,6 +272,9 @@ simulation with an empty balanceChanges).
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.7 (2026-11-09): CR-011, approved by the owner. Agent creation, listing and revocation and a
+  doctor on the admin API, for the bot's owner commands and the setup wizard; new agents start in
+  shadow mode; ChainAdapter.getHotWalletGas.
 - v0.6 (2026-11-09): CR-010, approved by the owner. Recipient and price pinning for x402, task
   budgets (mandates), a circuit breaker, shadow mode, passkey approvals above PASSKEY_ABOVE, signed
   receipts, an admin report, and the bot's alert webhook. Every new Policy field is optional with a
