@@ -23,9 +23,35 @@ even if the offchain guard has a bug.
 Live on Robinhood Chain mainnet (USDG) and Solana mainnet (USDC). Base comes next. Base Sepolia is for
 development.
 
-**Run your own:** [`docs/self-host.md`](./docs/self-host.md). **Connect an agent:** "For agent
-builders" in [`packages/mcp-server/README.md`](./packages/mcp-server/README.md). **Report a
-vulnerability:** [`SECURITY.md`](./SECURITY.md).
+> **Public beta (v0.1.0-beta).** AgentGuard runs with real money on both chains, but it is new and
+> has had no external audit. Put in the vault only what you can afford to lose, and keep the daily
+> cap small: the default is 20, and the signing page refuses more than 50. The known risks are in
+> [`docs/final-report.md`](./docs/final-report.md), "Known risks".
+
+## Install the beta
+
+You need Node 20+, pnpm 10, git, [flyctl](https://fly.io/docs/flyctl/install/), accounts on Fly.io
+and Vercel, a Telegram bot token from @BotFather, and a new Phantom wallet used for nothing else.
+On Windows, use WSL2 with Ubuntu.
+
+```bash
+git clone https://github.com/agent443-dot/AgentGuard.git ~/AgentGuard
+cd ~/AgentGuard && pnpm install
+pnpm --filter create-agentguard start --dry-run   # see every step first, nothing runs
+pnpm --filter create-agentguard start             # the setup; run it again to continue
+```
+
+The wizard creates your keys, your Fly apps and your signing page. You sign the vault and the cap
+in Phantom, and the wizard creates your first agent in shadow mode: it pays nothing until you switch
+it live with `/mode <agent> live` in Telegram. Then connect the agent from the same checkout:
+`pnpm --filter @agentguard/mcp-server run setup claude-code`.
+
+- The same setup by hand: [`docs/self-host.md`](./docs/self-host.md) (em português:
+  [`docs/self-host.pt-BR.md`](./docs/self-host.pt-BR.md)).
+- When something goes wrong: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
+- Connect an agent: "For agent builders" in
+  [`packages/mcp-server/README.md`](./packages/mcp-server/README.md).
+- Report a vulnerability privately: [`SECURITY.md`](./SECURITY.md). Anything else: open an issue.
 
 ## Read these first
 

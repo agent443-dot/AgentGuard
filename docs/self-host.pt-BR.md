@@ -10,6 +10,9 @@ funciona.
 
 Se algo der errado, veja [`troubleshooting.md`](./troubleshooting.md) (em inglês).
 
+> **Beta público.** Funciona com dinheiro de verdade, mas ainda não tem auditoria externa. Deixe no
+> cofre só o que você pode perder, e mantenha o limite diário baixo.
+
 ## O que você precisa
 
 - Node 20+ e pnpm 10. No Windows, WSL2 com Ubuntu, e o repositório clonado em `~`, não em `/mnt/c`.
