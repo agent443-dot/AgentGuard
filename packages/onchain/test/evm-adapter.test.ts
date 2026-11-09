@@ -42,7 +42,7 @@ describe('reads', () => {
     })
     node.handlers['eth_maxPriorityFeePerGas'] = () => '0x5f5e100'
     // viem's max fee: 1.2 × the 1 gwei base fee plus the 0.1 gwei tip, so 1.3 gwei per gas.
-    expect(await adapter.getHotWalletGas!()).toEqual({
+    expect(await adapter.getHotWalletGas()).toEqual({
       balance: '10000000000000000',
       minimum: (1_300_000_000n * 250_000n * 4n).toString(),
       symbol: 'ETH',
