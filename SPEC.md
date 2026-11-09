@@ -78,7 +78,8 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
-  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
+  // v0.6 (CR-010). Optional on PUT: omitted keeps the stored value, and a policy that has none gets
+  // the default. So a v0.5 client's PUT never turns shadow back into live. The defaults only add protection.
   mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
   priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
   maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
