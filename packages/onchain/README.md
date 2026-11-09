@@ -250,19 +250,27 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   reads the chain until the change is there, and checks it is what was signed.
 - **Proof of cap, for anyone, with no wallet:** `/?action=proof&cluster=<cluster>&multisig=<pda>` on
   Solana, or `&safe=<address>` on Robinhood. It only reads the chain, through the page's own RPCs.
-  It never loads a wallet, and nothing on the way asks for a signature. The headline is "The most
-  this agent can draw today: X". Below it the page lists:
-  - the vault's owner, its members and threshold (Squads), or its owners and threshold (Safe);
-  - the daily cap, what is left today and when it resets;
-  - the vault's balance, which bounds the headline when it is lower than what is left;
-  - after a kill, "0", with no limit.
-
-  It counts every spending right on the vault, not only the one the agent uses: all of the
-  multisig's Squads spending limits, or all of the Safe's modules and the Allowance Module's
-  delegates and their tokens. If any of them names a key other than the hot wallet the page was
-  built for, another token, or (on Squads) a second limit for the hot wallet, the headline is "Not
-  verified" and the page lists what it found. Squads refills a limit lazily, so a day after the
-  last reset the page counts the full cap. The Allowance Module applies its reset when read.
+  It never loads a wallet, and nothing on the way asks for a signature.
+  - **The headline:** "The most this agent can draw in the next 24 hours: X". X is what is left
+    before the next reset plus the whole cap again after it, because the reset always falls within
+    a day. The vault's balance bounds X. Both numbers are shown, with the reset time. After a kill,
+    X is 0.
+  - **Below it:** the vault's owner, members and threshold (Squads), or its owners and threshold
+    (Safe), and the vault's balance.
+  - **"Verified" needs all of these.** Otherwise the headline is "Not verified", followed by what
+    the page found:
+    - Squads: the only member is the config authority, and that authority is not the hot wallet.
+      The only spending limit is the one the agent uses, for the hot wallet only, into itself, in
+      USDC, daily, on vault 0.
+    - Safe: the proxy runs the canonical SafeL2 1.4.1 (storage slot 0), and it has one owner at
+      threshold 1 who is not the hot wallet. No module other than the Allowance Module is enabled.
+      Its only delegate is the hot wallet, with allowances in USDG only, resetting every 1440
+      minutes.
+  - **Every spending right counts.** On Squads, the page lists every spending limit on the
+    multisig with `getProgramAccounts`. **Its RPC must serve that call** with memcmp filters on the
+    Squads program. If any read fails, the page says it could not verify, never a lower number.
+  - **Resets:** Squads refills a limit lazily and moves its reset forward by whole days. The
+    Allowance Module applies its reset when read.
 
 - **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
   inside Phantom.

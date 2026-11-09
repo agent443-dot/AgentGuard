@@ -9,6 +9,7 @@ import {
   getAddress,
   isAddressEqual,
   parseAbi,
+  pad,
   zeroAddress,
   type Address,
   type Hex,
@@ -16,7 +17,14 @@ import {
 import { z } from 'zod'
 import { allowanceModuleAbi } from '../../src/evm/safe.js'
 import { buildPage } from '../build.js'
-import { createData, enableData, killData, PROXY_FACTORY, safeAbi } from '../src/evm/calls.js'
+import {
+  createData,
+  enableData,
+  killData,
+  PROXY_FACTORY,
+  SAFE_L2,
+  safeAbi,
+} from '../src/evm/calls.js'
 import { jsonRpc, JsonRpcError, serve } from './server.js'
 
 export const MODULE = getAddress(sharedAddress(CHAINS.robinhoodTestnet, 'allowanceModule')!)
@@ -71,6 +79,8 @@ export async function stageEvm() {
     otherTokens: [] as Address[],
     /** The RPC fails the module's delegate list, as a flaky or rate-limited RPC would. */
     delegatesFail: false,
+    /** What the Safe proxy runs: its storage slot 0. */
+    singleton: SAFE_L2 as Address,
   }
   const sent: { from: Address; to: Address; data: Hex; value: Hex }[] = []
 
@@ -163,6 +173,11 @@ export async function stageEvm() {
 
   const rpc = jsonRpc({
     eth_chainId: () => '0xb626',
+    eth_getStorageAt: ([address, slot]) =>
+      isAddressEqual(z.string().parse(address) as Address, state.safe) &&
+      BigInt(z.string().parse(slot)) === 0n
+        ? pad(state.singleton)
+        : pad('0x0'),
     eth_getCode: ([address]) =>
       state.exists && isAddressEqual(z.string().parse(address) as Address, state.safe)
         ? '0x6080'

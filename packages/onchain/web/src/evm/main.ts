@@ -8,14 +8,14 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { EXPIRED, expired, issued, problems } from '../link.js'
-import { openInPhantom } from '../wallet.js'
+import { unreadable } from '../proof.js'
 import { button, link, show, waitFor } from '../view.js'
+import { openInPhantom } from '../wallet.js'
 import { prepareEvmCreate } from './create.js'
 import { prepareEvmEnable } from './enable.js'
 import { prepareEvmKill } from './kill.js'
-import { unreadable } from '../proof.js'
-import { proveEvm } from './proof.js'
 import type { EvmPlan } from './plan.js'
+import { proveEvm } from './proof.js'
 import { onChain, phantomEvm, type Eip1193 } from './wallet.js'
 
 /** What the build fixed for one EVM chain: its id, the module, the dollar token, the hot wallet. */
@@ -67,11 +67,6 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
   }
   const client = createPublicClient({ transport: http(chain.rpc) }) as PublicClient
   const proving = parsed.data.action === 'proof'
-  if (!proving && !phantomEvm()) {
-    show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
-    link('Open in Phantom', openInPhantom(location.href))
-    return
-  }
   if ((await client.getChainId()) !== chain.chainId) {
     const reason = `This page's RPC for ${chain.name} serves another chain.`
     show(proving ? 'Not verified' : 'Nothing to sign', [reason], 'stop')
@@ -81,7 +76,12 @@ export async function evmMain(query: Record<string, string>, chain: EvmChain) {
     await prove(client, chain, parsed.data.safe)
     return
   }
-  const wallet = phantomEvm()!
+  const wallet = phantomEvm()
+  if (!wallet) {
+    show('Open this page in Phantom', ['No Phantom wallet was found in this browser.'], 'stop')
+    link('Open in Phantom', openInPhantom(location.href))
+    return
+  }
   const [account] = z
     .array(address)
     .min(1)

@@ -3,7 +3,8 @@ import type { Address, PublicClient } from 'viem'
 
 // One executeAllowanceTransfer or token transfer, with room to spare. On Robinhood Chain, an
 // Arbitrum chain, the gas a transaction uses includes its share of the L1 data cost, so the figure
-// is well above the ~80k an L1 draw uses.
+// is well above the ~80k an L1 draw uses. Base, an OP Stack chain, charges its L1 data fee outside
+// gas, so on Base this minimum leaves that fee out.
 const GAS_PER_CALL = 250_000n
 const CALLS = 4n
 

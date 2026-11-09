@@ -8,6 +8,7 @@ import { heading, lines } from './harness.js'
 let browser: Browser
 let s: Awaited<ReturnType<typeof stageEvm>>
 const stranger = getAddress('0x00000000000000000000000000000000000a11ce')
+const HEADLINE = 'The most this agent can draw in the next 24 hours: '
 
 beforeAll(async () => {
   browser = await chromium.launch()
@@ -30,12 +31,12 @@ async function proof(safe: string = s.state.safe): Promise<Page> {
 }
 
 describe('the proof page on an EVM chain', () => {
-  it('shows the most the agent can draw today, with no wallet and nothing sent', async () => {
+  it('shows the most the agent can draw in a day, with no wallet and nothing sent', async () => {
     const page = await proof()
-    expect(await heading(page).textContent()).toBe('The most this agent can draw today: 48.5 USDG')
+    expect(await heading(page).textContent()).toBe(`${HEADLINE}98.5 USDG`)
     const text = (await lines(page)).join('\n')
     expect(text).toContain(`the Allowance Module ${MODULE} lets only the hot wallet ${s.state.hot}`)
-    expect(text).toContain('Daily cap: 50 USDG every 1440 minutes. Left today: 48.5 USDG.')
+    expect(text).toMatch(/Left until \d{4}-\S+: 48\.5 USDG\. Then the daily cap again: 50 USDG\./)
     expect(text).toContain(`Owners: ${s.state.owners[0]}, threshold 1.`)
     expect(text).toContain('It holds 100 USDG.')
     expect(await page.getAttribute('#app', 'data-state')).toBe('done')
@@ -45,17 +46,44 @@ describe('the proof page on an EVM chain', () => {
   it('is bounded by the Safe when it holds less than is left', async () => {
     s.state.balance = 10_000_000n
     const page = await proof()
-    expect(await heading(page).textContent()).toBe('The most this agent can draw today: 10 USDG')
+    expect(await heading(page).textContent()).toBe(`${HEADLINE}10 USDG`)
   })
 
   it('says zero after a kill', async () => {
     s.state.listed = false
     const page = await proof()
-    expect(await heading(page).textContent()).toBe('The most this agent can draw today: 0 USDG')
+    expect(await heading(page).textContent()).toBe(`${HEADLINE}0 USDG`)
     expect((await lines(page))[0]).toMatch(/^No allowance: the hot wallet cannot draw/)
   })
 
+  it('counts no less than nothing left when more was spent than the cap allows', async () => {
+    s.state.allowance = [50_000_000n, 60_000_000n, 1440n, 29_000_000n, 3n]
+    const page = await proof()
+    expect(await heading(page).textContent()).toBe(`${HEADLINE}50 USDG`)
+    expect((await lines(page)).join('\n')).toMatch(/: 0 USDG\. Then the daily cap again: 50 USDG\./)
+  })
+
   it.each([
+    [
+      'the hot wallet as an owner',
+      () => s.state.owners.push(s.state.hot),
+      'The hot wallet is an owner: it can change the allowance itself.',
+    ],
+    [
+      'a second owner',
+      () => s.state.owners.push(stranger),
+      'It has 2 owners at threshold 1, not one owner.',
+    ],
+    [
+      'another singleton behind its proxy',
+      () => (s.state.singleton = stranger),
+      `The Safe runs ${stranger}, not SafeL2 1.4.1`,
+    ],
+    [
+      'an allowance that resets hourly',
+      () => (s.state.allowance = [50_000_000n, 0n, 60n, 29_000_000n, 3n]),
+      'The allowance resets every 60 minutes, not daily.',
+    ],
     ['another module', () => s.state.otherModules.push(stranger), `Module ${stranger} is enabled`],
     [
       'another delegate',
