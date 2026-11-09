@@ -63,6 +63,29 @@ jobs:
           BASE_RPC_URL: https://sepolia.base.org
         run: pnpm check:simulate
 
+  # Same kind of probe, on Solana mainnet: the Squads v4 program our tests run (a dumped binary)
+  # must still be the one deployed, and its program config is the fee the owner pays on create.
+  squads-mainnet:
+    name: Squads v4 on Solana mainnet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: check:squads
+        working-directory: packages/onchain
+        env:
+          SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+        run: pnpm check:squads
+
   # The owner's signing page (ADR 003) in a real Chromium, with Phantom faked. Kept out of
   # `pnpm test`: it needs a browser, and it is the page the owner trusts with the kill.
   signing-page:
