@@ -70,7 +70,7 @@ export async function openMandate(
     try {
       // While pending, expiresAt is the owner's deadline, so how long the task would then run
       // travels on its own: the owner approves the task's length, not the ten minutes.
-      const request: MandateApprovalRequest & { ttlSeconds: number } = {
+      const request: MandateApprovalRequest = {
         mandate,
         ttlSeconds: terms.ttlSeconds,
         // Opening a budget moves nothing; the payments made under it are each simulated.
