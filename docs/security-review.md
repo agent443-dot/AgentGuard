@@ -189,7 +189,44 @@ the session record. Both images were built from `main` as pulled at 19:00 UTC on
 - ✅ The Fly trial stops machines after 5 minutes without a card. With a card on the account,
   they have stayed up.
 
-## Left for INT-7
+## Robinhood Chain mainnet pilot (HUMAN-21, run 2026-11-08/09, real money)
+
+The owner's decision and its limits are in LAUNCH.md. The owner ran every step from his machine and
+Phantom. Each result below was read back from chain 4663 with `robinhood-status.ts` or a balance
+read, not taken from a page's word.
+
+- ✅ Before any signature, forge ran the signing page's exact create, enable, kill and re-enable bytes
+  on a mainnet fork (#114, `SigningPageMainnetTest`, 3/3). Its `setUp` requires chain id 4663.
+- ✅ The built page carries `robinhood: {chainId: 4663, module 0xAA46…091C, usd 0x5fc5…d168, USDG,
+hot 0x46F5…2204}`, read from the deployed `app.js`.
+- ✅ Create: Safe `0xB460E05685c613EF726Fd74b91B24f4B4e989d8a` has owner `0x2cfB…F48Ba` alone (a new
+  Phantom wallet with its own phrase) and threshold 1.
+- ✅ Funding: the owner's USDG was checked to be `0x5fc5…d168` before it was sent. The Safe got
+  4.914759 USDG.
+- ✅ Enable: the module is on, and the delegate is the new mainnet hot wallet, with cap 5000000 per
+  1440 min and 0 spent.
+- ✅ guard-core on Fly took the Robinhood settings and the key from a piped file. `/status` showed
+  "Robinhood Chain: $0.00 of $5.00 onchain today".
+- ✅ Policy: chains `[eip155:4663]`, tokens `[USDG]`, 1 USDG per payment, 5 USDG a day, and one
+  allowed domain.
+- ✅ A live x402 payment: intent `9a594294-8b3c-469a-b963-c5eba00d3ff4` executed, 0.50 USDG, tx
+  `0xa9c7abffb5676651193e866e4f02d9925a72c100ba20972226075dad78083d86`. The paywall verified the
+  EIP-3009 authorization and settled it itself, paying the gas from its own key. Afterwards the Safe
+  held 4.414759 USDG, the allowance showed 500000 spent, the owner held 0.5 USDG, and the hot wallet
+  held 0 USDG.
+- ✅ Kill: `/kill` → Confirm paused the agent (`"paused": true` on the budget route). The owner
+  transaction built for Robinhood was `removeDelegate(hot, true)` on the module, value 0. Signed in
+  Phantom through the page, it removed the delegate. The page read back "no longer a delegate".
+- ✅ A stale browser tab of the enable link, reloaded after the allowance was set, refused to ask
+  for a second signature ("already has an allowance … kill it first").
+- **Finding, deploy:** the bot on Fly was built before #111, so `/kill` offered no Robinhood button.
+  The manual kill link in the runbook worked. Rule: redeploy every app whose package changed in
+  `main` before a live run, and check `fly status` for the new image.
+- **Finding, bot (low):** after `/kill`, the bot said the Solana limit was "still live" and offered
+  a Solana button, although that limit had been removed the day before and `/status` said so.
+  Solana's `buildKillTx` does not check that the limit exists, and the kill text trusts it. The page
+  is idempotent, so nothing breaks, but the owner is sent to a dead button. The bot session is asked
+  to read the allowance state and offer buttons only for chains that still have one.
 
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).
 - The Base hot key finding above: D5 is now decided (a Fly secret written to a file), so the Base
