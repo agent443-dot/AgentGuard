@@ -1,6 +1,6 @@
 import type { IntentEvent } from '@agentguard/shared'
 import { z } from 'zod'
-import { APPROVAL_FLAGS, REJECT_CODES } from '../domain/codes.js'
+import { isKnownFlag, REJECT_CODES } from '../domain/codes.js'
 
 /**
  * Bodies from guard-core. Signed, so not hostile in transport, but the strings inside started with an
@@ -28,20 +28,27 @@ export const payIntent = z.object({
   expiresAt: isoTime,
 })
 
-export const approvalRequest = z.object({
-  intent: payIntent,
-  // A guard-core older than the flags sends none, which reads as no flag.
-  flags: z.array(z.enum(APPROVAL_FLAGS)).max(APPROVAL_FLAGS.length).default([]),
-  // The last executed payment to this domain, sent with any flag.
-  pinned: z.object({ recipient: opaque, amount: atomic }).optional(),
-  simulation: z.object({
-    summary: z.string().max(1000),
-    balanceChanges: z
-      .array(z.object({ token: opaque, delta: z.string().regex(/^-?(0|[1-9]\d*)$/) }))
-      .max(32),
-  }),
-  approveBefore: isoTime,
-})
+export const approvalRequest = z
+  .object({
+    intent: payIntent,
+    // A guard-core older than the flags sends none, which reads as no flag. A flag this bot does not
+    // know yet is still shown, generically: refusing the request would hide the payment.
+    flags: z.array(z.string().min(1).max(64)).max(8).default([]),
+    // The last executed payment to this domain, sent with any flag.
+    pinned: z.object({ recipient: opaque, amount: atomic }).optional(),
+    simulation: z.object({
+      summary: z.string().max(1000),
+      balanceChanges: z
+        .array(z.object({ token: opaque, delta: z.string().regex(/^-?(0|[1-9]\d*)$/) }))
+        .max(32),
+    }),
+    approveBefore: isoTime,
+  })
+  .transform(({ flags, ...request }) => ({
+    ...request,
+    flags: flags.filter(isKnownFlag),
+    unknownFlags: flags.filter((flag) => !isKnownFlag(flag)),
+  }))
 
 /**
  * An x402 offer guard-core refused is reported with whatever the 402 server sent: an empty chain,

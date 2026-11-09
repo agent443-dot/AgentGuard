@@ -1,4 +1,4 @@
-import type { IntentEvent } from '@agentguard/shared'
+import type { AlertEvent, IntentEvent } from '@agentguard/shared'
 import { type Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient } from '../adapters/guard.js'
@@ -135,7 +135,7 @@ export class Desk {
   }
 
   /** A tripped breaker has already paused the agent; the owner only needs to know and look. */
-  async alert(event: { kind: 'breaker_tripped'; agentId: string; detail: string; sentAt: string }) {
+  async alert(event: AlertEvent) {
     const key = `${event.kind}:${event.agentId}:${event.sentAt}`
     const admission = this.#events.admit(key, event.sentAt, this.#now())
     if (admission !== 'accepted') {

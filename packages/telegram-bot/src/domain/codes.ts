@@ -34,9 +34,14 @@ export const ATTACK_DESCRIPTIONS: Record<AttackCode, string> = {
 export const APPROVAL_FLAGS = ['RECIPIENT_CHANGED', 'PRICE_JUMP'] as const
 export type ApprovalFlag = (typeof APPROVAL_FLAGS)[number]
 
+// guard-core raises RECIPIENT_CHANGED for a new payTo, chain or token alike.
 export const FLAG_DESCRIPTIONS: Record<ApprovalFlag, string> = {
-  RECIPIENT_CHANGED: 'This API asks to pay a different address than last time.',
+  RECIPIENT_CHANGED: 'This API asks to pay a different recipient, chain or token than last time.',
   PRICE_JUMP: 'Price jump: this API asks for much more than its last payment.',
+}
+
+export function isKnownFlag(flag: string): flag is ApprovalFlag {
+  return Object.hasOwn(FLAG_DESCRIPTIONS, flag)
 }
 
 export function attackCodesIn(reasons: readonly RejectCode[]): AttackCode[] {
