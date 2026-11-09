@@ -1,28 +1,62 @@
 import type { ChainStatus } from '@agentguard/shared'
 import type { FastifyInstance } from 'fastify'
+import { createAgent, listAgents, revokeAgent } from '../db/agents.js'
 import { clearWindow } from '../db/breaker.js'
 import { revokeMandate } from '../db/mandates.js'
 import * as repo from '../db/repo.js'
 import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
+import { doctor } from '../service/doctor.js'
 import { openMandate } from '../service/mandates.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
 import { mandateReply } from './mandates.js'
 import {
   agentIdParam,
+  agentRouteParam,
   idParam,
   mandateRequest,
+  newAgentRequest,
   policyBody,
   REPORT_DEFAULT_SPAN_MS,
   REPORT_MAX_SPAN_MS,
   reportQuery,
 } from './schemas.js'
 
-export function adminRoutes(deps: PaymentDeps) {
+export function adminRoutes(
+  deps: PaymentDeps & { fetch: typeof fetch },
+  setup: { botUrl: string; databaseUrl: string },
+) {
   const { db, now } = deps
 
   return async (app: FastifyInstance) => {
+    // A new agent pays nothing: its policy denies everything and it starts in shadow mode.
+    app.post('/agents', async (request, reply) => {
+      const { agentId } = newAgentRequest.parse(request.body)
+      if (repo.agentExists(db, agentId)) {
+        return reply.code(409).send({ error: 'exists' })
+      }
+      const token = createAgent(db, agentId, now())
+      repo.audit(db, { event: 'agent_created', agentId }, now())
+      return { agentId, token }
+    })
+
+    app.get('/agents', async () => ({ agents: listAgents(db) }))
+
+    app.post('/agents/:id/revoke', async (request) => {
+      const { id } = agentRouteParam.parse(request.params)
+      const result = revokeAgent(db, id, now())
+      if (result === 'not_found') {
+        throw new HttpError(404, 'not_found')
+      }
+      if (result === 'revoked') {
+        repo.audit(db, { event: 'agent_revoked', agentId: id }, now())
+      }
+      return { agentId: id, revoked: true }
+    })
+
+    app.get('/doctor', async () => ({ checks: await doctor({ ...deps, ...setup }) }))
+
     app.get('/policy/:agentId', async (request) => {
       const { agentId } = agentIdParam.parse(request.params)
       const policy = repo.getPolicy(db, agentId)

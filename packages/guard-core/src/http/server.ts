@@ -168,7 +168,9 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
     app.register(
       async (admin) => {
         admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
-        await admin.register(adminRoutes(deps))
+        await admin.register(
+          adminRoutes(deps, { botUrl: config.BOT_URL, databaseUrl: config.DATABASE_URL }),
+        )
       },
       { prefix: '/v1/admin' },
     )

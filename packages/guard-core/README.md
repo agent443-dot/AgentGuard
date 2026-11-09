@@ -13,8 +13,21 @@ pnpm --filter @agentguard/guard-core create-agent my-agent   # prints the agent 
 pnpm --filter @agentguard/guard-core dev                     # API on 127.0.0.1:8787
 ```
 
-A new agent's policy is empty, so it can pay nothing until the owner sets one with
-`PUT /v1/admin/policy/:agentId`.
+A new agent's policy is empty and in shadow mode, so it pays nothing until the owner sets a policy
+with `PUT /v1/admin/policy/:agentId` and switches it to `mode: "live"`. Without a terminal, the
+owner does the same through the admin API (the bot's commands use it):
+
+- `POST /v1/admin/agents { agentId }` returns `{ agentId, token }`. The token is shown once; only its
+  hash is kept. 409 `{ error: "exists" }` for a taken id.
+- `GET /v1/admin/agents` lists the agents with a working token, with `paused` and `mode`.
+- `POST /v1/admin/agents/:id/revoke` cuts one off at its next request.
+- `GET /v1/admin/doctor` checks, in plain English and never quoting a URL, key or token: the
+  database accepts a write (undone at once), each chain's onchain limit is readable and in place,
+  each hot wallet's gas is above its minimum and its token balance, the bot answers, and the newest
+  backup is under two days old. Each warning or failure says what to do.
+
+The budget routes add `shadow: { since, total, count }` for an agent that ran in shadow mode: what
+it would have spent since its first shadowed payment, and how many payments that was.
 
 `pnpm --filter @agentguard/guard-core revoke-agent my-agent` revokes an agent's token. It stops
 working on its next request, on every agent route. The agent's intents and audit history stay.

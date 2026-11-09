@@ -74,6 +74,11 @@ export const botDecisionRequest = z.object({
 })
 
 export const agentIdParam = z.object({ agentId })
+
+/** The same ids create-agent accepts: they end up in URLs and in the owner's Telegram. */
+const newAgentId = z.string().regex(/^[\w-]{1,64}$/, 'letters, digits, _ and -, up to 64')
+export const newAgentRequest = z.object({ agentId: newAgentId })
+export const agentRouteParam = z.object({ id: agentId })
 export const intentIdParam = z.object({ id: z.uuid() })
 
 export const policyBody = z.object({

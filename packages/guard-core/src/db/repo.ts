@@ -194,6 +194,25 @@ export function shadowSpentToday(db: Db, agentId: string, day: string): Amount {
   return rows.reduce((total, row) => total + BigInt(row.amount), 0n).toString()
 }
 
+/** Since the agent's first shadowed payment: when, what shadow mode would have spent, how often. */
+export function shadowSummary(
+  db: Db,
+  agentId: string,
+): { since: string; total: Amount; count: number } | undefined {
+  const rows = db
+    .select({ amount: intents.amount, createdAt: intents.createdAt })
+    .from(intents)
+    .where(and(eq(intents.agentId, agentId), eq(intents.status, 'shadowed')))
+    .orderBy(intents.createdAt)
+    .all()
+  const [first] = rows
+  if (first === undefined) {
+    return undefined
+  }
+  const total = rows.reduce((sum, row) => sum + BigInt(row.amount), 0n)
+  return { since: first.createdAt, total: total.toString(), count: rows.length }
+}
+
 export function addSpend(
   db: Db,
   agentId: string,

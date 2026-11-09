@@ -47,6 +47,20 @@ describe('shadow mode', () => {
     expect(view).toMatchObject({ spentToday: '0', shadowSpentToday: '1500000', mandates: [] })
   })
 
+  it('sums every shadowed payment since the first, for the owner deciding to go live', async () => {
+    const h = await shadow()
+    await transfer(h, '1000000')
+    h.clock.now = new Date(h.clock.now.getTime() + 2 * 86_400_000)
+    await transfer(h, '500000')
+    const view = (await h.agent('GET', '/v1/agent/budget/agent-1')).json()
+    expect(view.shadow).toEqual({ since: '2026-11-03T12:00:00.000Z', total: '1500000', count: 2 })
+  })
+
+  it('leaves the shadow summary out for an agent that never ran in shadow', async () => {
+    const h = await harness()
+    expect((await h.agent('GET', '/v1/agent/budget/agent-1')).json()).not.toHaveProperty('shadow')
+  })
+
   it('still refuses what the policy refuses', async () => {
     const h = await shadow()
     const res = await transfer(h, '1000000', 'NotAllowed11111111111111111111111111111111111')

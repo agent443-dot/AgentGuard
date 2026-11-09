@@ -9,7 +9,10 @@ import type { PaymentDeps } from './payments.js'
  */
 export async function budget(deps: PaymentDeps, policy: Policy): Promise<BudgetView> {
   const day = repo.utcDay(deps.now())
+  // What the owner weighs before switching an agent live; absent for one that never ran in shadow.
+  const shadow = repo.shadowSummary(deps.db, policy.agentId)
   return {
+    ...(shadow === undefined ? {} : { shadow }),
     chains: policy.chains.filter((chain) => deps.chains.has(chain)),
     spentToday: repo.spentToday(deps.db, policy.agentId, day),
     // What shadow mode would have paid, so the owner sees an agent's habits before funding it.
