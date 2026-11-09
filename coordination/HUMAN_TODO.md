@@ -1125,7 +1125,16 @@ com o **USDG** como dólar. O integrator guia-te ao vivo; aqui fica a ordem:
 
 ---
 
-## ⏳ HUMAN-21 — Piloto com dinheiro real na Robinhood Chain (mainnet 4663)
+## ✅ HUMAN-21 — Piloto com dinheiro real na Robinhood Chain (mainnet 4663)
+
+**Feito em 2026-11-09 — o primeiro pagamento com dinheiro real.** Um pagamento x402 de 0,50 USDG
+passou de ponta a ponta (`0xa9c7abffb5676651193e866e4f02d9925a72c100ba20972226075dad78083d86`): a
+hot wallet `0x46F5…2204` pagou, a tua conta `0x2cfB…F48Ba` recebeu. Depois, `/kill` parou o
+guard-core, o kill na Phantom removeu o delegate, e o `/status` mostra "Robinhood Chain: no onchain
+limit (killed)". A Safe `0xB460…9d8a` continua só tua, com 4,41 USDG.
+
+O bot no Fly ainda era a versão antiga, sem o botão da Robinhood — usou-se o link manual. A regra de
+atualizar antes de qualquer corrida ao vivo vale também para o Fly. O texto abaixo fica como registo.
 
 **Decisão tua de 2026-11-08, com o risco aceite** e registado no `LAUNCH.md`: as páginas de assinatura
 da Robinhood Chain e o pagamento x402 em USDG só foram provados contra cópias da rede, nunca ao vivo.
