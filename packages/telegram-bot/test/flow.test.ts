@@ -3,6 +3,7 @@ import { buildServer } from '../src/http/server.js'
 import { sign } from '../src/domain/signature.js'
 import {
   approval,
+  command,
   fakeGuard,
   INTENT_ID,
   MANDATE_ID,
@@ -524,6 +525,14 @@ describe('task budget approvals', () => {
     expect(edits).toHaveLength(2)
     expect(edits[0]?.payload['text']).toMatch(/^<b>Approved<\/b> by @ana/)
     expect(edits[0]?.payload['reply_markup']).toBeUndefined()
+  })
+
+  it('counts the open ones in /status, after the pending approvals', async () => {
+    const { bot, calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', mandateRequest())
+    await bot.handleUpdate(command(OWNER, '/status'))
+    const status = String(sent(calls, 'sendMessage').at(-1)?.payload['text'])
+    expect(status).toContain('Pending approvals: 0\nPending task budgets: 1')
   })
 
   it('lists recipients when the budget may pay some, shortened', async () => {

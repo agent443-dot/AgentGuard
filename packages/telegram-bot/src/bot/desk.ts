@@ -119,6 +119,10 @@ export class Desk {
     decide: (id, decision, owner) => this.#deps.guard.decideMandate(id, decision, owner),
   }
 
+  pendingTasks(): number {
+    return this.#mandates.open().length
+  }
+
   async post(request: FlaggedRequest | MandateRequest): Promise<PostResult> {
     return 'mandate' in request
       ? this.#post(this.#tasks, request)
