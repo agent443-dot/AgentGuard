@@ -225,6 +225,9 @@ GET  /v1/admin/receipts?from&to -> { receipts: Receipt[] }
 GET  /v1/admin/report?from&to -> { agents: { agentId, spent, payments, refused: Record<RejectCode, number>,
                                    domains: { domain, spent }[] }[] }
 POST /v1/admin/passkeys/options -> WebAuthn registration options; POST /v1/admin/passkeys { response }
+POST /v1/admin/passkeys/code -> { code, expiresAt }   one-time, 10 minutes, hashed at rest; for
+  GET /owner/enrol?code=… on the public listener, which runs WebAuthn registration for this origin and
+  posts { code, response } to POST /v1/owner/passkeys. The bot's /passkey enrol sends the link.
 GET  /v1/receipts/key -> { publicKey }   public: lets anyone check a receipt
 GET  /owner/approve/:intentId            public page: WebAuthn for this origin, then
 POST /v1/owner/approve { intentId, assertion } -> PayIntent
