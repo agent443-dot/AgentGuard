@@ -71,9 +71,12 @@ agent's reason labelled `agent says:`. Everything that came from the agent is HT
 cannot pose as the bot's own text.
 
 **Flags.** When guard-core sends a payment to the owner because of a flag (CR-010), the flag comes
-first, above **Approval needed**: "This API asks to pay a different address than last time."
-(`RECIPIENT_CHANGED`) and "Price jump: this API asks for much more than its last payment."
-(`PRICE_JUMP`). A request without `flags` reads as having none; an unknown flag is a 400.
+first, above **Approval needed**. With `pinned` (the last executed payment to that domain) the line
+is exact: "This API asks to pay a different address than last time: `old` → `new`."
+(`RECIPIENT_CHANGED`) and "Price jump: 2.5× the last payment." (`PRICE_JUMP`, bigint math, one
+decimal). Without `pinned` it falls back to "…a different address than last time." and "Price jump:
+this API asks for much more than its last payment." A request without `flags` reads as having none;
+an unknown flag is a 400.
 
 **Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
 transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
