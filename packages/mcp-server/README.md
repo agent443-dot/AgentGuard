@@ -16,6 +16,7 @@ The agent **can**:
 - send dollars to an address (`transfer`) on Solana, Base or Robinhood Chain: USDC, or USDG on
   Robinhood Chain, which has no Circle USDC;
 - see what it has spent today and its limits (`get_budget`);
+- open a budget for one task, with its own limit, websites and expiry (`start_task`);
 - follow a payment through owner approval (`check_intent`).
 
 The agent **cannot**:
@@ -187,12 +188,13 @@ leaves the token in your shell history.
 
 ### The tools
 
-| Tool           | Input                                              | What it does                                   |
-| -------------- | -------------------------------------------------- | ---------------------------------------------- |
-| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | Fetches the URL, paying an x402 request if any |
-| `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends the chain's dollar to an address         |
-| `get_budget`   | `{}`                                               | Spend today, limits, chains, pause, balances   |
-| `check_intent` | `{ intentId }`                                     | The current status of one payment              |
+| Tool           | Input                                                          | What it does                                               |
+| -------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd?, mandateId? }` | Fetches the URL, paying an x402 request if any             |
+| `transfer`     | `{ to, amountUsd, reason, chain?, mandateId? }`                | Sends the chain's dollar to an address                     |
+| `get_budget`   | `{}`                                                           | Spend today, limits, chains, task budgets, pause, balances |
+| `start_task`   | `{ budgetUsd, domains, minutes, reason }`                      | Opens a task budget and returns its `mandateId`            |
+| `check_intent` | `{ intentId }`                                                 | The current status of one payment                          |
 
 - **Amounts are decimal strings** such as `"0.25"`, never JSON numbers: a number has already been
   through a float by the time it arrives. A sign, an exponent, `NaN`, `Infinity` and more than 6
@@ -200,12 +202,27 @@ leaves the token in your shell history.
 - **Chains** are CAIP-2 ids: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet),
   `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (Solana devnet), `eip155:8453` (Base mainnet),
   `eip155:84532` (Base Sepolia), `eip155:4663` (Robinhood Chain) and `eip155:46630` (Robinhood Chain
-  testnet). `transfer` without `chain` uses `DEFAULT_CHAIN`.
+  testnet). `transfer` without `chain` uses `DEFAULT_CHAIN`. `paid_fetch` takes no chain: the
+  website's payment request names one, and the policy decides whether it is allowed.
 - **The dollar** is USDC on Solana and Base, and USDG (Paxos) on Robinhood Chain. Both have 6
-  decimals, so `amountUsd` means the same on every chain; results name the token they moved. `paid_fetch` takes
-  no chain: the website's payment request names one, and the policy decides whether it is allowed.
+  decimals, so `amountUsd` means the same on every chain; results name the token they moved.
 - **`maxAmountUsd`** caps one `paid_fetch`. The tighter of it and the policy's per-payment limit
   applies.
+
+### Task budgets
+
+For a task that will pay more than once, the agent opens one budget for the whole task with
+`start_task`: the most it may spend, the websites it may pay, and how long it stays open (at most a
+day). It then passes the returned `mandateId` to each `paid_fetch` and `transfer` for that task.
+
+- A budget lives inside the policy and never raises it: a payment must fit both.
+- One budget per task, not one per payment. The tool descriptions tell the model so.
+- A budget at or above the approval threshold waits for the owner, like a payment. The result says
+  `pending_approval`; the agent tells the user and calls `get_budget` until the budget is listed as
+  open.
+- `get_budget` lists the open budgets with what each has spent. When the owner runs the agent in
+  shadow mode, it also says what the agent would have spent today; nothing of that is paid.
+- An owner can require a budget for every payment. Then a payment without `mandateId` is refused.
 
 ### Handling `pending_approval`
 

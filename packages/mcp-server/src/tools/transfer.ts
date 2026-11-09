@@ -12,6 +12,7 @@ Amounts are in USD; one token is one dollar.
 AgentGuard checks every transfer against the owner's policy. A transfer may be rejected (for example, a recipient that is not on the allowed list), or may need the owner to approve it on Telegram first.
 - If the result says pending_approval: tell the user the transfer is waiting for their approval, then poll check_intent with the intent id. Do not send the same transfer again while it is pending.
 - If it was rejected: explain the reasons to the user. Do not retry the same transfer.
+- If the transfer is part of a task with a budget from start_task, pass its mandateId.
 The reason you give is shown to the owner. Describe the purpose truthfully.`
 
 const inputSchema = {
@@ -28,6 +29,12 @@ const inputSchema = {
         .map(([id, name]) => `${id} (${name})`)
         .join(', ')}. Leave empty to use the configured default chain.`,
     ),
+  mandateId: z
+    .string()
+    .min(1)
+    .max(64)
+    .optional()
+    .describe('The task budget this payment belongs to, from start_task.'),
 }
 
 export function registerTransfer(
@@ -42,7 +49,7 @@ export function registerTransfer(
       inputSchema,
       annotations: { openWorldHint: true },
     },
-    async ({ to, amountUsd, reason, chain = defaultChain }) => {
+    async ({ to, amountUsd, reason, chain = defaultChain, mandateId }) => {
       const amount = parseUsd(amountUsd)
       if (!amount.ok) {
         return failure(`amountUsd: ${amount.error}`)
@@ -63,6 +70,7 @@ export function registerTransfer(
           amount: amount.atomic.toString(),
           recipient: to,
           reason,
+          mandateId,
         })
         const lines = [
           `Transfer of ${formatUsd(amount.atomic)} ${token.symbol} to ${to} on ${chainName(chain)} (${chain}): ${result.status}.`,

@@ -11,13 +11,14 @@ import { call, connect, fakeGuard } from './support.js'
 const INTENT_ID = '3f0c8f5e-8a3b-4c55-9a0e-2d6f2b1c7a10'
 
 describe('tool listing', () => {
-  it('exposes exactly the four SPEC tools, each warning about rejection and approval', async () => {
+  it('exposes exactly the SPEC tools, the payment ones warning about rejection and approval', async () => {
     const client = await connect(fakeGuard({}))
     const { tools } = await client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'check_intent',
       'get_budget',
       'paid_fetch',
+      'start_task',
       'transfer',
     ])
     for (const name of ['paid_fetch', 'transfer']) {

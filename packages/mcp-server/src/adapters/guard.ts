@@ -1,4 +1,4 @@
-import type { BudgetView } from '@agentguard/shared'
+import type { BudgetView, Mandate } from '@agentguard/shared'
 import { z } from 'zod'
 
 const intentStatus = z.enum([
@@ -36,6 +36,19 @@ export const transferResult = z.object({
   rejectReasons,
 })
 
+export const mandate = z.object({
+  id: z.string(),
+  agentId: z.string(),
+  budget: z.string(),
+  spent: z.string(),
+  domains: z.array(z.string()),
+  recipients: z.array(z.string()),
+  reason: z.string(),
+  status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<Mandate>
+
 export const budget = z.object({
   spentToday: z.string(),
   dailyMax: z.string(),
@@ -44,6 +57,9 @@ export const budget = z.object({
   paused: z.boolean(),
   // Absent means "not reported", per the shared type.
   chains: z.array(z.string()).optional(),
+  // Absent from a guard-core older than task budgets and shadow mode.
+  shadowSpentToday: z.string().optional(),
+  mandates: z.array(mandate).optional(),
 }) satisfies z.ZodType<BudgetView>
 
 export const payIntent = z.object({
@@ -62,7 +78,7 @@ export const payIntent = z.object({
 
 export type FetchResult = z.infer<typeof fetchResult>
 export type TransferResult = z.infer<typeof transferResult>
-export type Budget = BudgetView
+export type Budget = z.infer<typeof budget>
 export type Intent = z.infer<typeof payIntent>
 
 export interface FetchInput {
@@ -71,6 +87,7 @@ export interface FetchInput {
   headers?: Record<string, string>
   body?: string
   maxAmount?: string
+  mandateId?: string
 }
 
 export interface TransferInput {
@@ -78,6 +95,14 @@ export interface TransferInput {
   token: string
   amount: string
   recipient: string
+  reason: string
+  mandateId?: string
+}
+
+export interface MandateInput {
+  budget: string
+  domains: string[]
+  ttlSeconds: number
   reason: string
 }
 
@@ -87,6 +112,7 @@ export interface Guard {
   transfer(input: TransferInput): Promise<TransferResult>
   budget(): Promise<Budget>
   intent(id: string): Promise<Intent>
+  startTask(input: MandateInput): Promise<Mandate>
 }
 
 /** A guard-core call that did not produce a usable answer. `message` is safe to show the model. */
@@ -149,6 +175,7 @@ export function httpGuard(options: HttpGuardOptions): Guard {
     transfer: (input) => call(transferResult, '/v1/agent/transfer', { agentId, ...input }),
     budget: () => call(budget, `/v1/agent/budget/${agent}`),
     intent: (id) => call(payIntent, `/v1/agent/intents/${encodeURIComponent(id)}`),
+    startTask: (input) => call(mandate, '/v1/agent/mandates', { agentId, ...input }),
   }
 }
 

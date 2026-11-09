@@ -4,6 +4,7 @@ import type { Budget, Intent } from '../adapters/guard.js'
 import { chainName, usdSymbolFor } from '../domain/chains.js'
 import { explainStatus } from '../domain/explain.js'
 import { formatAmount } from '../domain/usd.js'
+import { listOf } from './start-task.js'
 import type { ToolDeps } from './deps.js'
 import { guarded, text } from './result.js'
 
@@ -48,6 +49,24 @@ function describeBudget(budget: Budget): string {
     `Spent today: ${formatAmount(budget.spentToday)} of ${formatAmount(budget.dailyMax)} (daily limit, resets at 00:00 UTC).`,
     `Per-payment limit: ${formatAmount(budget.perTxMax)}.`,
   ]
+  if (budget.shadowSpentToday !== undefined && budget.shadowSpentToday !== '0') {
+    lines.push(
+      `Shadow mode would have spent ${formatAmount(budget.shadowSpentToday)} today. Nothing of that was paid.`,
+    )
+  }
+  if (budget.mandates !== undefined) {
+    lines.push(
+      budget.mandates.length === 0
+        ? 'Open task budgets: none. Open one with start_task before a task that needs payments.'
+        : 'Open task budgets:',
+      ...budget.mandates
+        .slice(0, 20)
+        .map(
+          (mandate) =>
+            `- ${mandate.id}: ${formatAmount(mandate.spent)} of ${formatAmount(mandate.budget)} spent, for ${listOf(mandate.domains, 5)}, expires ${mandate.expiresAt}.`,
+        ),
+    )
+  }
   if (budget.chains !== undefined) {
     lines.push(
       budget.chains.length === 0

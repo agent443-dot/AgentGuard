@@ -88,6 +88,39 @@ describe('httpGuard', () => {
     expect((await failureOf(bad)).code).toBe('bad_response')
   })
 
+  it('opens a task budget at the mandates route', async () => {
+    const mandate = {
+      id: 'mdt_1',
+      agentId: 'agent/1',
+      budget: '5',
+      spent: '0',
+      domains: ['a.test'],
+      recipients: [],
+      reason: 'r',
+      status: 'active',
+      createdAt: 't',
+      expiresAt: 't',
+    }
+    const { guard, calls } = stub(200, mandate)
+    const result = await guard.startTask({
+      budget: '5',
+      domains: ['a.test'],
+      ttlSeconds: 60,
+      reason: 'r',
+    })
+    expect(calls[0]?.url).toBe('http://guard:8787/v1/agent/mandates')
+    expect(String(calls[0]?.init?.body)).toContain('"agentId":"agent/1"')
+    expect(String(calls[0]?.init?.body)).toContain('"ttlSeconds":60')
+    expect(result.id).toBe('mdt_1')
+    const bad = stub(200, { ...mandate, status: 'open' }).guard.startTask({
+      budget: '5',
+      domains: [],
+      ttlSeconds: 60,
+      reason: 'r',
+    })
+    expect((await failureOf(bad)).code).toBe('bad_response')
+  })
+
   it('refuses a response that does not match the contract', async () => {
     const error = await failureOf(stub(200, { status: 'paid_maybe' }).guard.intent('x'))
     expect(error.code).toBe('bad_response')

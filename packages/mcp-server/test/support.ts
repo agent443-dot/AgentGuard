@@ -46,6 +46,7 @@ export function fakeGuard(overrides: Partial<Guard>): Guard {
     transfer: unexpected,
     budget: unexpected,
     intent: unexpected,
+    startTask: unexpected,
     ...overrides,
   }
 }
