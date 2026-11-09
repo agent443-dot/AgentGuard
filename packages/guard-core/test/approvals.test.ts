@@ -43,6 +43,7 @@ let db: Db
 const notifier: BotNotifier = {
   requestApproval: vi.fn(async () => {}),
   intentEvent: vi.fn(async () => {}),
+  alert: vi.fn(async () => {}),
 }
 
 beforeEach(() => {
@@ -56,7 +57,7 @@ beforeEach(() => {
 
 describe('requestApproval', () => {
   it('persists the intent before asking, so a silent bot still leaves something to expire', async () => {
-    await requestApproval(db, notifier, intent(), simulation, [])
+    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
     const [row] = db.select().from(schema.intents).all()
     expect(row?.status).toBe('pending_approval')
     expect(notifier.requestApproval).toHaveBeenCalledOnce()
@@ -69,7 +70,7 @@ describe('requestApproval', () => {
 
 describe('decide', () => {
   beforeEach(async () => {
-    await requestApproval(db, notifier, intent(), simulation, [])
+    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
   })
 
   it('approves while the window is open', () => {
@@ -108,7 +109,7 @@ describe('decide', () => {
 
 describe('expirePending', () => {
   it('closes only what is pending and past its window', async () => {
-    await requestApproval(db, notifier, intent(), simulation, [])
+    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
     db.insert(schema.intents)
       .values({
         ...intent({ id: '11111111-1111-4111-8111-111111111111', status: 'executed' }),

@@ -58,6 +58,16 @@ the pipeline moves it on.
 - **Policy fields with defaults**: `mode` (`live`), `priceIncreaseMaxPct` (100),
   `maxPaymentsPerMinute` (10) and `requireMandate` (false). A `PUT` that leaves one out writes its
   default, never the previous value, so the stored policy is always exactly the one last sent.
+- **Shadow mode** (`mode: "shadow"`): policy, pinning and simulation run as usual, then the intent
+  is recorded as `shadowed` and stops there. Nothing is funded or signed, the owner is not asked,
+  and an x402 fetch gets the unpaid 402 back. The daily max is held against what shadow mode would
+  have spent, and both budget routes report it as `shadowSpentToday`, so the owner can watch an
+  agent's habits before giving it money.
+- **Breaker**: the payment that would make more than `maxPaymentsPerMinute` in a rolling minute is
+  refused with `BREAKER_TRIPPED`, the agent is paused, and `POST {BOT_URL}/hooks/alert` tells the
+  owner. It stays paused until the owner resumes it. Only payments about to be signed count, each
+  once, and the window is kept in the database so a restart does not reset it. Shadow mode does not
+  trip it: nothing it counts ever happened.
 - **Owner approval**: at or above `approvalThreshold`, the intent is saved as `pending_approval`
   before the webhook goes out. Approval answers the threshold only: policy and simulation run again
   right before anything is sent, so a pause or a spent budget in the meantime still refuses it.
@@ -131,6 +141,12 @@ so an agent learns where it can pay and nothing more of the setup.
 which holds no agent token.
 
 ### Events to the bot
+
+A flagged approval request also carries `pinned: { recipient, amount }`, the domain's last executed
+payment, so the bot can show the old payee and how many times the last price this is.
+
+`POST {BOT_URL}/hooks/alert { kind, agentId, detail, sentAt }`, signed the same way, carries what
+the owner must act on now: today, a tripped breaker. It is retried like an intent event.
 
 Every intent that reaches `executed`, `rejected`, `failed` or `expired` is posted to
 `{BOT_URL}/hooks/intent-event` as `{ intent, sentAt }`, signed like the approval request (CR-004).

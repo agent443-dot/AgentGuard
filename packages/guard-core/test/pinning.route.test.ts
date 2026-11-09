@@ -36,7 +36,9 @@ describe('x402 recipient and price pinning', () => {
     const res = await buy(offer({ amount: '500000', payTo: SWAPPED }))
     expect(res.json().status).toBe('pending_approval')
     expect(flagsSent()).toEqual(['RECIPIENT_CHANGED'])
-    expect(vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0].passkey).toBe(false)
+    const body = vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0]
+    expect(body?.passkey).toBe(false)
+    expect(body?.pinned).toEqual({ recipient: offer().payTo, amount: '500000' })
   })
 
   it('sends a price more than double the pinned one to the owner', async () => {
@@ -71,5 +73,6 @@ describe('x402 recipient and price pinning', () => {
   it('sends an unflagged request with empty flags', async () => {
     await buy(offer({ amount: '3000000' }))
     expect(flagsSent()).toEqual([])
+    expect(vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0].pinned).toBeUndefined()
   })
 })

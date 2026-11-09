@@ -1,4 +1,4 @@
-import type { PayIntent } from '@agentguard/shared'
+import type { AlertEvent, PayIntent } from '@agentguard/shared'
 import type { PaymentDeps } from './payments.js'
 
 // About 21 seconds in all: enough to ride out a bot restart, short enough that the alert still
@@ -10,23 +10,34 @@ const RETRY_MS = [1_000, 4_000, 16_000]
  * Tells the bot an intent reached a final state (CR-004); the bot decides what the owner sees.
  * Never awaited: a bot that is down must not hold up or fail a payment that already happened.
  */
-export function notify(deps: Pick<PaymentDeps, 'bot' | 'now' | 'log'>, intent: PayIntent): void {
-  void deliver(deps, intent)
+export function notify(deps: Deps, intent: PayIntent): void {
+  void deliver(
+    deps,
+    // Stamped per attempt: the bot refuses events older than five minutes.
+    () => deps.bot.intentEvent({ intent, sentAt: deps.now().toISOString() }),
+    { intentId: intent.id, status: intent.status },
+  )
 }
 
-async function deliver(deps: Pick<PaymentDeps, 'bot' | 'now' | 'log'>, intent: PayIntent) {
+/** Tells the bot something the owner must act on now, such as a tripped breaker. Never awaited. */
+export function alert(deps: Deps, event: Omit<AlertEvent, 'sentAt'>): void {
+  void deliver(deps, () => deps.bot.alert({ ...event, sentAt: deps.now().toISOString() }), {
+    kind: event.kind,
+    agentId: event.agentId,
+  })
+}
+
+type Deps = Pick<PaymentDeps, 'bot' | 'now' | 'log'>
+
+async function deliver(deps: Deps, send: () => Promise<void>, about: Record<string, string>) {
   for (let attempt = 0; ; attempt++) {
     try {
-      // Stamped per attempt: the bot refuses events older than five minutes.
-      await deps.bot.intentEvent({ intent, sentAt: deps.now().toISOString() })
+      await send()
       return
     } catch (error) {
       const wait = RETRY_MS[attempt]
       if (wait === undefined) {
-        deps.log.error(
-          { err: error, intentId: intent.id, status: intent.status, attempts: attempt + 1 },
-          'intent event given up',
-        )
+        deps.log.error({ err: error, ...about, attempts: attempt + 1 }, 'bot event given up')
         return
       }
       await new Promise((resolve) => setTimeout(resolve, wait))

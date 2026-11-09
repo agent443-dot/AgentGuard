@@ -6,7 +6,7 @@ import type {
   PolicyDecision,
   RejectCode,
 } from '@agentguard/shared'
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { and, eq, gt, like, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
 import { POLICY_DEFAULTS } from '../domain/policy.js'
 import type { Db } from './client.js'
@@ -142,6 +142,22 @@ export function spentToday(db: Db, agentId: string, day: string): Amount {
     .where(and(eq(dailySpend.agentId, agentId), eq(dailySpend.day, day)))
     .all()
   return rows.reduce((total, row) => total + BigInt(row.spent), 0n).toString()
+}
+
+/** What shadow mode would have spent today: every intent it recorded instead of sending. */
+export function shadowSpentToday(db: Db, agentId: string, day: string): Amount {
+  const rows = db
+    .select({ amount: intents.amount })
+    .from(intents)
+    .where(
+      and(
+        eq(intents.agentId, agentId),
+        eq(intents.status, 'shadowed'),
+        like(intents.createdAt, `${day}%`),
+      ),
+    )
+    .all()
+  return rows.reduce((total, row) => total + BigInt(row.amount), 0n).toString()
 }
 
 export function addSpend(

@@ -132,3 +132,20 @@ export const dailySpend = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.agentId, t.chain, t.day] })],
 )
+
+/**
+ * One row per payment cleared to be signed, for the breaker's rolling minute. Keyed by intent, so
+ * a payment cleared twice (asked of the owner, then redeemed) counts once. In the database rather
+ * than in memory, so a restart does not hand a runaway agent a fresh minute.
+ */
+export const clearedPayments = sqliteTable(
+  'cleared_payments',
+  {
+    intentId: text('intent_id')
+      .primaryKey()
+      .references(() => intents.id),
+    agentId: text('agent_id').notNull(),
+    at: text('at').notNull(),
+  },
+  (t) => [index('cleared_payments_agent_at').on(t.agentId, t.at)],
+)

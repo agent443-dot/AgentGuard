@@ -69,6 +69,7 @@ export async function harness(
   const bot: BotNotifier = {
     requestApproval: vi.fn(async () => {}),
     intentEvent: vi.fn(async () => {}),
+    alert: vi.fn(async () => {}),
   }
   const fetchMock = vi.fn<typeof fetch>()
   const clock = { now: NOW }
