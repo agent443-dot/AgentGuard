@@ -9,7 +9,7 @@ import * as repo from '../db/repo.js'
 import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
 import { doctor } from '../service/doctor.js'
-import { enrol, enrolmentOptions } from '../service/passkeys.js'
+import { enrol, enrolmentOptions, issueEnrolCode } from '../service/passkeys.js'
 import { openMandate } from '../service/mandates.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
@@ -87,6 +87,18 @@ export function adminRoutes(
     app.post('/passkeys/options', async () => {
       const setup = passkeyAddress()
       return enrolmentOptions(db, setup, now())
+    })
+
+    // For enrolling from a phone through the public page: the code goes to the owner in a link.
+    app.post('/passkeys/code', async () => {
+      passkeyAddress()
+      const issued = issueEnrolCode(db, now())
+      repo.audit(
+        db,
+        { event: 'passkey_code_issued', detail: { expiresAt: issued.expiresAt } },
+        now(),
+      )
+      return issued
     })
 
     app.post('/passkeys', async (request, reply) => {

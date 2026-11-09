@@ -244,3 +244,12 @@ export const passkeyChallenges = sqliteTable('passkey_challenges', {
   challenge: text('challenge').notNull(),
   expiresAt: text('expires_at').notNull(),
 })
+
+/**
+ * One-time codes that let the owner enrol a passkey from the public page. Only the SHA-256 of a
+ * code is kept, so the table cannot be read back into a working link.
+ */
+export const enrolCodes = sqliteTable('enrol_codes', {
+  hash: text('hash').primaryKey(),
+  expiresAt: text('expires_at').notNull(),
+})

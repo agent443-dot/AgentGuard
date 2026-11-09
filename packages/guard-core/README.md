@@ -211,10 +211,16 @@ the owner enrolled, never by a Telegram tap alone. A stolen Telegram account can
 never approve it. `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` name guard-core's public address, which the
 passkey is bound to, so a look-alike site cannot use it.
 
-- Enrolment, through the admin routes only: `POST /v1/admin/passkeys/options` returns the WebAuthn
-  registration options, and `POST /v1/admin/passkeys { response }` verifies and stores the
-  passkey's public key. It requires user verification, and the challenge is single-use and lasts
-  five minutes.
+- Enrolment from a phone: `POST /v1/admin/passkeys/code` returns `{ code, expiresAt }`, a code good
+  for one attempt within ten minutes, stored only as its SHA-256 and audited. The bot sends the
+  owner `https://<guard-core>/owner/enrol#code=<code>`. The code is in the fragment, which the
+  browser never sends, so it stays out of request lines and logs. The page's script posts it to
+  `POST /v1/owner/passkeys/options { code }`, creates the passkey, and sends the result with the
+  code to `POST /v1/owner/passkeys { code, response }`, which uses the code up. Each code has its
+  own challenge, so one code's challenge cannot be answered with another.
+- Enrolment through the admin routes, for a tool on the operator's side:
+  `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys { response }`.
+- Both require user verification. Challenges are single-use and last five minutes.
 - The approval request for such an intent carries `passkey: true`, and `/v1/bot/decision` answers
   `approve` with 403 `passkey_required` (a rejection still works).
 - `GET /owner/approve/:intentId`, on the public listener, is a small page that runs WebAuthn for

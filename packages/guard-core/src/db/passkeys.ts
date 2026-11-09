@@ -1,6 +1,6 @@
 import { count, eq } from 'drizzle-orm'
 import type { Db } from './client.js'
-import { passkeyChallenges, passkeys } from './schema.js'
+import { enrolCodes, passkeyChallenges, passkeys } from './schema.js'
 
 export type Passkey = typeof passkeys.$inferSelect
 
@@ -44,4 +44,20 @@ export function takeChallenge(db: Db, purpose: string, now: Date): string | unde
   return row !== undefined && new Date(row.expiresAt).getTime() > now.getTime()
     ? row.challenge
     : undefined
+}
+
+export function putEnrolCode(db: Db, hash: string, expiresAt: Date): void {
+  db.insert(enrolCodes).values({ hash, expiresAt: expiresAt.toISOString() }).run()
+}
+
+export function enrolCodeValid(db: Db, hash: string, now: Date): boolean {
+  const row = db.select().from(enrolCodes).where(eq(enrolCodes.hash, hash)).get()
+  return row !== undefined && new Date(row.expiresAt).getTime() > now.getTime()
+}
+
+/** Uses the code up, whatever happens next: a code answers one enrolment attempt. */
+export function takeEnrolCode(db: Db, hash: string, now: Date): boolean {
+  const valid = enrolCodeValid(db, hash, now)
+  db.delete(enrolCodes).where(eq(enrolCodes.hash, hash)).run()
+  return valid
 }

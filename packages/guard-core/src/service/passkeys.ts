@@ -10,6 +10,7 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
+import { createHash, randomBytes } from 'node:crypto'
 import type { Db } from '../db/client.js'
 import * as store from '../db/passkeys.js'
 import { parseAmount } from '../domain/amount.js'
@@ -27,10 +28,15 @@ export function needsPasskey(setup: PasskeySetup | undefined, intent: PayIntent)
   return setup !== undefined && parseAmount(intent.amount) >= parseAmount(setup.above)
 }
 
+/**
+ * `purpose` keys the challenge: the admin path has one, and each enrolment code its own, so a
+ * challenge issued for one code cannot be answered with another.
+ */
 export async function enrolmentOptions(
   db: Db,
   setup: Pick<PasskeySetup, 'rpId'>,
   now: Date,
+  purpose = 'registration',
 ): Promise<PublicKeyCredentialCreationOptionsJSON> {
   const options = await generateRegistrationOptions({
     rpName: 'AgentGuard',
@@ -41,7 +47,7 @@ export async function enrolmentOptions(
     authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
     excludeCredentials: store.listPasskeys(db).map((key) => ({ id: key.id })),
   })
-  store.putChallenge(db, 'registration', options.challenge, new Date(now.getTime() + ENROL_MS))
+  store.putChallenge(db, purpose, options.challenge, new Date(now.getTime() + ENROL_MS))
   return options
 }
 
@@ -50,8 +56,9 @@ export async function enrol(
   setup: Pick<PasskeySetup, 'rpId' | 'origin'>,
   response: RegistrationResponseJSON,
   now: Date,
+  purpose = 'registration',
 ): Promise<boolean> {
-  const challenge = store.takeChallenge(db, 'registration', now)
+  const challenge = store.takeChallenge(db, purpose, now)
   if (challenge === undefined) {
     return false
   }
@@ -121,4 +128,18 @@ export async function verifyApproval(
   }
   store.setCounter(db, passkey.id, result.authenticationInfo.newCounter)
   return true
+}
+
+const CODE_MS = 10 * 60_000
+
+/** A one-time code for the public enrolment page: shown once, stored only as its hash. */
+export function issueEnrolCode(db: Db, now: Date): { code: string; expiresAt: string } {
+  const code = randomBytes(24).toString('base64url')
+  const expiresAt = new Date(now.getTime() + CODE_MS)
+  store.putEnrolCode(db, codeHash(code), expiresAt)
+  return { code, expiresAt: expiresAt.toISOString() }
+}
+
+export function codeHash(code: string): string {
+  return createHash('sha256').update(code).digest('hex')
 }

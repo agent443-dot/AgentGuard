@@ -171,7 +171,11 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
 
   if (surface !== 'private') {
     // The owner's passkey page faces the internet: it is opened from Telegram on any device.
-    app.register(ownerRoutes(deps))
+    const rp =
+      config.PASSKEY_RP_ID === undefined || config.PASSKEY_ORIGIN === undefined
+        ? undefined
+        : { rpId: config.PASSKEY_RP_ID, origin: config.PASSKEY_ORIGIN }
+    app.register(ownerRoutes(deps, rp))
     app.register(
       agentRoutes(deps, {
         perIp: config.RATE_LIMIT_PER_IP,

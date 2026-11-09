@@ -50,6 +50,13 @@
       "when": 1794251355401,
       "tag": "0006_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794251823093,
+      "tag": "0007_enrol_codes",
+      "breakpoints": true
     }
   ]
 }
