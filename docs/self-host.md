@@ -137,7 +137,8 @@ reach them with `fly proxy 18787:8787 --app <your guard-core app>`.
 To deploy on every merge to your `main`, keep `.github/workflows/deploy.yml`:
 
 1. Change the two app names in its matrix.
-2. Add `FLY_API_TOKEN_GUARD` and `FLY_API_TOKEN_BOT` as repository **secrets**, never variables.
+2. Add `FLY_API_TOKEN_GUARD` and `FLY_API_TOKEN_BOT` as **secrets**, never variables: either
+   repository secrets, or secrets of an environment named `agent guard` limited to `main`.
    Make each one with `fly tokens create deploy -a <app>`.
 
 ## 6. Agents
