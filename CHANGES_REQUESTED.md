@@ -557,3 +557,63 @@ expiresAt, status: "active" | "exhausted" | "expired" | "revoked", reason, creat
   - phase 3: 5, 7 (guard-core, bot, mcp).
 
   Each feature lands with its tests, and the e2e suite gains an attack case for 1, 2 and 3.
+
+### CR-011 — Anyone can set it up: a setup wizard, owner commands in Telegram, a doctor, one-line agent setup
+
+- **From:** integrator, for the owner
+- **Date:** 2026-11-09
+- **Status:** approved by the owner on 2026-11-09 ("faça literalmente tudo isso em ordem"). Applied as
+  SPEC v0.7. Built after CR-010 phase 1, none merged before Solana's mainnet launch.
+- **Why:** self-hosting takes hours today: Fly, Vercel, Phantom, Telegram, keys made by hand,
+  secrets, `curl` through `fly proxy`, and `fly ssh` to create an agent. Each step is a place to get
+  lost or make an unsafe mistake. This change keeps the trust model: the owner key never leaves
+  Phantom, the hot keys are made on the owner's machine, and the cap stays onchain. It moves every
+  other step into a guided path.
+- **What:**
+  1. **Setup wizard**, `npx create-agentguard` (new package `packages/create-agentguard`, owned by
+     the integrator). It:
+     - asks for the chains, the daily cap and the policy preset;
+     - generates the hot keys locally into `~/.agentguard/` (mode 0600) and prints addresses only;
+     - creates and configures the Fly apps, the volume and the secrets, and pipes each key from its
+       file;
+     - deploys the signing page to Vercel with the owner's own token;
+     - deploys guard-core and the bot;
+     - prints the Phantom links for the vault and the cap, then waits and reads them back.
+       A `--dry-run` prints every command without running it. The wizard never sees the owner key and
+       never sends a key anywhere but the owner's own Fly secrets.
+  2. **Owner commands in Telegram**, so no owner step needs a terminal:
+     - `/agent new <id>`, `/agent list`, `/agent revoke <id>`;
+     - `/policy <id>`, with presets ("Careful": 1 per payment, 5 a day, approval above 0.50;
+       "Standard": D2) and a field-by-field edit;
+     - `/allow <id> <domain>`, `/deny <id> <domain>`;
+     - `/mode <id> live|shadow`;
+     - `/doctor`.
+       Revoking, going live and raising any limit ask for a confirm button. The bot uses new admin
+       routes on guard-core's private listener, with the admin token it already holds:
+     - `POST /v1/admin/agents { agentId } -> { agentId, token }`: the token is shown once, and the
+       bot deletes the message after 60 s;
+     - `GET /v1/admin/agents -> { agents: { agentId, paused, mode }[] }`;
+     - `POST /v1/admin/agents/:id/revoke`.
+  3. **Doctor**: `GET /v1/admin/doctor -> { checks: DoctorCheck[] }`, where
+     `DoctorCheck { id, status: "ok" | "warn" | "fail", message, fix? }` is in plain English and
+     never carries a secret. It checks:
+     - the database is writable;
+     - each chain's allowance reads;
+     - each hot wallet's gas and token balance against `ChainAdapter.getHotWalletGas()`, new:
+       `{ balance, minimum, symbol }`, the native coin needed for a few draws;
+     - the bot is reachable;
+     - backups are recent.
+       The bot's `/doctor` and the wizard's `agentguard doctor` show the same checks.
+  4. **One-line agent setup**: `npx @agentguard/mcp-server setup <claude-code|claude-desktop|cursor|
+generic>` prints the exact command or config block for that client, with the guard URL and the
+     agent id filled in. The agent token is read from a prompt, never from argv.
+  5. **New agents start in shadow mode.** `POST /v1/admin/agents` (and `create-agent.ts`) writes a
+     deny-all policy with `mode: "shadow"`. Existing agents are unchanged. After three days with
+     shadow payments, the bot offers "Your agent would have spent $X in N payments. Go live?", which
+     opens the `/mode <id> live` confirm.
+  6. **Run anywhere**: a `docker-compose.yml` for any server, and the same images on Railway, as a
+     template documented in `docs/self-host.md`.
+  7. **Docs for beginners**: `docs/troubleshooting.md` (every problem met at launch, with its fix),
+     and `docs/self-host.pt-BR.md`.
+- **Blast radius:** guard-core (agent routes, doctor, the shadow default), onchain
+  (`getHotWalletGas`), bot (commands), mcp (`setup`), integrator (wizard, compose, docs, shared types).

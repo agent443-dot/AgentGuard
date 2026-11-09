@@ -5,7 +5,8 @@ only you control, and nothing in the path belongs to us. This guide goes from an
 an agent paying an x402 API under a daily cap, with a kill switch that works.
 
 Each step links to the package README that holds the exact commands. Those READMEs are kept in step
-with the code by its tests; this page gives the order.
+with the code by its tests; this page gives the order. If something goes wrong, see
+[`troubleshooting.md`](./troubleshooting.md). Em português: [`self-host.pt-BR.md`](./self-host.pt-BR.md).
 
 ## What you need
 
@@ -140,6 +141,31 @@ To deploy on every merge to your `main`, keep `.github/workflows/deploy.yml`:
 2. Add `FLY_API_TOKEN_GUARD` and `FLY_API_TOKEN_BOT` as **secrets**, never variables: either
    repository secrets, or secrets of an environment named `agent guard` limited to `main`.
    Make each one with `fly tokens create deploy -a <app>`.
+
+## Run anywhere, instead of Fly
+
+`docker-compose.yml` at the repository root runs the same two images on any server with Docker:
+guard-core with its database on a volume, and the bot. The admin and bot routes stay on the compose
+network. The agent routes listen on `127.0.0.1:8080` only.
+
+1. Put the settings both apps need in `~/.agentguard/compose.env`, mode 0600. These are the same
+   names as in `fly secrets import`. Each hot key goes in as its content, as on Fly:
+   `SOLANA_HOT_WALLET_KEYPAIR_JSON`, `ROBINHOOD_HOT_WALLET_KEY`. The entrypoint moves them into
+   files on tmpfs before node starts.
+2. `docker compose --env-file ~/.agentguard/compose.env up -d --build`.
+3. For agents on other machines, point a DNS name at the server and add Caddy, which gets the
+   certificate itself:
+   `DOMAIN=guard.example.com docker compose --env-file ~/.agentguard/compose.env --profile tls up -d --build`.
+   Caddy serves only `/v1/agent/*` and `/health`. Never publish port 8080 directly: guard-core's
+   per-IP limit trusts the client-IP header that Caddy sets.
+
+Any other host works if it builds from the repository root and gives guard-core:
+
+- a persistent volume at `/data`;
+- a tmpfs at `/run/agentguard`, or the right to mount one;
+- the private network both apps need.
+
+We have run it on Fly and with this compose file only.
 
 ## 6. Agents
 

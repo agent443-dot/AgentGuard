@@ -37,6 +37,8 @@ export function policy(
     allowedRecipients: [],
     allowedDomains: ['127.0.0.1'],
     paused: false,
+    // New agents start in shadow (CR-011), and a PUT that omits mode keeps it, so these runs say live.
+    mode: 'live',
     ...overrides,
   }
 }
