@@ -269,7 +269,10 @@ Each line can be checked by someone other than its author.
   - if the owner would rather not show it on `main`, delete it there before the flip, knowing the
     history keeps it.
 
-- [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
+- [x] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8). The report is
+      `docs/final-report.md`. The owner gave the go-ahead in writing on 2026-11-09, after the
+      pre-release review's fixes: "pode lançar" (go ahead and launch). Robinhood Chain launches with
+      it; Solana follows on 2026-11-10 (D6).
 
 ## 3. Deployment shape
 
