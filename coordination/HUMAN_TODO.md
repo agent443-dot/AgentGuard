@@ -45,14 +45,23 @@ Criados em 2026-11-03. Tudo público.
 | Owner antiga (ficheiro)     | `AxCgDMb1uirKHyEsC3WUkWY8G7CYa1BE1YX4j5bFpita` |
 | Guard hot wallet            | `H5fcEu5KppqfZH83H34YXVwjwCamjfHDjGx1d8eykHjw` |
 
-**Robinhood Chain mainnet (4663) — piloto com dinheiro real (HUMAN-21)**
+**Solana mainnet — lançada em 2026-11-09 (HUMAN-22 bloco C)**
+
+| O quê                     | Endereço                                       |
+| ------------------------- | ---------------------------------------------- |
+| Multisig Squads (Phantom) | `DrBCoaRm3XAfdwzdHrcqVepVLdRw5xudqwwe5y7TGvsL` |
+| Cofre do multisig         | `GDXdjdE1gfKexfQevgebkpe13VKdmyAe9nm3QdFtCXna` |
+| Hot wallet                | `DRtN…Voq1`                                    |
+| Teto                      | 20 USDC por dia                                |
+
+**Robinhood Chain mainnet (4663) — lançada em 2026-11-09 (piloto na HUMAN-21)**
 
 | O quê                       | Endereço                                     |
 | --------------------------- | -------------------------------------------- |
 | Safe                        | `0xB460E05685c613EF726Fd74b91B24f4B4e989d8a` |
 | Owner Phantom (só ela, 1/1) | `0x2cfBE309A0D2a3cc81D16fdD82F09e2f484f48Ba` |
 | Hot wallet (delegate)       | `0x46F51787ccE5fD8582A5de0a79d9460148Bf2204` |
-| Teto                        | 5 USDG por dia                               |
+| Teto                        | 20 USDG por dia (5 no piloto)                |
 
 **Robinhood Chain testnet (46630)**
 
@@ -1158,7 +1167,10 @@ ficam uns **10 USDG**, e uns **5 dólares de ETH** para as taxas. O integrator g
 
 ---
 
-## ⏳ HUMAN-22 — Lançamento: Solana e Robinhood Chain com dinheiro real
+## ✅ HUMAN-22 — Lançamento: Solana e Robinhood Chain com dinheiro real
+
+**Feito em 2026-11-09:** as duas redes estão no ar com dinheiro real. O registo está no PR #139
+(`LAUNCH.md`, relatório final, revisão de segurança).
 
 **As tuas decisões de 2026-11-09** (no `LAUNCH.md`, §1), que substituem as de 2026-11-05 onde mudam:
 
@@ -1202,12 +1214,13 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
    para as primeiras semanas.
 7. ✅ A política do agente com os valores da D2, e um pagamento de teste.
 
-**C. Solana mainnet** — ⏳ **o próximo passo: amanhã, por volta das 12:05 UTC** (quando a quota do Vercel renova). O integrator guia-te.
+**C. Solana mainnet** — ✅ **lançada em 2026-11-09**, mais cedo do que o previsto. Multisig
+`DrBC…TGvsL`, cofre `GDXd…CXna` com 20 USDC, teto de 20 USDC por dia.
 
-8. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
-9. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
-10. Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
-11. Um kill de teste, e repor o teto.
+8. ✅ Uma hot wallet nova de mainnet, criada direto para um ficheiro.
+9. ✅ O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
+10. ✅ Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
+11. ✅ Um kill de teste em mainnet, e repor o teto.
 
 **D. Antes de abrir** — decisões D7 (código aberto, cada um aloja o seu) e D8 (licença Apache-2.0)
 
@@ -1227,6 +1240,32 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 18. ✅ **Por último, tornar o repositório público** (feito em 2026-11-09): **Settings → General → Danger Zone → Change
     visibility → Public**. Logo a seguir entra a mudança que troca os "coming soon" do site pelo link
     do repositório.
+
+---
+
+## ⏳ HUMAN-25 — Pedir à Phantom que reveja o domínio da página de assinatura
+
+Quando criaste o multisig na Solana mainnet, a Phantom marcou a transação como suspeita. Isso acontece
+com domínios novos que ela ainda não conhece, e o aviso vai aparecer a quem usar a página. Pedes uma
+revisão do domínio `agentguard-onchain.vercel.app` à Phantom:
+
+1. Abre o formulário de revisão de domínios da Phantom. Não consegui confirmar o link daqui; pedi-o ao
+   integrator e ponho-o aqui logo que o tiver.
+2. Domínio: `agentguard-onchain.vercel.app`.
+3. Descrição (em inglês, cola tal como está):
+   "Open-source signing page for AgentGuard (github.com/agent443-dot/AgentGuard). It builds Squads v4
+   multisig and spending-limit transactions for the owner's own wallet. No funds are sent to third
+   parties; every address is public and checked onchain before signing."
+4. Envia, e diz-me quando a Phantom responder.
+
+---
+
+## ⬜ HUMAN-26 — Publicar os pacotes no npm
+
+Ainda não é preciso. Mais tarde, `create-agentguard` (o assistente de instalação) e
+`@agentguard/mcp-server` vão para o npm, para quem quiser instalar com um só comando. Para isso precisas
+de uma conta npm e de uma organização `agentguard`. Eu dou-te os passos quando os pacotes estiverem
+prontos.
 
 ---
 
