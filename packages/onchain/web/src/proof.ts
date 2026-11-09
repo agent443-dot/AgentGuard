@@ -22,6 +22,20 @@ export interface SolanaProofRequest {
 }
 
 const DAY_S = 86_400
+
+/**
+ * A read the RPC refused or failed. Some RPCs refuse to list program accounts; without that list
+ * the page could miss a spending right, so it never falls back to counting fewer of them.
+ */
+export const unreadable = (error: unknown): Proof => ({
+  verified: false,
+  title: 'Not verified',
+  lines: [
+    'This could not be verified: the RPC did not answer every read the proof needs, so the page ' +
+      'cannot rule out a spending right it did not see.',
+    `The RPC said: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+  ],
+})
 const usdcText = (amount: bigint) => `${formatUnits(amount, USDC_DECIMALS)} USDC`
 
 /**

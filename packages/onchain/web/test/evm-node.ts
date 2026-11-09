@@ -69,6 +69,8 @@ export async function stageEvm() {
     otherModules: [] as Address[],
     otherDelegates: [] as Address[],
     otherTokens: [] as Address[],
+    /** The RPC fails the module's delegate list, as a flaky or rate-limited RPC would. */
+    delegatesFail: false,
   }
   const sent: { from: Address; to: Address; data: Hex; value: Hex }[] = []
 
@@ -88,6 +90,9 @@ export async function stageEvm() {
           zeroAddress,
         ])
       case 'getDelegates':
+        if (state.delegatesFail) {
+          throw new JsonRpcError(-32005, 'rate limited')
+        }
         return answer([[...(state.listed ? [state.hot] : []), ...state.otherDelegates], 0])
       case 'getTokens':
         return answer([USDG, ...state.otherTokens])

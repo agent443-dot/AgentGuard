@@ -7,7 +7,7 @@ import { prepareKill } from './kill.js'
 import { prepareLimit } from './limit.js'
 import { EXPIRED, expired, issued, problems } from './link.js'
 import { isPublicKey, type Plan } from './plan.js'
-import { proveSolana } from './proof.js'
+import { proveSolana, unreadable } from './proof.js'
 import { button, link, show, waitFor } from './view.js'
 import { openInPhantom, phantom, type Wallet } from './wallet.js'
 
@@ -143,7 +143,7 @@ async function prove(connection: Connection, request: Extract<SolanaLink, { acti
     ...request,
     hotWallet: new PublicKey(hot),
     usdc: new PublicKey(usdc),
-  })
+  }).catch(unreadable)
   show(proof.title, proof.lines, proof.verified ? 'done' : 'stop')
 }
 

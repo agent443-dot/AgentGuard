@@ -154,6 +154,14 @@ describe('the proof page on Solana', () => {
     )
   })
 
+  it('says it could not verify when the RPC refuses to list the spending limits', async () => {
+    s.server.refused.add('getProgramAccounts')
+    const page = await proof()
+    expect(await heading(page).textContent()).toBe('Not verified')
+    expect((await lines(page))[0]).toMatch(/^This could not be verified: the RPC did not answer/)
+    expect((await lines(page)).join('\n')).toContain('getProgramAccounts is disabled on this RPC')
+  })
+
   it('says so when there is no multisig at the address', async () => {
     const page = await proof(Keypair.generate().publicKey)
     expect(await heading(page).textContent()).toBe('Not verified')

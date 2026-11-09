@@ -75,6 +75,13 @@ describe('the proof page on an EVM chain', () => {
     expect(await page.getAttribute('#app', 'data-state')).toBe('stop')
   })
 
+  it('says it could not verify when the RPC fails a read, never counting fewer rights', async () => {
+    s.state.delegatesFail = true
+    const page = await proof()
+    expect(await heading(page).textContent()).toBe('Not verified')
+    expect((await lines(page))[0]).toMatch(/^This could not be verified: the RPC did not answer/)
+  })
+
   it('says so when there is no Safe at the address', async () => {
     s.state.exists = false
     const page = await proof()

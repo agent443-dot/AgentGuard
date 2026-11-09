@@ -13,6 +13,7 @@ import { button, link, show, waitFor } from '../view.js'
 import { prepareEvmCreate } from './create.js'
 import { prepareEvmEnable } from './enable.js'
 import { prepareEvmKill } from './kill.js'
+import { unreadable } from '../proof.js'
 import { proveEvm } from './proof.js'
 import type { EvmPlan } from './plan.js'
 import { onChain, phantomEvm, type Eip1193 } from './wallet.js'
@@ -103,7 +104,14 @@ async function prove(client: PublicClient, chain: EvmChain, safe: Address) {
   show('Reading the chain…', [])
   const { module, usd, symbol } = chain
   const hot = getAddress(chain.hot)
-  const proof = await proveEvm(client, { cluster: chain.name, safe, hot, module, usd, symbol })
+  const proof = await proveEvm(client, {
+    cluster: chain.name,
+    safe,
+    hot,
+    module,
+    usd,
+    symbol,
+  }).catch(unreadable)
   show(proof.title, proof.lines, proof.verified ? 'done' : 'stop')
 }
 

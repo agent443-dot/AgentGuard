@@ -55,6 +55,8 @@ export async function servePage(
       : null
   }
   const context = { slot: 1 }
+  /** Methods this RPC refuses, as some public RPCs refuse getProgramAccounts. */
+  const refused = new Set<string>()
   const methods: Record<string, (params: unknown[]) => unknown> = {
     getMultipleAccounts: ([addresses]) => ({
       context,
@@ -93,10 +95,22 @@ export async function servePage(
   }
 
   const served = await serve(dist, {
-    '/rpc': jsonRpc(methods),
+    '/rpc': jsonRpc(
+      Object.fromEntries(
+        Object.entries(methods).map(([name, handler]) => [
+          name,
+          (params: unknown[]) => {
+            if (refused.has(name)) {
+              throw new JsonRpcError(-32601, `${name} is disabled on this RPC`)
+            }
+            return handler(params)
+          },
+        ]),
+      ),
+    ),
     '/wallet': async (body) => JSON.stringify(await sign(body)),
   })
-  return { ...served, dist, signed }
+  return { ...served, dist, signed, refused }
 }
 
 /** A JSON-RPC endpoint over `methods`; a method that throws a JsonRpcError answers with it. */
