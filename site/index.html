@@ -177,30 +177,6 @@
       .btn-ghost:hover {
         border-color: var(--muted);
       }
-      .btn-soon {
-        background: transparent;
-        color: var(--dim);
-        border: 1px dashed var(--line-2);
-        cursor: default;
-      }
-      .btn-soon:hover {
-        transform: none;
-      }
-      .soon-item {
-        color: var(--dim);
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .soon-item small {
-        font-family: var(--mono);
-        font-size: 10px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        border: 1px solid var(--line);
-        border-radius: 5px;
-        padding: 2px 6px;
-      }
       .btn svg {
         width: 16px;
         height: 16px;
@@ -1692,7 +1668,7 @@
           <a href="#roadmap">Roadmap</a>
         </nav>
         <div class="nav-cta">
-          <span class="status-pill"><span class="dot"></span>v0.3 · test network</span>
+          <span class="status-pill"><span class="dot"></span>Live on Robinhood Chain</span>
           <a class="btn btn-primary" href="#how">See it in action</a>
         </div>
       </div>
@@ -1725,8 +1701,8 @@
               <a class="btn btn-ghost" href="#security">Why it is safe</a>
             </div>
             <div class="hero-note">
-              <span><b>Solana</b> + <b>Base</b></span>
-              <span>USDC</span>
+              <span><b>Robinhood Chain</b> live · <b>Solana</b> next · <b>Base</b> later</span>
+              <span>USDG · USDC</span>
               <span>x402 (pay-per-use APIs) · MCP (agent plug-in) · Telegram</span>
             </div>
           </div>
@@ -1751,14 +1727,18 @@
 
       <section class="stats" aria-label="AgentGuard by the numbers">
         <div class="wrap">
-          <div class="stat"><b>2</b><span>blockchains: Solana first, Base next</span></div>
-          <div class="stat"><b>530</b><span>automated tests run on every change</span></div>
-          <div class="stat"><b>24</b><span>attack scenarios blocked in testing</span></div>
+          <div class="stat">
+            <b>3</b><span>chains: Robinhood Chain live, Solana next, Base later</span>
+          </div>
+          <div class="stat"><b>884</b><span>automated tests run on every change</span></div>
+          <div class="stat">
+            <b>39</b><span>attack scenarios blocked in testing: 24 Solana, 15 EVM</span>
+          </div>
           <div class="stat"><b>20</b><span>named reasons a payment is refused</span></div>
           <div class="stat"><b>0</b><span>new smart contracts for you to trust</span></div>
         </div>
         <div class="wrap">
-          <p class="stats-cap">Figures from the codebase, SPEC v0.3, November 2026.</p>
+          <p class="stats-cap">Figures from the codebase, SPEC v0.5, 9 November 2026.</p>
         </div>
       </section>
 
@@ -1775,6 +1755,7 @@
               <span class="mark">x402 <small>pay-per-use payments</small></span>
               <span class="mark">Model Context Protocol <small>how agents connect</small></span>
               <span class="mark">USDC <small>digital dollar</small></span>
+              <span class="mark">USDG <small>Robinhood Chain's dollar</small></span>
               <span class="mark">Telegram <small>approvals</small></span>
             </div>
             <div class="marquee-track" aria-hidden="true">
@@ -1784,6 +1765,7 @@
               <span class="mark">x402 <small>pay-per-use payments</small></span>
               <span class="mark">Model Context Protocol <small>how agents connect</small></span>
               <span class="mark">USDC <small>digital dollar</small></span>
+              <span class="mark">USDG <small>Robinhood Chain's dollar</small></span>
               <span class="mark">Telegram <small>approvals</small></span>
             </div>
           </div>
@@ -1891,8 +1873,8 @@
                   <div>
                     <h4>Your vault (multisig)</h4>
                     <p>
-                      Holds your funds. A wallet only you control: Squads v4 on Solana, Safe on
-                      Base.
+                      Holds your funds. A wallet only you control, through your own Phantom wallet:
+                      Safe on Robinhood Chain and Base, Squads v4 on Solana.
                     </p>
                   </div>
                 </div>
@@ -2095,8 +2077,8 @@
               <h3>One-tap kill switch</h3>
               <p>
                 Send <code>/kill</code> and every agent is paused at once. AgentGuard also drafts
-                the transaction that cuts each chain's spending limit to zero. You sign it and the
-                money is shut off.
+                the transaction that cuts each chain's spending limit to zero. You sign it with
+                Phantom, on a signing page you host, and the money is shut off.
               </p>
             </article>
             <article class="feature">
@@ -2270,14 +2252,14 @@
                     margin-top: 4px;
                   "
                 >
-                  Pay 18.00 USDC
+                  Pay 18.00 USDG
                 </div>
                 <hr />
                 <div class="bubble-row"><span>Kind</span><span>x402</span></div>
                 <div class="bubble-row"><span>Domain</span><span>api.datafeed.example</span></div>
-                <div class="bubble-row"><span>Chain</span><span>Solana devnet</span></div>
+                <div class="bubble-row"><span>Chain</span><span>Robinhood Chain</span></div>
                 <div class="bubble-row">
-                  <span>Effect</span><span>spending wallet −18.00 USDC</span>
+                  <span>Effect</span><span>spending wallet −18.00 USDG</span>
                 </div>
                 <hr />
                 <div class="mono">
@@ -2315,7 +2297,7 @@
               Solana · 5
             </button>
             <button class="tab" role="tab" aria-selected="false" data-group="evm" id="tab-evm">
-              Base · 3
+              EVM · 3
             </button>
           </div>
           <div class="threats" id="threats" role="tabpanel"></div>
@@ -2334,13 +2316,27 @@
         <div class="wrap">
           <div class="dev-copy" style="max-width: 760px">
             <span class="eyebrow">For developers</span>
-            <h2 class="h2">Connect your agent. <span class="grad-text">Coming soon.</span></h2>
+            <h2 class="h2">
+              Connect your agent. <span class="grad-text">Run your own guard.</span>
+            </h2>
             <p class="lede">
-              An agent connector and a plain HTTP API are on the way: a few simple tools that let
-              any AI agent pay through AgentGuard while you keep full control. The code and the docs
-              go public when they are ready.
+              AgentGuard is open source (Apache-2.0) and self-hosted. There is no hosted service.
+              You run your own guard and Telegram bot (our guide uses Fly.io), deploy your own
+              signing page, and own your vault with your own Phantom wallet. Your agent connects
+              through MCP, a standard plug-in for AI agents, with a few simple tools.
             </p>
-            <div><span class="btn btn-soon">Developer tools · coming soon</span></div>
+            <div class="hero-actions">
+              <a
+                class="btn btn-primary"
+                href="https://github.com/kikume/AgentGuard/blob/main/packages/mcp-server/README.md#for-agent-builders"
+                >MCP docs for agent builders</a
+              >
+              <a
+                class="btn btn-ghost"
+                href="https://github.com/kikume/AgentGuard/blob/main/docs/self-host.md"
+                >Self-host guide</a
+              >
+            </div>
           </div>
         </div>
       </section>
@@ -2350,19 +2346,47 @@
           <div class="sec-head">
             <span class="eyebrow">Chains</span>
             <h2 class="h2">
-              Solana today. Base next. <span class="grad-text">Robinhood Chain coming soon.</span>
+              Robinhood Chain today. Solana next. <span class="grad-text">Base after that.</span>
             </h2>
             <p class="lede">
               The same protection everywhere: the same limits, the same test run before signing, and
-              the same kill switch, whether your agent pays on Solana or Base. More chains are on
-              the way.
+              the same kill switch, on every chain. Robinhood Chain is live now. Solana follows,
+              then Base.
             </p>
           </div>
           <div class="chains">
+            <article class="chain evm">
+              <div class="chain-head">
+                <h3>Robinhood Chain</h3>
+                <span class="order">Live</span>
+              </div>
+              <dl class="kv">
+                <div>
+                  <dt>Vault wallet</dt>
+                  <dd>Safe</dd>
+                </div>
+                <div>
+                  <dt>Spend limit</dt>
+                  <dd>Safe Allowance Module, resets every 24 h</dd>
+                </div>
+                <div>
+                  <dt>Payments</dt>
+                  <dd>x402 pay-per-use, in USDG, Robinhood Chain's dollar</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>Mainnet, live</dd>
+                </div>
+                <div>
+                  <dt>Network ID</dt>
+                  <dd class="mono">eip155:4663</dd>
+                </div>
+              </dl>
+            </article>
             <article class="chain svm">
               <div class="chain-head">
                 <h3>Solana</h3>
-                <span class="order">Ships first</span>
+                <span class="order">Next</span>
               </div>
               <dl class="kv">
                 <div>
@@ -2378,8 +2402,8 @@
                   <dd>x402 pay-per-use, in USDC</dd>
                 </div>
                 <div>
-                  <dt>Test network</dt>
-                  <dd>Solana devnet</dd>
+                  <dt>Status</dt>
+                  <dd>Mainnet setup in progress</dd>
                 </div>
                 <div>
                   <dt>Network ID</dt>
@@ -2387,10 +2411,10 @@
                 </div>
               </dl>
             </article>
-            <article class="chain evm">
+            <article class="chain soon">
               <div class="chain-head">
                 <h3>Base</h3>
-                <span class="order">Ships second</span>
+                <span class="order soon-tag">Later</span>
               </div>
               <dl class="kv">
                 <div>
@@ -2406,40 +2430,12 @@
                   <dd>x402 pay-per-use, in USDC</dd>
                 </div>
                 <div>
-                  <dt>Test network</dt>
-                  <dd>Base Sepolia</dd>
+                  <dt>Status</dt>
+                  <dd>Tested on Base Sepolia</dd>
                 </div>
                 <div>
                   <dt>Network ID</dt>
                   <dd class="mono">eip155:8453</dd>
-                </div>
-              </dl>
-            </article>
-            <article class="chain soon">
-              <div class="chain-head">
-                <h3>Robinhood Chain</h3>
-                <span class="order soon-tag">Coming soon</span>
-              </div>
-              <dl class="kv">
-                <div>
-                  <dt>Vault wallet</dt>
-                  <dd>In development</dd>
-                </div>
-                <div>
-                  <dt>Spend limit</dt>
-                  <dd>Daily cap, same model</dd>
-                </div>
-                <div>
-                  <dt>Payments</dt>
-                  <dd>x402 pay-per-use, in USDC</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>Adapter in progress</dd>
-                </div>
-                <div>
-                  <dt>Network ID</dt>
-                  <dd class="mono">TBA</dd>
                 </div>
               </dl>
             </article>
@@ -2461,36 +2457,34 @@
                 <li>Policy engine and HTTP API</li>
                 <li>MCP server, four tools</li>
                 <li>Telegram approvals and kill</li>
-                <li>530 tests, 24 attack cases</li>
+                <li>884 tests, 39 attack cases</li>
               </ul>
             </div>
             <div class="phase done">
               <span class="phase-tag">Done</span>
-              <h3>Onchain cap on devnet</h3>
+              <h3>Real-money pilot</h3>
               <ul>
-                <li>Spending inside the cap works</li>
-                <li>One unit over the cap: refused by the chain itself</li>
-                <li>After the kill switch, nothing can be drawn</li>
+                <li>Robinhood Chain mainnet, 9 November 2026</li>
+                <li>Safe vault and daily allowance</li>
+                <li>An x402 payment in USDG</li>
+                <li>The kill switch, end to end</li>
               </ul>
             </div>
             <div class="phase now">
-              <span class="phase-tag">In progress</span>
-              <h3>Full stack on devnet</h3>
+              <span class="phase-tag">Now</span>
+              <h3>Live on Robinhood Chain</h3>
               <ul>
-                <li>Real signing end to end</li>
-                <li>Hardware wallet kill</li>
-                <li>Agent token revocation</li>
-                <li>Second security review</li>
+                <li>Open source, Apache-2.0</li>
+                <li>Self-hosted: your guard, your bot, your signing page</li>
+                <li>You sign with your own Phantom wallet</li>
               </ul>
             </div>
             <div class="phase next">
               <span class="phase-tag">Next</span>
               <h3>More chains</h3>
               <ul>
-                <li>Solana mainnet-beta</li>
-                <li>Base mainnet</li>
-                <li>Robinhood Chain support</li>
-                <li>Bug bounty</li>
+                <li>Solana mainnet, setup in progress</li>
+                <li>Base mainnet after that</li>
               </ul>
             </div>
           </div>
@@ -2524,9 +2518,9 @@
             <details>
               <summary>Do you deploy your own smart contracts?</summary>
               <p>
-                No. AgentGuard uses Squads v4 on Solana and Safe on Base, widely used vault wallets
-                that are independently audited and already live. There is no new contract for you to
-                trust.
+                No. AgentGuard uses Safe on EVM chains (Robinhood Chain, Base) and Squads v4 on
+                Solana, widely used vault wallets that are independently audited and already live.
+                There is no new contract for you to trust.
               </p>
             </details>
             <details>
@@ -2541,9 +2535,9 @@
             <details>
               <summary>Which tokens are supported?</summary>
               <p>
-                USDC only in v0.1, a digital dollar. Every amount is handled as an exact whole count
-                of the token's smallest unit, like counting in cents. A value that would need
-                rounding is refused, never rounded.
+                Digital dollars: USDG on Robinhood Chain, and USDC on Solana and Base. Every amount
+                is handled as an exact whole count of the token's smallest unit, like counting in
+                cents. A value that would need rounding is refused, never rounded.
               </p>
             </details>
             <details>
@@ -2552,6 +2546,28 @@
                 Never. The reason an agent gives is shown to you in Telegram and marked as
                 unverified. Decisions use only your policy and the simulated effect of the
                 transaction.
+              </p>
+            </details>
+            <details>
+              <summary>Do you run AgentGuard for me?</summary>
+              <p>
+                No. There is no hosted service. AgentGuard is open source and you run your own copy:
+                the guard and the Telegram bot (our guide puts them on Fly.io), a signing page you
+                deploy yourself, and a vault you own with your own Phantom wallet. The
+                <a href="https://github.com/kikume/AgentGuard/blob/main/docs/self-host.md"
+                  >self-host guide</a
+                >
+                walks through every step.
+              </p>
+            </details>
+            <details>
+              <summary>How do I report a security problem?</summary>
+              <p>
+                Privately, through GitHub, as our
+                <a href="https://github.com/kikume/AgentGuard/blob/main/SECURITY.md"
+                  >security policy</a
+                >
+                explains. There is no bug bounty yet.
               </p>
             </details>
           </div>
@@ -2602,8 +2618,8 @@
             <span class="eyebrow">Get started</span>
             <h2>Give your agent <span class="grad-text">spending power</span>, not your keys.</h2>
             <p class="lede" style="text-align: center">
-              Running on Solana devnet today. Plug in through MCP and set your first spending policy
-              in minutes.
+              Live on Robinhood Chain mainnet today, with Solana next. Run your own copy, plug your
+              agent in through MCP and set your first spending policy.
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary" href="#how"
@@ -2618,7 +2634,7 @@
                   />
                 </svg>
               </a>
-              <span class="btn btn-soon">GitHub · coming soon</span>
+              <a class="btn btn-ghost" href="https://github.com/kikume/AgentGuard">GitHub</a>
             </div>
           </div>
         </div>
@@ -2671,7 +2687,8 @@
               AgentGuard
             </a>
             <p>
-              The security layer between AI agents and their wallets. Built for Solana and Base.
+              The security layer between AI agents and their wallets. Open source, for Robinhood
+              Chain, Solana and Base.
             </p>
           </div>
           <div>
@@ -2687,16 +2704,49 @@
             <h5>Developers</h5>
             <ul>
               <li>
-                <span class="soon-item">MCP tools<small>soon</small></span>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/packages/mcp-server/README.md#for-agent-builders"
+                  target="_blank"
+                  rel="noopener"
+                  >MCP tools</a
+                >
               </li>
               <li>
-                <span class="soon-item">Spec<small>soon</small></span>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/docs/self-host.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Self-host guide</a
+                >
               </li>
               <li>
-                <span class="soon-item">Launch checklist<small>soon</small></span>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/SPEC.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Spec</a
+                >
               </li>
               <li>
-                <span class="soon-item">GitHub<small>soon</small></span>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/LAUNCH.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Launch checklist</a
+                >
+              </li>
+              <li>
+                <a
+                  href="https://github.com/kikume/AgentGuard/blob/main/SECURITY.md"
+                  target="_blank"
+                  rel="noopener"
+                  >Security policy</a
+                >
+              </li>
+              <li>
+                <a href="https://github.com/kikume/AgentGuard" target="_blank" rel="noopener"
+                  >GitHub</a
+                >
               </li>
             </ul>
           </div>
@@ -2714,7 +2764,10 @@
             </ul>
           </div>
         </div>
-        <div class="legal"><span>© 2026 AgentGuard</span><span>SPEC v0.3 · devnet</span></div>
+        <div class="legal">
+          <span>© 2026 AgentGuard · Apache-2.0</span
+          ><span>SPEC v0.5 · live on Robinhood Chain</span>
+        </div>
       </div>
     </footer>
 
@@ -2952,7 +3005,7 @@
             ['DELEGATION_DETECTED', 'An attempt to hand the whole account over to other code.'],
           ],
         }
-        const tagName = { shared: 'All chains', svm: 'Solana', evm: 'Base' }
+        const tagName = { shared: 'All chains', svm: 'Solana', evm: 'EVM chains' }
         const grid = document.getElementById('threats')
         function showCodes(group) {
           grid.innerHTML = ''
