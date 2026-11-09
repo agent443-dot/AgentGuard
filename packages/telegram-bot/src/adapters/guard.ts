@@ -103,7 +103,8 @@ const report = z.object({
     .max(1000),
 })
 
-export function httpGuardClient(options: GuardClientOptions): GuardClient {
+/** The calls every guard-core client makes: a bearer token, JSON, and a 10-second ceiling. */
+export function requester(options: GuardClientOptions) {
   const fetchImpl = options.fetch ?? fetch
 
   async function call(token: string, method: string, path: string, body?: unknown) {
@@ -118,16 +119,22 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
     })
   }
 
-  async function admin(method: string, path: string, body?: unknown) {
-    return call(options.adminToken, method, path, body)
+  return {
+    call,
+    admin: (method: string, path: string, body?: unknown) =>
+      call(options.adminToken, method, path, body),
+    async ok(response: Response): Promise<unknown> {
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
+      return response.json()
+    },
   }
+}
 
-  async function ok(response: Response): Promise<unknown> {
-    if (!response.ok) {
-      throw new GuardError(response.status)
-    }
-    return response.json()
-  }
+export function httpGuardClient(options: GuardClientOptions): GuardClient {
+  const fetchImpl = options.fetch ?? fetch
+  const { call, admin, ok } = requester(options)
 
   return {
     async decide(intentId, decision, telegramUserId) {

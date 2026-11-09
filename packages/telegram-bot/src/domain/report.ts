@@ -1,4 +1,5 @@
 import { formatUsd } from './money.js'
+import { pages } from './pages.js'
 import { escapeHtml, utcTime } from './text.js'
 
 export interface AgentReport {
@@ -18,8 +19,6 @@ export interface ReportSchedule {
 
 export const REPORT_DAYS = 7
 
-// Telegram refuses a message over 4096 characters; the page counter takes a few more.
-const PAGE_LIMIT = 4000
 const TOP_DOMAINS = 5
 
 function agentBlock({ agentId, spent, payments, refused, domains }: AgentReport): string {
@@ -48,27 +47,12 @@ function descending(a: bigint, b: bigint): number {
   return a < b ? 1 : a > b ? -1 : 0
 }
 
-/**
- * The report as Telegram messages. An agent's lines never split across two messages, so each page
- * reads on its own; more than one page is numbered.
- */
+/** The report as Telegram messages, an agent never split across two. */
 export function reportPages(agents: AgentReport[], from: Date, to: Date): string[] {
   const header = `<b>Report</b> ${utcTime(from)} to ${utcTime(to)}`
-  if (agents.length === 0) {
-    return [`${header}\nNo agent paid or was refused in this period.`]
-  }
-  const pages: string[] = []
-  let page = header
-  for (const block of agents.map(agentBlock)) {
-    if (page.length + 1 + block.length > PAGE_LIMIT) {
-      pages.push(page)
-      page = block
-    } else {
-      page = `${page}\n${block}`
-    }
-  }
-  pages.push(page)
-  return pages.length === 1 ? pages : pages.map((text, i) => `(${i + 1}/${pages.length}) ${text}`)
+  return agents.length === 0
+    ? [`${header}\nNo agent paid or was refused in this period.`]
+    : pages(header, agents.map(agentBlock))
 }
 
 /** The key of the weekly report due now, or undefined: one per scheduled hour, never twice. */

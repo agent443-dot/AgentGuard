@@ -1,15 +1,19 @@
 import { Bot, type BotConfig, type Context } from 'grammy'
 import type { Logger } from 'pino'
+import type { AdminClient } from '../adapters/admin.js'
 import type { GuardClient } from '../adapters/guard.js'
 import type { PhantomKill } from '../domain/phantom.js'
 import type { ReportSchedule } from '../domain/report.js'
 import { registerCommands } from './commands.js'
+import { registerOwner } from './owner.js'
 import { Desk } from './desk.js'
 
 export interface BotDeps {
   token: string
   owners: ReadonlySet<number>
   guard: GuardClient
+  /** Agents, policies and the doctor; left out, the bot has no owner commands for them. */
+  admin?: AdminClient
   notifyAbove: bigint
   log: Logger
   now?: () => Date
@@ -31,6 +35,7 @@ export function createBot({
   token,
   owners,
   guard,
+  admin,
   notifyAbove,
   log,
   now,
@@ -74,8 +79,12 @@ export function createBot({
   )
 
   const commands = registerCommands(bot, { guard, desk, log, phantomKills, weekly, now })
+  const owner =
+    admin === undefined
+      ? { sweep: async () => {} }
+      : registerOwner(bot, { admin, desk, log, now: now ?? (() => new Date()) })
 
   bot.catch(({ error }) => log.error({ err: error }, 'update failed'))
 
-  return { bot, desk, commands }
+  return { bot, desk, commands, owner }
 }

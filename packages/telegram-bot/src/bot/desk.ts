@@ -1,9 +1,12 @@
 import type { IntentEvent } from '@agentguard/shared'
-import { type Api, InlineKeyboard } from 'grammy'
+import { getAddress } from '@agentguard/shared'
+import type { Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { mandateSettledText, mandateText } from '../domain/mandate.js'
+import { ShadowLedger } from '../domain/shadow.js'
+import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
 import {
   type Admission,
   ApprovalBook,
@@ -52,29 +55,6 @@ const ANSWERS: Record<Outcome['kind'], string> = {
   not_found: 'guard-core does not know this intent.',
 }
 
-/**
- * Callback data is capped at 64 bytes by Telegram; an action plus a uuid fits. A passkey request has
- * no Approve callback at all: only the passkey page can approve it, so the bot offers a link there.
- */
-export function approvalKeyboard(intentId: string, passkeyPage?: string | null): InlineKeyboard {
-  const keyboard = new InlineKeyboard()
-  if (passkeyPage === undefined) {
-    keyboard.text('Approve', `approve:${intentId}`)
-  } else if (passkeyPage !== null) {
-    keyboard.url('Approve with passkey', passkeyPage)
-  }
-  return keyboard
-    .text('Reject', `reject:${intentId}`)
-    .row()
-    .text('Show full recipient', `recipient:${intentId}`)
-}
-
-export function mandateKeyboard(mandateId: string): InlineKeyboard {
-  return new InlineKeyboard()
-    .text('Approve', `task-approve:${mandateId}`)
-    .text('Reject', `task-reject:${mandateId}`)
-}
-
 /** One kind of thing the owner approves: a payment, or a task budget. */
 interface Counter<R extends { approveBefore: string }> {
   book: ApprovalBook<R>
@@ -87,6 +67,7 @@ interface Counter<R extends { approveBefore: string }> {
 /** Everything that puts a message in front of the owners or takes one away. */
 export class Desk {
   readonly book = intentBook()
+  readonly shadow = new ShadowLedger()
   readonly #mandates = new ApprovalBook<MandateRequest>((request) => request.mandate.id)
   readonly #events = new EventLog()
   readonly #alerts: Alerts
@@ -204,8 +185,12 @@ export class Desk {
 
   async event({ intent, sentAt }: IntentEvent | ShadowedEvent): Promise<Admission> {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
-    // Shadow mode signs nothing: /budget sums what it would have spent, the chat stays quiet.
-    if (admission === 'accepted' && intent.status !== 'shadowed') {
+    // Shadow mode signs nothing: the chat stays quiet, and only the chain's dollar counts as spend.
+    if (admission === 'accepted' && intent.status === 'shadowed') {
+      if (getAddress(intent.chain, 'usd') === intent.token) {
+        this.shadow.record(intent.agentId, BigInt(intent.amount), this.#now())
+      }
+    } else if (admission === 'accepted') {
       for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }
@@ -222,8 +207,8 @@ export class Desk {
   }
 
   /** A message for every owner that needs no answer; resolves to how many it reached. */
-  async announce(text: string): Promise<number> {
-    return (await this.#broadcast(text)).length
+  async announce(text: string, keyboard?: InlineKeyboard): Promise<number> {
+    return (await this.#broadcast(text, keyboard)).length
   }
 
   /** A tripped breaker has already paused the agent; the owner only needs to know and look. */

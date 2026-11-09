@@ -115,14 +115,21 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 ## Commands
 
-| Command             | Does                                                                                                                                                                                                                                                                          |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/status`           | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), the pending task budgets, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported") |
-| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                                          |
-| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                                        |
-| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                                       |
-| `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live              |
-| `/report`           | The last 7 days from `GET /v1/admin/report` (CR-010): per agent, spend and payment count, refusals by code, and the top 5 domains by spend. Paged to fit Telegram's 4096 characters; an agent is never split across two messages                                              |
+| Command                                       | Does                                                                                                                                                                                                                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/status`                                     | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), the pending task budgets, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported") |
+| `/budget <agentId>`                           | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                                          |
+| `/pause <agentId>`                            | `POST /v1/admin/pause`                                                                                                                                                                                                                                                        |
+| `/resume <agentId>`                           | `POST /v1/admin/resume`                                                                                                                                                                                                                                                       |
+| `/kill`                                       | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live              |
+| `/report`                                     | The last 7 days from `GET /v1/admin/report` (CR-010): per agent, spend and payment count, refusals by code, and the top 5 domains by spend. Paged to fit Telegram's 4096 characters; an agent is never split across two messages                                              |
+| `/agent new <id>`                             | Creates the agent (`POST /v1/admin/agents`, CR-011) in shadow mode with a deny-all policy. The token comes in its own message, which the bot deletes after about a minute, with the setup line `npx @agentguard/mcp-server setup claude-code`                                 |
+| `/agent list`                                 | Every agent with its mode and whether it is paused                                                                                                                                                                                                                            |
+| `/agent revoke <id>`                          | Asks to confirm, then revokes: the agent's token stops working at its next request                                                                                                                                                                                            |
+| `/policy <id>`                                | The policy in dollars, with **Careful** ($1 per payment, $5 a day, approval at $0.50) and **Standard** ($5, $20, $1) presets and an edit button per limit, answered by reply in dollars. Any raise of a limit asks to confirm first                                           |
+| `/allow <id> <domain>`, `/deny <id> <domain>` | Adds or removes an x402 domain. The domain must be a plain hostname such as `api.example.com`; it is lowercased                                                                                                                                                               |
+| `/mode <id> live\|shadow`                     | Shadow at once. Live asks to confirm and shows what shadow mode would have spent                                                                                                                                                                                              |
+| `/doctor`                                     | `GET /v1/admin/doctor`: one line per check with ✅ ⚠️ ❌, and the fix under each warning or failure                                                                                                                                                                           |
 
 ## Onchain kill in Phantom
 
@@ -167,6 +174,22 @@ The Robinhood link names no hot wallet: the page uses the one it was built with.
   unless at least one chain is complete: `SQUADS_MULTISIG` with `SOLANA_HOT_WALLET_PUBKEY`, or
   `ROBINHOOD_SAFE_ADDRESS`, or both. Half a Solana pair is refused. Without `SIGN_PAGE_URL`, there are
   no buttons.
+
+## Owner commands
+
+The owner runs the deployment from Telegram (CR-011): every command above talks to guard-core's admin
+API with `GUARD_ADMIN_TOKEN`, and only owners get an answer, as for every other command.
+
+- **Tokens.** An agent's token is shown once, in a message of its own that the bot deletes after about
+  a minute. It is never logged; if that message cannot be sent, the log says so without the error,
+  which would carry the text, and the owner is told to revoke the agent and create it again.
+- **Buttons.** A confirm button carries only a random id; what it does stays in the bot and works
+  once, within 10 minutes. After a restart old buttons answer "expired".
+- **Amounts.** Owners type dollars (`2.50`, `$2.50`); the bot converts them to atomic units in bigint and
+  refuses anything else, a negative or more than 6 decimals included.
+- **Graduation.** Three days after an agent's first shadowed payment, every owner gets one offer: "Your
+  agent would have spent $X in N payments. Go live?", which opens the `/mode` confirm. The count lives
+  in memory, so a restart starts the three days again.
 
 ## Weekly report
 
