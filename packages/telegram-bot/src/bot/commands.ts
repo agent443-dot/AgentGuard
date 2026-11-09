@@ -84,7 +84,7 @@ export function registerCommands(
     guarded(ctx, async () => {
       const pending = desk.book.open().map((entry) => entry.request)
       const up = await guard.healthy()
-      const text = statusText(up, pending)
+      const text = statusText(up, pending, desk.pendingTasks())
       await ctx.reply(up ? `${text}\n${chainsText(await chains())}` : text, HTML)
     }),
   )

@@ -12,7 +12,7 @@ export function breakerText(agentId: string, detail: string): string {
 // Telegram refuses a message over 4096 characters, and /status adds the chains after this.
 const PENDING_LIMIT = 2000
 
-export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string {
+export function statusText(guardUp: boolean, pending: ApprovalRequest[], tasks = 0): string {
   const lines: string[] = []
   let length = 0
   for (const { intent, approveBefore } of pending) {
@@ -30,5 +30,6 @@ export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string
     `guard-core: ${guardUp ? 'reachable' : '<b>unreachable</b>'}`,
     `Pending approvals: ${pending.length}`,
     ...lines,
+    ...(tasks > 0 ? [`Pending task budgets: ${tasks}`] : []),
   ].join('\n')
 }
