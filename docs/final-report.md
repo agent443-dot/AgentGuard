@@ -1,7 +1,7 @@
 # Final report (INT-9)
 
 > **Final, 2026-11-09.** Written for the launch of the open-source, self-hosted release (D7, D8),
-> with Robinhood Chain live that day and Solana the day after (D6). Base comes later. Decisions are
+> with Robinhood Chain and Solana live that day (D6). Base comes later. Decisions are
 > in `LAUNCH.md` §1, and what is still open is in §2.
 
 AgentGuard puts a policy, a simulation and an owner on Telegram between an AI agent and its money.
@@ -15,15 +15,15 @@ us.
 
 ## What works
 
-| Area              | Robinhood Chain (live)                                      | Solana (next)                                                            | Base (later)                                                                  |
+| Area              | Robinhood Chain (live)                                      | Solana (live)                                                            | Base (later)                                                                  |
 | ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Onchain cap       | Safe Allowance Module 0.1.1. The delegate can send anywhere | Squads v4 spending limit, hot wallet as the only destination             | Safe Allowance Module 0.1.1. The delegate can send anywhere                   |
 | Cap proven        | Live on mainnet: the cap set and read back from the chain   | LiteSVM against the real program: cap, cap + 1, daily refill, after kill | Foundry, on a Base mainnet fork with the official module (EVM-6)              |
 | Transfer and x402 | Live on mainnet: 0.50 USDG paid over x402 (HUMAN-21)        | Live on devnet (HUMAN-11), and again from an empty hot wallet (HUMAN-13) | Live on Base Sepolia (HUMAN-13): auto, approved, and from an empty hot wallet |
 | Attack suite      | 15 cases on the stub chain (INT-6)                          | 24 cases, stub and devnet (INT-5)                                        | 15 cases on the stub chain (INT-6)                                            |
 | Signing gate      | `TransferWithAuthorization` only, every field checked       | Transaction inspection, then a simulation of the exact transfer          | `TransferWithAuthorization` only, every field checked; `eth_simulateV1`       |
-| Owner in Phantom  | Create, enable and kill signed on mainnet, through the page | Create, add limit and kill signed on devnet (HUMAN-15)                   | Not run                                                                       |
-| Kill              | `/kill`, then the owner's Phantom kill removed the delegate | `/kill`, then the owner's Phantom kill removed the limit, on devnet      | `removeDelegate(hot, true)`, proven on the fork                               |
+| Owner in Phantom  | Create, enable and kill signed on mainnet, through the page | Create, add limit and kill signed on mainnet, through the page           | Not run                                                                       |
+| Kill              | `/kill`, then the owner's Phantom kill removed the delegate | `/kill`, then the owner's Phantom kill removed the limit, on mainnet     | `removeDelegate(hot, true)`, proven on the fork                               |
 
 Across all chains, guard-core has:
 
@@ -116,7 +116,6 @@ Launch at 20 a day per chain (D1), and go to 50 only after each of these holds:
 
 - [ ] Two to three weeks on mainnet at the starting cap, with no unexplained intent in the audit log
       and no alert the owner could not account for.
-- [ ] The kill rehearsed on Solana mainnet, timed from `/kill` to the transaction confirming.
 - [ ] A backup schedule that copies the database off the Fly volume.
 - [ ] The hot keys in a KMS (D5), once the cap rises.
 - [ ] For Base: the Base addresses confirmed live (CR-005) and its own pilot, as Robinhood Chain had.
