@@ -37,8 +37,35 @@ export const policies = sqliteTable('policies', {
   allowedRecipients: text('allowed_recipients', { mode: 'json' }).$type<Address[]>().notNull(),
   allowedDomains: text('allowed_domains', { mode: 'json' }).$type<string[]>().notNull(),
   paused: integer('paused', { mode: 'boolean' }).notNull().default(false),
+  // The defaults here and in POLICY_DEFAULTS are the same values: a policy written before these
+  // columns existed reads back with them.
+  mode: text('mode').$type<'live' | 'shadow'>().notNull().default('live'),
+  priceIncreaseMaxPct: integer('price_increase_max_pct').notNull().default(100),
+  maxPaymentsPerMinute: integer('max_payments_per_minute').notNull().default(10),
+  requireMandate: integer('require_mandate', { mode: 'boolean' }).notNull().default(false),
   updatedAt: text('updated_at').notNull(),
 })
+
+/**
+ * What an agent last paid each x402 domain. A later 402 from the same domain that names another
+ * payee, chain or token, or a much higher price, is the shape of a compromised or swapped API, so
+ * it goes to the owner even when the amount alone would not.
+ */
+export const x402Pins = sqliteTable(
+  'x402_pins',
+  {
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agents.id),
+    domain: text('domain').notNull(),
+    chain: text('chain').$type<ChainId>().notNull(),
+    token: text('token').$type<Address>().notNull(),
+    recipient: text('recipient').$type<Address>().notNull(),
+    amount: text('amount').$type<Amount>().notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.agentId, t.domain] })],
+)
 
 export const intents = sqliteTable(
   'intents',

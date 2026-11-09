@@ -1,4 +1,4 @@
-import type { PayIntent, SimulationResult } from '@agentguard/shared'
+import type { ApprovalFlag, PayIntent, SimulationResult } from '@agentguard/shared'
 import { APPROVAL_TTL_MS } from '@agentguard/shared'
 import { and, eq, inArray, lte, or } from 'drizzle-orm'
 import type { BotNotifier } from '../adapters/bot.js'
@@ -21,9 +21,16 @@ export async function requestApproval(
   bot: BotNotifier,
   intent: PayIntent,
   simulation: SimulationResult,
+  flags: ApprovalFlag[],
 ): Promise<void> {
   saveIntent(db, { ...intent, status: 'pending_approval' })
-  await bot.requestApproval({ intent, simulation, approveBefore: intent.expiresAt })
+  await bot.requestApproval({
+    intent,
+    simulation,
+    approveBefore: intent.expiresAt,
+    flags,
+    passkey: false,
+  })
 }
 
 export type DecisionResult =

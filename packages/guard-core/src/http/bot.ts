@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { pin } from '../db/pins.js'
 import * as repo from '../db/repo.js'
 import { decide } from '../service/approvals.js'
 import { notify } from '../service/events.js'
@@ -36,9 +37,14 @@ export function botRoutes(deps: PaymentDeps) {
       )
       // A transfer carries everything needed to send it, so it goes now. An x402 payment waits for
       // the agent to repeat the request, because only that request can receive the response.
+      // An approval also tells guard-core what this domain now charges and who it pays, so the
+      // agent's repeat and the payments after it are not asked about again. A rejection keeps the
+      // old pin, so the same request stays flagged.
       if (decision === 'reject') {
         notify(deps, result.intent)
-      } else if (result.intent.kind === 'transfer') {
+      } else if (result.intent.kind === 'x402') {
+        pin(db, result.intent, now())
+      } else {
         return (await sendApproved(deps, intentId)) ?? result.intent
       }
       return result.intent

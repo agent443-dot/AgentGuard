@@ -55,6 +55,9 @@ the pipeline moves it on.
 - **Simulation** calls `ChainAdapter.simulate`. Any reject code from the adapter refuses the
   payment, a simulation that throws is `SIM_FAILED`, and a simulation in which the wallet loses more
   of the token than the intent pays is `SIM_UNEXPECTED_EFFECT` on every chain.
+- **Policy fields with defaults**: `mode` (`live`), `priceIncreaseMaxPct` (100),
+  `maxPaymentsPerMinute` (10) and `requireMandate` (false). A `PUT` that leaves one out writes its
+  default, never the previous value, so the stored policy is always exactly the one last sent.
 - **Owner approval**: at or above `approvalThreshold`, the intent is saved as `pending_approval`
   before the webhook goes out. Approval answers the threshold only: policy and simulation run again
   right before anything is sent, so a pause or a spent budget in the meantime still refuses it.
@@ -85,7 +88,7 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
 3. The `PAYMENT-REQUIRED` header is decoded with `@x402/core` and validated with zod. Only x402
    version 2 and scheme `exact` are accepted. `chooseAccept` picks the first offer within the policy
    and the agent's `maxAmount`.
-4. Policy, simulation, approval and top-up as above. Over the threshold it returns
+4. Policy, pinning, simulation, approval and top-up as above. Over the threshold it returns
    `pending_approval` at once. Once the owner approves, the agent repeats the same request and the
    approval is redeemed, once, for exactly those terms. Unused approvals expire with the sweep.
 5. The payment is built by the SDK through `ChainAdapter.x402Scheme` (CR-003), whose signer is
@@ -94,6 +97,14 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
    The SDK's own spend control is set to the intent's amount as a second lock.
 6. The request is retried with `PAYMENT-SIGNATURE`. A second 402 with different terms is
    `INVALID_402`. The paid response is returned as untrusted content.
+
+**Pinning.** Each executed payment pins, per agent and domain, the chain, token, payee and amount
+(table `x402_pins`). A later 402 from that domain that names another payee, chain or token
+(`RECIPIENT_CHANGED`), or asks more than `priceIncreaseMaxPct` above the pinned amount
+(`PRICE_JUMP`, default 100, so up to double passes), goes to the owner even below the threshold, with
+`flags` on the approval request. That is what a compromised or swapped API looks like from here. The
+owner's approval re-pins; a rejection keeps the old pin, so the same request is asked again. The
+first payment to a domain has no pin to compare with and is judged by the policy alone.
 
 A 402 that is refused before an offer qualifies is still recorded, with any field the server sent
 missing or unreadably as `unknown` (an unreadable amount as `0`), so the bot can show it.

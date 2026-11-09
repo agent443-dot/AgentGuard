@@ -8,6 +8,13 @@
       "when": 1793728982367,
       "tag": "0000_daily_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794240781287,
+      "tag": "0001_policy_v06_and_pins",
+      "breakpoints": true
     }
   ]
 }

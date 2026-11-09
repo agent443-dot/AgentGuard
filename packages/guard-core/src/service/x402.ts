@@ -3,6 +3,7 @@ import type { IntentStatus, PayIntent, Policy, RejectCode } from '@agentguard/sh
 import { x402Client } from '@x402/core/client'
 import { encodePaymentSignatureHeader } from '@x402/core/http'
 import type { PaymentPayload, PaymentRequired, PaymentRequirements } from '@x402/core/types'
+import { pin } from '../db/pins.js'
 import * as repo from '../db/repo.js'
 import { chooseAccept, refusedTerms, requirementsChanged } from '../domain/x402.js'
 import { call, decode402, settledTx, type Upstream } from '../adapters/upstream.js'
@@ -147,6 +148,7 @@ async function pay(
     return view(finish(deps, intent, { status: 'failed' }), retry)
   }
   const txId = settledTx(retry)
+  pin(deps.db, intent, deps.now())
   return view(finish(deps, intent, { status: 'executed', ...(txId ? { txId } : {}) }), retry)
 }
 

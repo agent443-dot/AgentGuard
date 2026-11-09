@@ -1,12 +1,20 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { ChainId, PayIntent, RejectCode, SimulationResult } from '@agentguard/shared'
+import type {
+  ApprovalFlag,
+  ChainId,
+  PayIntent,
+  RejectCode,
+  SimulationResult,
+} from '@agentguard/shared'
 import type { FastifyBaseLogger } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
+import { getPin } from '../db/pins.js'
 import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
-import { evaluate } from '../domain/policy.js'
+import { pinFlags } from '../domain/pinning.js'
+import { evaluate, POLICY_DEFAULTS } from '../domain/policy.js'
 import { checkSimulation } from '../domain/simulation.js'
 import { expirePending, expiresAt, requestApproval } from './approvals.js'
 import { notify } from './events.js'
@@ -70,14 +78,25 @@ export async function clear(
   if (adapter === undefined && !reasons.includes('CHAIN_NOT_ALLOWED')) {
     reasons.push('CHAIN_NOT_ALLOWED')
   }
+  // The owner's approval has already answered a pin's question, so it is not asked again.
+  const flags =
+    ownerApproved || intent.domain === undefined || intent.kind !== 'x402'
+      ? []
+      : pinFlags(
+          getPin(db, intent.agentId, intent.domain),
+          intent,
+          policy.priceIncreaseMaxPct ?? POLICY_DEFAULTS.priceIncreaseMaxPct,
+        )
   repo.audit(
     db,
     {
       event: 'policy_evaluated',
       intentId: intent.id,
       agentId: intent.agentId,
-      decision: reasons.length > 0 ? 'reject' : verdict.decision,
+      decision:
+        reasons.length > 0 ? 'reject' : flags.length > 0 ? 'needs_approval' : verdict.decision,
       reasons,
+      ...(flags.length > 0 ? { detail: { flags } } : {}),
     },
     now(),
   )
@@ -101,8 +120,8 @@ export async function clear(
     return { cleared: false, intent: reject(deps, intent, simReasons) }
   }
 
-  if (verdict.decision === 'needs_approval' && !ownerApproved) {
-    return { cleared: false, intent: await askOwner(deps, intent, simulation) }
+  if ((verdict.decision === 'needs_approval' || flags.length > 0) && !ownerApproved) {
+    return { cleared: false, intent: await askOwner(deps, intent, simulation, flags) }
   }
 
   const approved: PayIntent = { ...intent, status: 'approved', rejectReasons: [] }
@@ -135,10 +154,11 @@ async function askOwner(
   deps: PaymentDeps,
   intent: PayIntent,
   simulation: SimulationResult,
+  flags: ApprovalFlag[],
 ): Promise<PayIntent> {
   const pending: PayIntent = { ...intent, status: 'pending_approval', rejectReasons: [] }
   try {
-    await requestApproval(deps.db, deps.bot, pending, simulation)
+    await requestApproval(deps.db, deps.bot, pending, simulation, flags)
     repo.audit(
       deps.db,
       { event: 'approval_requested', intentId: intent.id, agentId: intent.agentId },

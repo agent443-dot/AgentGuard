@@ -8,6 +8,7 @@ import type {
 } from '@agentguard/shared'
 import { and, eq, gt, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
+import { POLICY_DEFAULTS } from '../domain/policy.js'
 import type { Db } from './client.js'
 import { agents, auditLog, dailySpend, intents, policies } from './schema.js'
 
@@ -46,11 +47,16 @@ export function getPolicy(db: Db, agentId: string): Policy | undefined {
     allowedRecipients: row.allowedRecipients,
     allowedDomains: row.allowedDomains,
     paused: row.paused,
+    mode: row.mode,
+    priceIncreaseMaxPct: row.priceIncreaseMaxPct,
+    maxPaymentsPerMinute: row.maxPaymentsPerMinute,
+    requireMandate: row.requireMandate,
   }
 }
 
+/** A field the policy leaves out is written as its default, never kept from the previous one. */
 export function putPolicy(db: Db, policy: Policy, now: string): void {
-  const row = { ...policy, updatedAt: now }
+  const row = { ...POLICY_DEFAULTS, ...policy, updatedAt: now }
   db.insert(policies).values(row).onConflictDoUpdate({ target: policies.agentId, set: row }).run()
 }
 

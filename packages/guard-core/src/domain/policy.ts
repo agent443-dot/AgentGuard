@@ -1,6 +1,16 @@
 import type { Amount, PayIntent, Policy, PolicyDecision, RejectCode } from '@agentguard/shared'
 import { parseAmount } from './amount.js'
 
+/** What a policy means for each field it leaves out. A policy that sets none behaves as before. */
+export const POLICY_DEFAULTS = {
+  mode: 'live',
+  priceIncreaseMaxPct: 100,
+  maxPaymentsPerMinute: 10,
+  requireMandate: false,
+} as const satisfies Required<
+  Pick<Policy, 'mode' | 'priceIncreaseMaxPct' | 'maxPaymentsPerMinute' | 'requireMandate'>
+>
+
 export interface Evaluation {
   decision: PolicyDecision
   /** Every rule the intent broke, not just the first, so the audit log explains itself. */

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { POLICY_DEFAULTS } from '../domain/policy.js'
 
 /**
  * Every external input is parsed here before it reaches anything else. Addresses stay opaque: only a
@@ -68,6 +69,20 @@ export const policyBody = z.object({
   allowedRecipients: z.array(address).max(256),
   allowedDomains: z.array(z.string().min(1).max(253)).max(256),
   paused: z.boolean(),
+  mode: z.enum(['live', 'shadow']).default(POLICY_DEFAULTS.mode),
+  priceIncreaseMaxPct: z
+    .number()
+    .int()
+    .min(0)
+    .max(10_000)
+    .default(POLICY_DEFAULTS.priceIncreaseMaxPct),
+  maxPaymentsPerMinute: z
+    .number()
+    .int()
+    .min(1)
+    .max(1_000)
+    .default(POLICY_DEFAULTS.maxPaymentsPerMinute),
+  requireMandate: z.boolean().default(POLICY_DEFAULTS.requireMandate),
 })
 
 export type X402FetchRequest = z.infer<typeof x402FetchRequest>

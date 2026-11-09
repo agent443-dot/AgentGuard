@@ -1,8 +1,8 @@
-import type { ApprovalRequest, PayIntent, SimulationResult } from '@agentguard/shared'
+import type { PayIntent, SimulationResult } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { httpBotNotifier, type BotNotifier } from '../src/adapters/bot.js'
+import { httpBotNotifier, type ApprovalRequestBody, type BotNotifier } from '../src/adapters/bot.js'
 import { loadConfig } from '../src/config.js'
 import { openDb, schema, type Db } from '../src/db/client.js'
 import { webhookSignatureValid } from '../src/domain/auth.js'
@@ -56,7 +56,7 @@ beforeEach(() => {
 
 describe('requestApproval', () => {
   it('persists the intent before asking, so a silent bot still leaves something to expire', async () => {
-    await requestApproval(db, notifier, intent(), simulation)
+    await requestApproval(db, notifier, intent(), simulation, [])
     const [row] = db.select().from(schema.intents).all()
     expect(row?.status).toBe('pending_approval')
     expect(notifier.requestApproval).toHaveBeenCalledOnce()
@@ -69,7 +69,7 @@ describe('requestApproval', () => {
 
 describe('decide', () => {
   beforeEach(async () => {
-    await requestApproval(db, notifier, intent(), simulation)
+    await requestApproval(db, notifier, intent(), simulation, [])
   })
 
   it('approves while the window is open', () => {
@@ -108,7 +108,7 @@ describe('decide', () => {
 
 describe('expirePending', () => {
   it('closes only what is pending and past its window', async () => {
-    await requestApproval(db, notifier, intent(), simulation)
+    await requestApproval(db, notifier, intent(), simulation, [])
     db.insert(schema.intents)
       .values({
         ...intent({ id: '11111111-1111-4111-8111-111111111111', status: 'executed' }),
@@ -137,10 +137,12 @@ describe('httpBotNotifier', () => {
       return new Response('{}', { status: 200 })
     }) as typeof fetch
 
-    const request: ApprovalRequest = {
+    const request: ApprovalRequestBody = {
       intent: intent(),
       simulation,
       approveBefore: expiresAt(CREATED),
+      flags: [],
+      passkey: false,
     }
     await httpBotNotifier(config, fakeFetch).requestApproval(request)
 
@@ -156,6 +158,8 @@ describe('httpBotNotifier', () => {
         intent: intent(),
         simulation,
         approveBefore: expiresAt(CREATED),
+        flags: [],
+        passkey: false,
       }),
     ).rejects.toThrow(/bot_webhook_failed: 401/)
   })
