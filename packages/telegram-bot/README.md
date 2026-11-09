@@ -141,6 +141,11 @@ Robinhood: link = <SIGN_PAGE_URL>/?action=kill&cluster=<robinhood-testnet|robinh
 
 The Robinhood link names no hot wallet: the page uses the one it was built with.
 
+Each chain's row also has **Open in browser (desktop)**, which opens `link` itself. On a desktop
+browser with the Phantom extension, the universal link only shows phantom.com's "open this in the
+Phantom app" page with a QR code; the plain page connects to the extension directly. Both buttons of a
+row carry the same `issued` and expire and retire together.
+
 - **The onchain half is never offered as if it were the kill.** No button appears before **Kill
   everything**. On a kill guard-core confirmed, they read **Open … kill in Phantom**. If guard-core
   did not confirm, the message says "guard-core did **NOT** confirm a pause", and each button reads
