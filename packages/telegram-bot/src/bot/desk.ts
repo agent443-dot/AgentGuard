@@ -1,9 +1,10 @@
 import type { AlertEvent, IntentEvent } from '@agentguard/shared'
-import { type Api, InlineKeyboard } from 'grammy'
+import type { Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { mandateSettledText, mandateText } from '../domain/mandate.js'
+import { breakerText } from '../domain/notices.js'
 import {
   type Admission,
   ApprovalBook,
@@ -18,8 +19,8 @@ import {
   settledFallback,
   settledText,
 } from '../domain/text.js'
-import { breakerText } from '../domain/notices.js'
 import type { MandateRequest, ShadowedEvent } from '../http/schemas.js'
+import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
 
 export interface DeskDeps {
   api: Api
@@ -28,6 +29,8 @@ export interface DeskDeps {
   notifyAbove: bigint
   log: Logger
   now?: () => Date
+  /** Where owners open guard-core's passkey page; without it a passkey request has no approve link. */
+  guardPublicUrl?: string
 }
 
 export interface Owner {
@@ -48,21 +51,6 @@ const ANSWERS: Record<Outcome['kind'], string> = {
   expired: 'Too late: this request expired. Nothing was paid.',
   already_decided: 'Already decided.',
   not_found: 'guard-core does not know this request.',
-}
-
-/** Callback data is capped at 64 bytes by Telegram; an action plus a uuid fits. */
-export function approvalKeyboard(intentId: string): InlineKeyboard {
-  return new InlineKeyboard()
-    .text('Approve', `approve:${intentId}`)
-    .text('Reject', `reject:${intentId}`)
-    .row()
-    .text('Show full recipient', `recipient:${intentId}`)
-}
-
-export function mandateKeyboard(mandateId: string): InlineKeyboard {
-  return new InlineKeyboard()
-    .text('Approve', `task-approve:${mandateId}`)
-    .text('Reject', `task-reject:${mandateId}`)
 }
 
 /** One kind of thing the owner approves: a payment, or a task budget. */
@@ -92,7 +80,11 @@ export class Desk {
   readonly #payments: Counter<FlaggedRequest> = {
     book: this.book,
     id: (request) => request.intent.id,
-    post: (request) => [approvalText(request), approvalKeyboard(request.intent.id)],
+    post: (request) => {
+      const id = request.intent.id
+      const page = request.passkey === true ? this.#passkeyPage(id) : undefined
+      return [approvalText(request, page !== null), approvalKeyboard(id, page)]
+    },
     settled: settledText,
     decide: (id, decision, owner) => this.#deps.guard.decide(id, decision, owner),
   }
@@ -117,6 +109,10 @@ export class Desk {
 
   /** Returns the short text shown to the owner who pressed the button. */
   async decide(intentId: string, decision: Decision, owner: Owner, pressed: Pressed) {
+    // guard-core refuses it too; an old or forged Approve button should not even ask.
+    if (decision === 'approve' && this.book.get(intentId)?.request.passkey === true) {
+      return 'This one needs your passkey: use Approve with passkey.'
+    }
     return this.#decide(this.#payments, intentId, decision, owner, pressed)
   }
 
@@ -192,11 +188,38 @@ export class Desk {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
     // Shadow mode signs nothing: /budget sums what it would have spent, the chat stays quiet.
     if (admission === 'accepted' && intent.status !== 'shadowed') {
+      await this.#settledElsewhere(intent)
       for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }
     }
     return admission
+  }
+
+  /**
+   * A request still open here was decided without a Telegram press: on the passkey page, or by
+   * guard-core itself. Its messages take the real outcome instead of later reading "expired".
+   */
+  async #settledElsewhere(intent: IntentEvent['intent']) {
+    const entry = this.book.get(intent.id)
+    if (entry === undefined || this.book.close(intent.id) === undefined) {
+      return
+    }
+    const outcome: Outcome =
+      intent.status === 'expired'
+        ? { kind: 'expired' }
+        : intent.status === 'rejected'
+          ? { kind: 'rejected', by: 'guard-core', at: this.#now() }
+          : { kind: 'approved', by: 'passkey', at: this.#now() }
+    await this.#edit(entry.messages, settledText(entry.request, outcome))
+  }
+
+  /** Null when the bot was not told where guard-core's public page is. */
+  #passkeyPage(intentId: string): string | null {
+    const base = this.#deps.guardPublicUrl
+    return base === undefined
+      ? null
+      : `${base.replace(/\/+$/, '')}/owner/approve/${encodeURIComponent(intentId)}`
   }
 
   /** A message for every owner that needs no answer; resolves to how many it reached. */

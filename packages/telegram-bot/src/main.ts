@@ -13,6 +13,10 @@ const log = pino({
   redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
 })
 
+if (config.GUARD_PUBLIC_URL === undefined) {
+  log.warn('GUARD_PUBLIC_URL is not set: a payment that needs a passkey can only be rejected here')
+}
+
 const guard = httpGuardClient({
   url: config.GUARD_URL,
   botToken: config.GUARD_BOT_TOKEN,
@@ -40,6 +44,7 @@ const { bot, desk, commands } = createBot({
   notifyAbove: config.NOTIFY_ABOVE_AMOUNT,
   log,
   phantomKills,
+  guardPublicUrl: config.GUARD_PUBLIC_URL,
   weekly:
     config.REPORT_WEEKDAY === undefined || config.REPORT_HOUR_UTC === undefined
       ? undefined

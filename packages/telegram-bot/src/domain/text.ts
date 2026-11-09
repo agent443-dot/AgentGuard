@@ -89,6 +89,14 @@ export function utcTime(at: Date | string): string {
 /** A guard-core that predates the flags sends none. */
 export type FlaggedRequest = ApprovalRequest & { unknownFlags?: readonly string[] }
 
+const PASSKEY_LINE =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; " +
+  'a Telegram tap can only reject it.'
+
+const PASSKEY_NO_LINK =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; this bot " +
+  'has no link to it (GUARD_PUBLIC_URL is not set). A Telegram tap can only reject it.'
+
 /**
  * How many times the pinned amount, in bigint to one decimal. Rounded down, so anything not exact
  * says "more than": a factor that reads exact but is not would understate the jump.
@@ -130,7 +138,8 @@ function flagLines(flag: ApprovalFlag, { intent, pinned, flags = [] }: FlaggedRe
 }
 
 /** A flag is why this payment is in front of the owner at all, so it comes first. */
-export function approvalText(request: FlaggedRequest): string {
+/** linked: whether the message carries a button to guard-core's passkey page. */
+export function approvalText(request: FlaggedRequest, linked = true): string {
   const flags = (request.flags ?? []).flatMap((flag) => {
     const [warning, ...detail] = flagLines(flag, request)
     return [`⚠️ <b>${warning}</b>`, ...detail]
@@ -139,7 +148,8 @@ export function approvalText(request: FlaggedRequest): string {
     (flag) => `⚠️ <b>guard-core flagged this payment:</b> <code>${escapeHtml(flag)}</code>`,
   )
   flags.push(...unknown)
-  return [...flags, '<b>Approval needed</b>', ...details(request, false)].join('\n')
+  const passkey = request.passkey === true ? [linked ? PASSKEY_LINE : PASSKEY_NO_LINK] : []
+  return [...flags, '<b>Approval needed</b>', ...passkey, ...details(request, false)].join('\n')
 }
 
 export function settledText(request: ApprovalRequest, outcome: Outcome): string {
