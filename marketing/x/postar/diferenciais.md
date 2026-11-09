@@ -115,14 +115,14 @@ And it watches the agent:
 ```text
 Live on Robinhood Chain and Solana mainnet. A real-money pilot ran on Robinhood Chain, and the kill was rehearsed live on Solana: /kill, one Phantom signature, no onchain limit left.
 
-1,293 automated tests pass on main today.
+1,294 automated tests pass on main today.
 ```
 
 > 🇧🇷 No ar na mainnet da Robinhood Chain e da Solana. Um piloto com dinheiro real rodou na
 > Robinhood Chain, e o kill foi ensaiado ao vivo na Solana: /kill, uma assinatura no Phantom, e
 > nenhum limite onchain restou.
 >
-> 1.293 testes automatizados passam no main hoje.
+> 1.294 testes automatizados passam no main hoje.
 
 ### 8/8
 
@@ -240,13 +240,13 @@ Set an amount, and every payment above it needs your passkey, not just a tap. A 
 ### Recibos assinados
 
 ```text
-Every payment AgentGuard executes can get a signed receipt: the payment, a hash of the policy it cleared, the simulation, and who approved it.
+Built in, off until you set a key: a signed receipt for every executed payment, with a hash of the policy it cleared, the simulation, and who approved it.
 
 Signed with Ed25519, by a key separate from the wallets. The public key is published, so anyone can check a receipt.
 ```
 
-> 🇧🇷 Todo pagamento que o AgentGuard executa pode ganhar um recibo assinado: o pagamento, um hash da
-> política que ele cumpriu, a simulação e quem aprovou.
+> 🇧🇷 Já embutido, desligado até você definir uma chave: um recibo assinado para cada pagamento
+> executado, com um hash da política que ele cumpriu, a simulação e quem aprovou.
 >
 > Assinado com Ed25519, por uma chave separada das carteiras. A chave pública é publicada, então
 > qualquer pessoa pode conferir um recibo.
@@ -299,7 +299,7 @@ The new setup wizard asks one question at a time, generates the hot keys on your
 AgentGuard today, by the repository:
 
 • live on Robinhood Chain and Solana mainnet
-• 1,293 automated tests passing on main
+• 1,294 automated tests passing on main
 • 39 attack cases
 • 0 custom smart contracts
 • 0 keys held by the agent
@@ -309,7 +309,7 @@ AgentGuard today, by the repository:
 > 🇧🇷 O AgentGuard hoje, segundo o repositório:
 >
 > • no ar na mainnet da Robinhood Chain e da Solana
-> • 1.293 testes automatizados passando no main
+> • 1.294 testes automatizados passando no main
 > • 39 casos de ataque
 > • 0 contratos inteligentes próprios
 > • 0 chaves nas mãos do agente
