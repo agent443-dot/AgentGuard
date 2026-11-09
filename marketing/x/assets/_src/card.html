@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* Site tokens from site/index.html, so every card reads as the same brand. */
+      :root {
+        --bg: #050505;
+        --panel: #0d0d0d;
+        --line: #1c1c1e;
+        --line-2: #2a2a2d;
+        --fg: #f5f5f5;
+        --muted: #a0a0a5;
+        --dim: #6a6a6f;
+        --mint: #14f195;
+        --amber: #e8b45a;
+        --red: #f87171;
+        --violet: #9945ff;
+        --grad: linear-gradient(90deg, #9945ff 0%, #43b4ca 50%, #14f195 100%);
+        --display: 'Inter Tight', 'Inter', Arial, sans-serif;
+        --body: 'Inter', Arial, sans-serif;
+        --mono: 'IBM Plex Mono', Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+      }
+      .card {
+        width: 1200px;
+        height: 675px;
+        padding: 64px 72px 56px;
+        display: flex;
+        flex-direction: column;
+        color: var(--fg);
+        font-family: var(--body);
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(900px 420px at 100% 0%, rgba(153, 69, 255, 0.13), transparent 60%),
+          radial-gradient(700px 380px at 0% 100%, rgba(20, 241, 149, 0.08), transparent 60%),
+          var(--bg);
+      }
+      .card::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto;
+        height: 4px;
+        background: var(--grad);
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 17px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .eyebrow::before {
+        content: '';
+        width: 11px;
+        height: 11px;
+        border-radius: 3px;
+        background: var(--grad);
+      }
+      h1 {
+        font-family: var(--display);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.02;
+        font-size: 66px;
+        margin: 26px 0 0;
+        max-width: 1000px;
+      }
+      h1.small {
+        font-size: 50px;
+      }
+      .grad {
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .body {
+        font-size: 25px;
+        line-height: 1.45;
+        color: var(--muted);
+        margin-top: 24px;
+        max-width: 980px;
+      }
+      .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .rows {
+        margin-top: 30px;
+        display: grid;
+        gap: 12px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 24px;
+        padding: 14px 20px;
+        border: 1px solid var(--line-2);
+        border-radius: 12px;
+        background: var(--panel);
+        font-size: 23px;
+        align-items: baseline;
+      }
+      .row b {
+        font-family: var(--mono);
+        font-weight: 500;
+        font-size: 20px;
+        color: var(--mint);
+      }
+      .row.warn b {
+        color: var(--amber);
+      }
+      .row.bad b {
+        color: var(--red);
+      }
+      .row span {
+        color: var(--fg);
+      }
+      .tight .row {
+        padding: 9px 18px;
+        font-size: 20px;
+      }
+      .tight .row b {
+        font-size: 18px;
+      }
+      .tight h1 {
+        margin-top: 18px;
+      }
+      pre {
+        margin: 26px 0 0;
+        padding: 24px 28px;
+        border: 1px solid var(--line-2);
+        border-radius: 14px;
+        background: #0a0a0a;
+        font-family: var(--mono);
+        font-size: 21px;
+        line-height: 1.55;
+        color: #d6d6da;
+        white-space: pre-wrap;
+      }
+      pre .ok {
+        color: var(--mint);
+      }
+      pre .dim {
+        color: var(--dim);
+      }
+      pre .warn {
+        color: var(--amber);
+      }
+      .flow {
+        margin-top: 28px;
+        display: grid;
+        gap: 0;
+      }
+      .box {
+        border: 1px solid var(--line-2);
+        border-radius: 14px;
+        background: var(--panel);
+        padding: 14px 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 20px;
+      }
+      .box strong {
+        font-family: var(--display);
+        font-size: 25px;
+        font-weight: 600;
+      }
+      .box em {
+        font-style: normal;
+        color: var(--muted);
+        font-size: 19px;
+        text-align: right;
+      }
+      .arrow {
+        font-family: var(--mono);
+        font-size: 17px;
+        color: var(--mint);
+        padding: 6px 0 6px 34px;
+        border-left: 2px solid var(--line-2);
+        margin-left: 30px;
+      }
+      .big {
+        font-family: var(--display);
+        font-weight: 800;
+        font-size: 150px;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        margin-top: 18px;
+      }
+      .foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 17px;
+        color: var(--dim);
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        margin-top: 26px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--fg);
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+      .mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--grad);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="card">
+      <div class="eyebrow" id="eyebrow"></div>
+      <div class="content" id="content"></div>
+      <div class="foot">
+        <div class="brand">
+          <div class="mark"></div>
+          AgentGuard
+        </div>
+        <div id="note">github.com/agent443-dot/AgentGuard · Apache-2.0</div>
+      </div>
+    </div>
+  </body>
+</html>
