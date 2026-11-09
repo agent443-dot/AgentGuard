@@ -119,13 +119,27 @@ describe('owner commands', () => {
 
 const PHANTOM = (issued: Date) => `https://phantom.app/ul/browse/kill?issued=${issued.getTime()}`
 const ROBINHOOD = (issued: Date) => `https://phantom.app/ul/browse/rh?issued=${issued.getTime()}`
-const KILLS = [{ chain: CHAINS.solanaDevnet, link: PHANTOM }]
-const BOTH = [...KILLS, { chain: CHAINS.robinhoodTestnet, link: ROBINHOOD }]
+const page = (name: string) => (issued: Date) =>
+  `https://sign.example/?cluster=${name}&issued=${issued.getTime()}`
+const KILLS = [{ chain: CHAINS.solanaDevnet, link: PHANTOM, page: page('devnet') }]
+const BOTH = [
+  ...KILLS,
+  { chain: CHAINS.robinhoodTestnet, link: ROBINHOOD, page: page('robinhood-testnet') },
+]
+const DESKTOP = 'Open in browser (desktop)'
 
-function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
+function keyboard(call: { payload: Record<string, unknown> } | undefined) {
   const markup = call?.payload['reply_markup'] as
     { inline_keyboard: { url?: string; text: string }[][] } | undefined
-  return (markup?.inline_keyboard ?? []).flat().filter((button) => button.url !== undefined)
+  return markup?.inline_keyboard ?? []
+}
+
+/** The Phantom app buttons; each row also holds a desktop one, tested on its own. */
+
+function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
+  return keyboard(call)
+    .flat()
+    .filter((button) => button.url !== undefined && button.text !== DESKTOP)
 }
 
 describe('/kill with the signing page configured', () => {
@@ -356,6 +370,26 @@ describe('/kill with the signing page configured', () => {
       expect(offerText(last)).toContain('• Solana devnet: no onchain limit (already removed)')
       expect(phantomButtons(last)).toEqual([])
     })
+  })
+
+  it('puts a desktop browser button next to each Phantom one, on the same row and expiry', async () => {
+    let now = NOW
+    const { bot, commands, calls } = setup({ phantomKills: BOTH, now: () => now })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    const done = sent(calls, 'editMessageText')[0]
+    expect(keyboard(done)).toEqual([
+      [
+        { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+        { text: DESKTOP, url: page('devnet')(NOW) },
+      ],
+      [
+        { text: 'Open Robinhood Chain testnet kill in Phantom', url: ROBINHOOD(NOW) },
+        { text: DESKTOP, url: page('robinhood-testnet')(NOW) },
+      ],
+    ])
+    now = new Date(NOW.getTime() + 15 * 60_000)
+    await commands.expireKillOffers()
+    expect(keyboard(sent(calls, 'editMessageText')[1])).toEqual([])
   })
 
   it('retires a button after 15 minutes, and not before', async () => {

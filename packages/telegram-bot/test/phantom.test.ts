@@ -2,7 +2,7 @@ import { CHAINS } from '@agentguard/shared'
 import { describe, expect, it } from 'vitest'
 // The signing page's own helper: the bot's link must be the one the page would build for itself.
 import { openInPhantom } from '../../onchain/web/src/wallet.js'
-import { phantomKill, phantomKillUrl } from '../src/domain/phantom.js'
+import { killPageUrl, phantomKill, phantomKillUrl } from '../src/domain/phantom.js'
 
 const PAGE = 'https://sign.agentguard.example'
 const MULTISIG = '3UUSmTssQT7xAnH7SKiStPyy1Tn2SUqUM53Ns7XnUcVu'
@@ -59,6 +59,13 @@ describe('phantomKillUrl', () => {
     expect(() => phantomKillUrl(PAGE, { chain: CHAINS.baseSepolia, safe: SAFE }, ISSUED)).toThrow(
       'no signing-page',
     )
+  })
+
+  it('gives the desktop button the plain page link that the universal link wraps', () => {
+    const plain = `${PAGE}/?action=kill&cluster=devnet&multisig=${MULTISIG}&hot=${HOT}&issued=1794101400`
+    expect(killPageUrl(PAGE, solana, ISSUED)).toBe(plain)
+    expect(phantomKillUrl(PAGE, solana, ISSUED)).toBe(openInPhantom(plain))
+    expect(phantomKill(PAGE, solana).page(ISSUED)).toBe(plain)
   })
 
   it('keeps the chain next to the link builder', () => {
