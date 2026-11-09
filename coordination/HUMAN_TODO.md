@@ -1180,25 +1180,36 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
    procurar segredos nos logs.
 3. Cópias de segurança automáticas da base de dados.
 4. Confirmar que a página de assinatura publicada no Vercel é a do `main`.
+5. **Deploy automático no Fly** sempre que algo entra no `main` — acaba com o bot desatualizado.
+   Depois de o integrator abrir o PR do workflow, crias um token de deploy por app e guardas cada um
+   diretamente nos segredos do GitHub, sem ele aparecer no ecrã:
+
+   ```bash
+   fly tokens create deploy -a agentguard-guard-core | gh secret set FLY_API_TOKEN_GUARD --repo kikume/AgentGuard
+   ```
+
+   ```bash
+   fly tokens create deploy -a agentguard-bot | gh secret set FLY_API_TOKEN_BOT --repo kikume/AgentGuard
+   ```
 
 **B. Robinhood Chain** — na Safe que já tens (`0xB460…9d8a`)
 
-5. Subir o teto de 5 para **20 USDG por dia** na página de assinatura, e pôr no cofre o que quiseres
+6. Subir o teto de 5 para **20 USDG por dia** na página de assinatura, e pôr no cofre o que quiseres
    para as primeiras semanas.
-6. A política do agente com os valores da D2, e um pagamento de teste.
+7. A política do agente com os valores da D2, e um pagamento de teste.
 
 **C. Solana mainnet**
 
-7. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
-8. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
-9. Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
-10. Um kill de teste, e repor o teto.
+8. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
+9. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
+10. Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
+11. Um kill de teste, e repor o teto.
 
 **D. Antes de abrir**
 
-11. A landing page, e decidir se o repositório fica público.
-12. O relatório final.
-13. **A tua autorização escrita para lançar** (`HUMAN-8`).
+12. A landing page, e decidir se o repositório fica público.
+13. O relatório final.
+14. **A tua autorização escrita para lançar** (`HUMAN-8`).
 
 ---
 
