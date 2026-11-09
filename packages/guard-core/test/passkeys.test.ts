@@ -139,6 +139,61 @@ describe('passkey approvals', () => {
     expect(res.body).not.toContain('<b>the</b>')
   })
 
+  it('shows the amount in dollars with the chain symbol', async () => {
+    await enrol(h)
+    const one = (await pay(h, '3000000')).json()
+    const { res } = await openPage(h, one.intentId)
+    expect(res.body).toContain('3.00 USDC')
+    expect(res.headers['x-frame-options']).toBe('DENY')
+    expect(res.headers['strict-transport-security']).toContain('includeSubDomains')
+  })
+
+  it('reuses the challenge still out when the page is opened again', async () => {
+    const device = await enrol(h)
+    const one = (await pay(h, '3000000')).json()
+    const first = await openPage(h, one.intentId)
+    const second = await openPage(h, one.intentId)
+    expect(second.challenge).toBe(first.challenge)
+    expect((await approve(h, one.intentId, device.assert(first.challenge))).statusCode).toBe(200)
+  })
+
+  it('keeps the challenge when an answer to it fails verification', async () => {
+    const device = await enrol(h)
+    const stranger = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+    const one = (await pay(h, '3000000')).json()
+    const { challenge } = await openPage(h, one.intentId)
+    expect((await approve(h, one.intentId, stranger.assert(challenge))).statusCode).toBe(401)
+    expect(
+      (await approve(h, one.intentId, device.assert(challenge, 'https://x.evil'))).statusCode,
+    ).toBe(401)
+    expect((await approve(h, one.intentId, device.assert(challenge))).statusCode).toBe(200)
+  })
+
+  it('adds only the first passkey through the admin routes, and lists them', async () => {
+    const device = await enrol(h)
+    expect(h.bot.alert).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'passkey_enrolled', detail: device.id.slice(0, 8) }),
+    )
+    const other = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+    const options = (await admin(h, '/v1/admin/passkeys/options')).json()
+    const second = await admin(h, '/v1/admin/passkeys', {
+      response: other.register(options.challenge),
+    })
+    expect(second.statusCode).toBe(409)
+    const one = (await pay(h, '3000000')).json()
+    const { challenge } = await openPage(h, one.intentId)
+    await approve(h, one.intentId, device.assert(challenge))
+    const list = await h.app.inject({
+      method: 'GET',
+      url: '/v1/admin/passkeys',
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    })
+    expect(list.json()).toEqual({
+      passkeys: [{ id: device.id, createdAt: NOW.toISOString(), lastUsedAt: NOW.toISOString() }],
+    })
+    expect((await h.app.inject({ method: 'GET', url: '/v1/admin/passkeys' })).statusCode).toBe(401)
+  })
+
   it('serves the page script with no inline code', async () => {
     const js = await h.app.inject({ method: 'GET', url: '/owner/approve.js' })
     expect(js.headers['content-type']).toContain('text/javascript')

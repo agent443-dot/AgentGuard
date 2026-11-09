@@ -1,4 +1,5 @@
-import type { AlertEvent, PayIntent } from '@agentguard/shared'
+import type { PayIntent } from '@agentguard/shared'
+import type { GuardAlert } from '../adapters/bot.js'
 import type { PaymentDeps } from './payments.js'
 
 // About 21 seconds in all: enough to ride out a bot restart, short enough that the alert still
@@ -19,12 +20,25 @@ export function notify(deps: Deps, intent: PayIntent): void {
   )
 }
 
-/** Tells the bot something the owner must act on now, such as a tripped breaker. Never awaited. */
-export function alert(deps: Deps, event: Omit<AlertEvent, 'sentAt'>): void {
-  void deliver(deps, () => deps.bot.alert({ ...event, sentAt: deps.now().toISOString() }), {
-    kind: event.kind,
-    agentId: event.agentId,
-  })
+/** An alert as the caller builds it; the time is stamped per attempt. */
+export type AlertBody = GuardAlert extends infer A
+  ? A extends GuardAlert
+    ? Omit<A, 'sentAt'>
+    : never
+  : never
+
+/**
+ * Tells the bot something the owner must act on now, such as a tripped breaker or a new passkey.
+ * Never awaited.
+ */
+export function alert(deps: Deps, event: AlertBody): void {
+  void deliver(
+    deps,
+    () => deps.bot.alert({ ...event, sentAt: deps.now().toISOString() } as GuardAlert),
+    {
+      kind: event.kind,
+    },
+  )
 }
 
 type Deps = Pick<PaymentDeps, 'bot' | 'now' | 'log'>

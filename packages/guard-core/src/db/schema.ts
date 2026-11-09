@@ -232,6 +232,7 @@ export const passkeys = sqliteTable('passkeys', {
   counter: integer('counter').notNull(),
   transports: text('transports', { mode: 'json' }).$type<string[]>().notNull(),
   createdAt: text('created_at').notNull(),
+  lastUsedAt: text('last_used_at'),
 })
 
 /**

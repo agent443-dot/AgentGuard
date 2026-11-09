@@ -218,9 +218,24 @@ passkey is bound to, so a look-alike site cannot use it.
   `POST /v1/owner/passkeys/options { code }`, creates the passkey, and sends the result with the
   code to `POST /v1/owner/passkeys { code, response }`, which uses the code up. Each code has its
   own challenge, so one code's challenge cannot be answered with another.
+- A code alone adds only the first passkey. Once one exists, the options also carry `stepUp`, and
+  the enrolment needs `assertion`: a signature from an enrolled passkey over that challenge
+  (single-use, five minutes). Without it the answer is 401 `step_up_required` and the code is not
+  used up. Whoever holds the owner's Telegram therefore cannot add a passkey of their own.
 - Enrolment through the admin routes, for a tool on the operator's side:
-  `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys { response }`.
-- Both require user verification. Challenges are single-use and last five minutes.
+  `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys { response }`. It adds only the
+  first passkey (409 `step_up_required` after that).
+- Every enrolment is audited and sent to the bot as `/hooks/alert { kind: "passkey_enrolled",
+detail: <first 8 characters of the credential id>, sentAt }`, so the owner hears of one they did
+  not make. A credential already enrolled gets 409 `passkey_exists`, and the code stays good.
+- `GET /v1/admin/passkeys` lists `{ id, createdAt, lastUsedAt }` for each passkey.
+- Removing a passkey has no route: it takes a shell on the machine.
+  `pnpm --filter @agentguard/guard-core remove-passkey` lists them, and
+  `pnpm --filter @agentguard/guard-core remove-passkey <id or prefix>` removes one, audited.
+- Both require user verification. Challenges are single-use and last five minutes. Opening a page
+  again reuses the challenge still out, and a challenge is used up only by a verified answer, so a
+  stray or forged request cannot spoil the owner's open page. Expired challenges and codes are
+  pruned by the sweep.
 - The approval request for such an intent carries `passkey: true`, and `/v1/bot/decision` answers
   `approve` with 403 `passkey_required` (a rejection still works).
 - `GET /owner/approve/:intentId`, on the public listener, is a small page that runs WebAuthn for
@@ -228,11 +243,15 @@ passkey is bound to, so a look-alike site cannot use it.
   `POST /v1/owner/approve { intentId, assertion }` verifies the assertion and approves; a transfer
   is then sent, and an x402 payment waits for the agent's repeat, as after a Telegram approval. The
   receipt says `approvedBy: "passkey"`.
-- The page's CSP allows only its own script (no inline code) and its own API, and the agent's text
-  is shown as text. The public listener's rate limit applies.
+- The page shows the amount in dollars with the chain's symbol ("3.00 USDC"). Its CSP allows only
+  its own script (no inline code) and its own API, the agent's text is shown as text, and it is
+  sent with `X-Frame-Options: DENY` and HSTS. The public listener's rate limit applies.
+- At startup `PASSKEY_ORIGIN` must be a bare origin (`https://host[:port]`) whose host is
+  `PASSKEY_RP_ID` or a subdomain of it.
 
 Enrol a passkey before setting `PASSKEY_ABOVE`: with it set and none enrolled, guard-core refuses to
-start, because nothing above the amount could ever be approved.
+start, because nothing above the amount could ever be approved. The doctor warns when an agent's
+approval threshold is above `PASSKEY_ABOVE`: amounts between the two pay without the owner.
 
 ### Events to the bot
 

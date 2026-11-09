@@ -1,12 +1,14 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { ChainId, DoctorCheck, HotWalletGas } from '@agentguard/shared'
+import type { Amount, ChainId, DoctorCheck, HotWalletGas } from '@agentguard/shared'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { dbFile, type Db } from '../db/client.js'
+import * as repo from '../db/repo.js'
 import { auditLog } from '../db/schema.js'
 import { parseAmount } from '../domain/amount.js'
 
 const BACKUP_MAX_AGE_MS = 2 * 86_400_000
+const READ_TIMEOUT_MS = 5_000
 
 /** Onchain's adapters gain getHotWalletGas in a release that is not on main yet. */
 type WithGas = ChainAdapter & { getHotWalletGas?: () => Promise<HotWalletGas> }
@@ -19,6 +21,7 @@ export interface DoctorDeps {
   now: () => Date
   botUrl: string
   databaseUrl: string
+  passkeyAbove?: Amount | undefined
 }
 
 /**
@@ -29,18 +32,22 @@ export async function doctor(deps: DoctorDeps): Promise<DoctorCheck[]> {
   const chains = await Promise.all(
     [...deps.chains.values()].map((adapter) => chainChecks(deps, adapter)),
   )
-  return [database(deps.db), ...chains.flat(), await bot(deps), await backup(deps)]
+  return [
+    database(deps),
+    ...chains.flat(),
+    ...passkeyChecks(deps),
+    await bot(deps),
+    await backup(deps),
+  ]
 }
 
 class Rollback extends Error {}
 
-function database(db: Db): DoctorCheck {
+function database({ db, now }: { db: Db; now: () => Date }): DoctorCheck {
   try {
     // A real write, undone: the check must not leave a trace in the log it is checking.
     db.transaction((tx) => {
-      tx.insert(auditLog)
-        .values({ at: new Date().toISOString(), event: 'doctor_write_check' })
-        .run()
+      tx.insert(auditLog).values({ at: now().toISOString(), event: 'doctor_write_check' }).run()
       throw new Rollback()
     })
   } catch (error) {
@@ -98,8 +105,13 @@ async function attempt(
   id: string,
   check: () => Promise<Omit<DoctorCheck, 'id'>>,
 ): Promise<DoctorCheck> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), READ_TIMEOUT_MS)
+  })
   try {
-    return { id, ...(await check()) }
+    // A hung RPC must not hang the whole report: the owner is waiting on it in Telegram.
+    return { id, ...(await Promise.race([check(), timeout])) }
   } catch {
     const [chain] = id.split(':')
     return {
@@ -108,7 +120,33 @@ async function attempt(
       message: `guard-core could not read this from ${chain}.`,
       fix: 'Check that the RPC URL for this chain is set and reachable.',
     }
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+/**
+ * An agent whose approval threshold is above PASSKEY_ABOVE never asks for a passkey on the
+ * amounts between the two: those pay without the owner at all.
+ */
+function passkeyChecks(deps: DoctorDeps): DoctorCheck[] {
+  const above = deps.passkeyAbove
+  if (above === undefined) {
+    return []
+  }
+  return repo.agentIds(deps.db).flatMap((agentId): DoctorCheck[] => {
+    const threshold = repo.getPolicy(deps.db, agentId)?.approvalThreshold
+    return threshold !== undefined && parseAmount(above) < parseAmount(threshold)
+      ? [
+          {
+            id: `${agentId}:passkey`,
+            status: 'warn',
+            message: `Payments by ${agentId} below its approval threshold skip the owner, even those above the passkey amount.`,
+            fix: `Lower ${agentId}'s approval threshold to the passkey amount or below.`,
+          },
+        ]
+      : []
+  })
 }
 
 async function bot(deps: DoctorDeps): Promise<DoctorCheck> {

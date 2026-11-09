@@ -79,6 +79,15 @@ export const configSchema = z
     RATE_LIMIT_PER_IP: z.coerce.number().int().positive().default(120),
     RATE_LIMIT_PER_AGENT: z.coerce.number().int().positive().default(60),
   })
+  // A passkey is bound to an origin and an RP id, and a browser accepts the pair only when the
+  // origin is exactly scheme://host[:port] and its host is the RP id or under it. A mismatch would
+  // pass startup and then refuse every enrolment and approval.
+  .refine(
+    (c) => c.PASSKEY_ORIGIN === undefined || originMatches(c.PASSKEY_ORIGIN, c.PASSKEY_RP_ID),
+    {
+      path: ['PASSKEY_ORIGIN'],
+    },
+  )
   // A passkey is bound to an address, so turning them on without one would approve nothing.
   .refine(
     (c) =>
@@ -86,6 +95,15 @@ export const configSchema = z
       (c.PASSKEY_RP_ID !== undefined && c.PASSKEY_ORIGIN !== undefined),
     { path: ['PASSKEY_RP_ID'] },
   )
+
+function originMatches(origin: string, rpId: string | undefined): boolean {
+  const url = new URL(origin)
+  return (
+    url.origin === origin &&
+    rpId !== undefined &&
+    (url.hostname === rpId || url.hostname.endsWith(`.${rpId}`))
+  )
+}
 
 export type Config = z.infer<typeof configSchema>
 

@@ -1,20 +1,25 @@
 import type { PayIntent } from '@agentguard/shared'
+import { getAddress, usdSymbol } from '@agentguard/shared'
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server'
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import { enrolCodeValid, takeEnrolCode } from '../db/passkeys.js'
+import { countPasskeys, enrolCodeValid, getPasskey, takeEnrolCode } from '../db/passkeys.js'
 import * as repo from '../db/repo.js'
+import { formatDollars } from '../domain/amount.js'
 import { decide } from '../service/approvals.js'
 import { afterApproval } from '../service/approved.js'
+import { alert } from '../service/events.js'
 import {
   approvalOptions,
   codeHash,
   enrol,
   enrolmentOptions,
   needsPasskey,
-  verifyApproval,
+  stepUpOptions,
+  verifyAssertion,
 } from '../service/passkeys.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
+import { APPROVE_SCRIPT, ENROL_SCRIPT } from './owner-scripts.js'
 import { enrolCodeBody, idParam, ownerApproval, ownerEnrolment } from './schemas.js'
 
 // Nothing but this origin's own script and its own API: no inline code, no styles, no frames.
@@ -52,11 +57,11 @@ export function ownerRoutes(deps: PaymentDeps, rp?: { rpId: string; origin: stri
       if (deps.passkey === undefined || intent === undefined) {
         return page(reply.code(404), '<p>There is nothing to approve here.</p>')
       }
-      const options = await approvalOptions(db, deps.passkey, intent)
+      const options = await approvalOptions(db, deps.passkey, intent, now())
       return page(
         reply,
         `<h1>Approve a payment</h1>
-<p>${escape(intent.amount)} atomic units on ${escape(intent.chain)} to ${escape(intent.recipient)}${
+<p>${escape(amountText(intent))} on ${escape(intent.chain)} to ${escape(intent.recipient)}${
           intent.domain === undefined ? '' : ` for ${escape(intent.domain)}`
         }.</p>
 <p>The agent says: ${escape(intent.reason)}</p>
@@ -68,6 +73,35 @@ export function ownerRoutes(deps: PaymentDeps, rp?: { rpId: string; origin: stri
     })
 
     app.get('/owner/approve.js', async (_request, reply) => script(reply, APPROVE_SCRIPT))
+
+    app.post('/v1/owner/approve', async (request) => {
+      const { intentId, assertion } = ownerApproval.parse(request.body)
+      const intent = awaiting(intentId)
+      if (deps.passkey === undefined || intent === undefined) {
+        throw new HttpError(404, 'not_found')
+      }
+      // The library checks the whole assertion; the schema only bounded its size and shape.
+      const answer = assertion as unknown as AuthenticationResponseJSON
+      if (!(await verifyAssertion(db, deps.passkey, intent.id, answer, now()))) {
+        repo.audit(db, { event: 'passkey_refused', intentId, agentId: intent.agentId }, now())
+        throw new HttpError(401, 'passkey_not_verified')
+      }
+      const result = decide(db, intentId, 'approve', now())
+      if (!result.ok) {
+        throw new HttpError(result.reason === 'expired' ? 410 : 409, result.reason)
+      }
+      repo.audit(
+        db,
+        {
+          event: 'owner_decision',
+          intentId,
+          agentId: intent.agentId,
+          detail: { decision: 'approve', method: 'passkey' },
+        },
+        now(),
+      )
+      return afterApproval(deps, result.intent, 'passkey')
+    })
 
     // The code travels in the link's fragment, which the browser never sends, so it stays out of
     // every request line and log; the page's script reads it and posts it.
@@ -95,79 +129,90 @@ export function ownerRoutes(deps: PaymentDeps, rp?: { rpId: string; origin: stri
       if (!enrolCodeValid(db, hash, now())) {
         throw new HttpError(401, 'code_not_valid')
       }
-      return enrolmentOptions(db, rp, now(), `enrol:${hash}`)
+      const registration = await enrolmentOptions(db, rp, now(), `enrol:${hash}`)
+      // A code alone adds only the first passkey. After that, one already enrolled must vouch for
+      // the new one, or whoever holds the owner's Telegram could add their own.
+      return countPasskeys(db) === 0
+        ? { registration }
+        : { registration, stepUp: await stepUpOptions(db, rp, `step-up:${hash}`, now()) }
     })
 
-    app.post('/v1/owner/passkeys', async (request, reply) => {
-      const { code, response } = ownerEnrolment.parse(request.body)
+    app.post('/v1/owner/passkeys', async (request) => {
+      const { code, response, assertion } = ownerEnrolment.parse(request.body)
       if (rp === undefined) {
         throw new HttpError(404, 'not_found')
       }
       const hash = codeHash(code)
-      if (!takeEnrolCode(db, hash, now())) {
+      if (!enrolCodeValid(db, hash, now())) {
         throw new HttpError(401, 'code_not_valid')
       }
+      // Checked before the code is used, so a passkey sent twice does not cost the owner the link.
+      if (getPasskey(db, response.id) !== undefined) {
+        throw new HttpError(409, 'passkey_exists')
+      }
+      if (countPasskeys(db) > 0) {
+        const vouched =
+          assertion !== undefined &&
+          (await verifyAssertion(
+            db,
+            rp,
+            `step-up:${hash}`,
+            assertion as unknown as AuthenticationResponseJSON,
+            now(),
+          ))
+        if (!vouched) {
+          repo.audit(db, { event: 'passkey_step_up_refused' }, now())
+          throw new HttpError(401, 'step_up_required')
+        }
+      }
+      takeEnrolCode(db, hash, now())
       // The library checks the whole response; the schema only bounded its size and shape.
       const registration = response as unknown as RegistrationResponseJSON
-      if (!(await enrol(db, rp, registration, now(), `enrol:${hash}`))) {
-        return reply.code(400).send({ error: 'passkey_not_verified' })
+      const enrolled = await enrol(db, rp, registration, now(), `enrol:${hash}`)
+      if (!enrolled.ok) {
+        throw new HttpError(
+          enrolled.reason === 'exists' ? 409 : 400,
+          enrolled.reason === 'exists' ? 'passkey_exists' : 'passkey_not_verified',
+        )
       }
-      repo.audit(db, { event: 'passkey_enrolled', detail: { via: 'code' } }, now())
+      enrolledNotice(deps, enrolled.id, 'code')
       return { enrolled: true }
-    })
-
-    app.post('/v1/owner/approve', async (request) => {
-      const { intentId, assertion } = ownerApproval.parse(request.body)
-      const intent = awaiting(intentId)
-      if (deps.passkey === undefined || intent === undefined) {
-        throw new HttpError(404, 'not_found')
-      }
-      const ok = await verifyApproval(
-        db,
-        deps.passkey,
-        intent,
-        // The library checks the whole assertion; the schema only bounded its size and shape.
-        assertion as unknown as AuthenticationResponseJSON,
-        now(),
-      )
-      if (!ok) {
-        repo.audit(db, { event: 'passkey_refused', intentId, agentId: intent.agentId }, now())
-        throw new HttpError(401, 'passkey_not_verified')
-      }
-      const result = decide(db, intentId, 'approve', now())
-      if (!result.ok) {
-        throw new HttpError(result.reason === 'expired' ? 410 : 409, result.reason)
-      }
-      repo.audit(
-        db,
-        {
-          event: 'owner_decision',
-          intentId,
-          agentId: intent.agentId,
-          detail: { decision: 'approve', method: 'passkey' },
-        },
-        now(),
-      )
-      return afterApproval(deps, result.intent, 'passkey')
     })
   }
 }
 
-function script(reply: FastifyReply, source: string) {
+/** Every new passkey is audited and told to the owner at once: an unexpected one is an attack. */
+export function enrolledNotice(deps: PaymentDeps, id: string, via: 'code' | 'admin'): void {
+  const prefix = id.slice(0, 8)
+  repo.audit(deps.db, { event: 'passkey_enrolled', detail: { via, id: prefix } }, deps.now())
+  alert(deps, { kind: 'passkey_enrolled', detail: prefix })
+}
+
+/** "3.00 USDC" for the chain's dollar; any other token in plain base units. */
+function amountText(intent: PayIntent): string {
+  const symbol = usdSymbol(intent.chain)
+  return symbol !== undefined && getAddress(intent.chain, 'usd') === intent.token
+    ? `${formatDollars(intent.amount)} ${symbol}`
+    : `${intent.amount} base units of ${intent.token}`
+}
+
+function security(reply: FastifyReply) {
   return reply
-    .header('content-type', 'text/javascript; charset=utf-8')
     .header('x-content-type-options', 'nosniff')
+    .header('x-frame-options', 'DENY')
+    .header('strict-transport-security', 'max-age=31536000; includeSubDomains')
     .header('cache-control', 'no-store')
-    .send(source)
+}
+
+function script(reply: FastifyReply, source: string) {
+  return security(reply).header('content-type', 'text/javascript; charset=utf-8').send(source)
 }
 
 function page(reply: FastifyReply, body: string) {
-  return reply
+  return security(reply)
     .header('content-type', 'text/html; charset=utf-8')
     .header('content-security-policy', CSP)
-    .header('x-content-type-options', 'nosniff')
     .header('referrer-policy', 'no-referrer')
-    .header('cache-control', 'no-store')
     .send(
       `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AgentGuard</title></head><body>${body}</body></html>`,
     )
@@ -182,86 +227,3 @@ function escape(text: string): string {
 function json(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c')
 }
-
-const HELPERS = `'use strict'
-const fromB64 = (s) =>
-  Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)).buffer
-const toB64 = (b) =>
-  btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '')
-const status = document.getElementById('status')
-const post = (path, body) =>
-  fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-`
-
-const APPROVE_SCRIPT = `${HELPERS}
-const data = document.getElementById('options')
-const options = JSON.parse(data.textContent)
-document.getElementById('approve').addEventListener('click', async () => {
-  try {
-    const credential = await navigator.credentials.get({
-      publicKey: {
-        ...options,
-        challenge: fromB64(options.challenge),
-        allowCredentials: (options.allowCredentials || []).map((c) => ({ ...c, id: fromB64(c.id) })),
-      },
-    })
-    const r = credential.response
-    const assertion = {
-      id: credential.id,
-      rawId: toB64(credential.rawId),
-      type: credential.type,
-      clientExtensionResults: credential.getClientExtensionResults(),
-      response: {
-        clientDataJSON: toB64(r.clientDataJSON),
-        authenticatorData: toB64(r.authenticatorData),
-        signature: toB64(r.signature),
-        ...(r.userHandle ? { userHandle: toB64(r.userHandle) } : {}),
-      },
-    }
-    const res = await post('/v1/owner/approve', { intentId: data.dataset.intent, assertion })
-    status.textContent = res.ok ? 'Approved. You can close this page.' : 'Not approved.'
-  } catch {
-    status.textContent = 'Not approved: the passkey was not used.'
-  }
-})
-`
-
-const ENROL_SCRIPT = `${HELPERS}
-const code = new URLSearchParams(location.hash.slice(1)).get('code')
-// Out of the address bar and the history once read.
-history.replaceState(null, '', location.pathname)
-document.getElementById('enrol').addEventListener('click', async () => {
-  try {
-    const asked = await post('/v1/owner/passkeys/options', { code })
-    if (!asked.ok) {
-      status.textContent = 'This link is no longer valid. Ask the bot for a new one.'
-      return
-    }
-    const options = await asked.json()
-    const credential = await navigator.credentials.create({
-      publicKey: {
-        ...options,
-        challenge: fromB64(options.challenge),
-        user: { ...options.user, id: fromB64(options.user.id) },
-        excludeCredentials: (options.excludeCredentials || []).map((c) => ({ ...c, id: fromB64(c.id) })),
-      },
-    })
-    const r = credential.response
-    const response = {
-      id: credential.id,
-      rawId: toB64(credential.rawId),
-      type: credential.type,
-      clientExtensionResults: credential.getClientExtensionResults(),
-      response: {
-        clientDataJSON: toB64(r.clientDataJSON),
-        attestationObject: toB64(r.attestationObject),
-        transports: r.getTransports ? r.getTransports() : [],
-      },
-    }
-    const res = await post('/v1/owner/passkeys', { code, response })
-    status.textContent = res.ok ? 'Passkey enrolled. You can close this page.' : 'Not enrolled.'
-  } catch {
-    status.textContent = 'Not enrolled: the passkey was not created.'
-  }
-})
-`

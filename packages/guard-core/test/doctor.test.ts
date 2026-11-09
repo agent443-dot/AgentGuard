@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { StubChain } from '../src/adapters/stub.js'
 import { openDb, schema } from '../src/db/client.js'
 import { doctor, type DoctorDeps } from '../src/service/doctor.js'
-import { CHAIN, MINT, NOW } from './harness.js'
+import { basePolicy, CHAIN, MINT, NOW } from './harness.js'
 
 function deps(overrides: Partial<DoctorDeps> = {}): DoctorDeps & { chain: StubChain } {
   const db = openDb(':memory:')
@@ -66,6 +66,40 @@ describe('the doctor', () => {
     const check = (await byId(d))[`${CHAIN}:allowance`]
     expect(check?.status).toBe('fail')
     expect(JSON.stringify(check)).not.toMatch(/SECRET|https?:/)
+  })
+
+  it('gives up on a chain read after five seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      const d = deps()
+      vi.spyOn(d.chain, 'getAllowanceState').mockReturnValue(new Promise(() => {}))
+      const pending = byId(d)
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect((await pending)[`${CHAIN}:allowance`]?.status).toBe('fail')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('warns about an agent whose approval threshold is above PASSKEY_ABOVE', async () => {
+    const d = deps()
+    for (const [id, approvalThreshold] of [
+      ['loose', '5000000'],
+      ['tight', '1000000'],
+    ] as const) {
+      d.db
+        .insert(schema.agents)
+        .values({ id, name: id, tokenHash: id, createdAt: NOW.toISOString() })
+        .run()
+      d.db
+        .insert(schema.policies)
+        .values({ agentId: id, ...basePolicy, approvalThreshold, updatedAt: NOW.toISOString() })
+        .run()
+    }
+    const checks = await byId({ ...d, passkeyAbove: '3000000' })
+    expect(checks['loose:passkey']).toMatchObject({ status: 'warn', fix: expect.any(String) })
+    expect(checks['tight:passkey']).toBeUndefined()
+    expect((await byId(d))['loose:passkey']).toBeUndefined()
   })
 
   it.each([
