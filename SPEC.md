@@ -255,7 +255,8 @@ The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (e
 pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
 open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
-simulation with an empty balanceChanges).
+simulation with an empty balanceChanges). A mandate request also carries ttlSeconds, how long the budget
+runs once approved: while pending, the mandate's expiresAt is only the approval deadline.
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
