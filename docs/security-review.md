@@ -240,6 +240,37 @@ hot 0x46F5…2204}`, read from the deployed `app.js`.
   is idempotent, so nothing breaks, but the owner is sent to a dead button. The bot session is asked
   to read the allowance state and offer buttons only for chains that still have one.
 
+## Solana mainnet launch (2026-11-09)
+
+The owner set Solana up from Phantom through the signing page. `pnpm status` read back the result:
+
+- the multisig and its config authority are the owner alone;
+- the vault holds 20.004398 USDC;
+- the 20 USDC/day limit has the hot wallet as its only member and only destination.
+
+The kill was rehearsed live:
+
+1. `/kill` paused guard-core;
+2. the owner signed `multisigRemoveSpendingLimit`. Phantom showed only the limit's rent (0.001681
+   SOL) coming back, no token leaving, and no warning;
+3. `/status` showed "no onchain limit (killed)";
+4. the owner added the limit again.
+
+- **Finding, bot (medium, usability of the kill):** on a desktop browser, the bot's "Open Solana
+  kill in Phantom" button stops on phantom.com's "Open this link in the Phantom app" page. That
+  button is Phantom's universal link, which only works where the Phantom app is installed. The
+  owner had to build the direct link by hand, as `LAUNCH.md` describes. The bot session is asked to
+  add a direct-link button for desktop next to it.
+- **Finding, Phantom (low, owner training):** on `create`, Phantom's scanner flagged the
+  transaction as possibly malicious. The page partly signs it with a one-time create key, and
+  Phantom accepted it only after "confirm (not safe)". The page's summary matched what landed, so
+  nothing was wrong. But an owner taught to click through that warning is an owner a phishing page
+  can use.
+  - Next steps: submit the signing page's domain to Phantom for review, and serve it from a
+    dedicated domain.
+  - Meanwhile, the docs say to override the warning only on your own page, and only after reading
+    its summary.
+
 ## Pre-release code review (2026-11-09, before the repository went public)
 
 Three read-only passes over every package: guard-core; onchain and the signing page; the bot,

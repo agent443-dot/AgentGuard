@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.6 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.7 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -78,7 +78,8 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
-  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
+  // v0.6 (CR-010). Optional on PUT: omitted keeps the stored value, and a policy that has none gets
+  // the default. So a v0.5 client's PUT never turns shadow back into live. The defaults only add protection.
   mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
   priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
   maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
@@ -157,6 +158,8 @@ interface ChainAdapter {
   getAllowanceState(): Promise<AllowanceState>
   topUpHotWallet(amount: Amount): Promise<string>  // returns txId
   getHotWalletBalance(token: string): Promise<Amount>
+  getHotWalletGas(): Promise<{ balance: Amount; minimum: Amount; symbol: string }>  // CR-011: native
+                                                   // coin, and what a few draws need
   buildKillTx(): Promise<{ description: string; payload: unknown }>  // owner signs this
   simulate(intent: PayIntent): Promise<SimulationOutcome>
   send(intent: PayIntent): Promise<string>         // returns txId
@@ -191,6 +194,8 @@ GET  /v1/agent/intents/:id/receipt -> Receipt   (404 until the intent is execute
 GET  /v1/agent/intents/:id  -> PayIntent
 GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains, mandates }
   mandates: the agent's active mandates (CR-010).
+  shadow?: { since, total, count }: since the agent's first shadowed payment, what shadow mode would
+  have spent in all and how many payments (CR-011). Absent when it never ran in shadow.
   chains: the CAIP-2 ids guard-core runs an adapter for AND this agent's Policy.chains allows, so an
   agent learns only where it may actually pay, never the operator's full setup.
 
@@ -207,12 +212,23 @@ POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chai
   A chain whose kill tx could not be built stays in the list with payload: null and a description
   telling the owner to remove the spend limit by hand: that chain's allowance is still live.
 GET/PUT /v1/admin/policy/:agentId  Policy
+POST /v1/admin/agents { agentId } -> { agentId, token }   (CR-011) the token once; only its hash is
+  kept. The new agent gets a deny-all policy with mode "shadow". 409 { error: "exists" }.
+GET  /v1/admin/agents -> { agents: { agentId, paused, mode }[] }
+POST /v1/admin/agents/:id/revoke -> { agentId, revoked: true }   cuts it off at its next request
+GET  /v1/admin/doctor -> { checks: { id, status: "ok" | "warn" | "fail", message, fix? }[] }
+  Plain-English checks, never a secret: database writable, each chain's allowance readable, each
+  hot wallet's gas (getHotWalletGas) and token balance, the bot reachable, the last backup's age.
 POST /v1/admin/mandates { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate (active)
 POST /v1/admin/mandates/:id/revoke -> Mandate
 GET  /v1/admin/receipts?from&to -> { receipts: Receipt[] }
 GET  /v1/admin/report?from&to -> { agents: { agentId, spent, payments, refused: Record<RejectCode, number>,
                                    domains: { domain, spent }[] }[] }
 POST /v1/admin/passkeys/options -> WebAuthn registration options; POST /v1/admin/passkeys { response }
+POST /v1/admin/passkeys/code -> { code, expiresAt }   one-time, 10 minutes, hashed at rest; for
+  GET /owner/enrol#code=… on the public listener (in the fragment, so no request line or log holds it),
+  which runs WebAuthn registration for this origin via POST /v1/owner/passkeys/options { code } and
+  POST /v1/owner/passkeys { code, response }. The bot's /passkey enrol sends the link.
 GET  /v1/receipts/key -> { publicKey }   public: lets anyone check a receipt
 GET  /owner/approve/:intentId            public page: WebAuthn for this origin, then
 POST /v1/owner/approve { intentId, assertion } -> PayIntent
@@ -244,7 +260,8 @@ The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (e
 pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
 open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
-simulation with an empty balanceChanges).
+simulation with an empty balanceChanges). A mandate request also carries ttlSeconds, how long the budget
+runs once approved: while pending, the mandate's expiresAt is only the approval deadline.
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
@@ -263,6 +280,9 @@ simulation with an empty balanceChanges).
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.7 (2026-11-09): CR-011, approved by the owner. Agent creation, listing and revocation and a
+  doctor on the admin API, for the bot's owner commands and the setup wizard; new agents start in
+  shadow mode; ChainAdapter.getHotWalletGas.
 - v0.6 (2026-11-09): CR-010, approved by the owner. Recipient and price pinning for x402, task
   budgets (mandates), a circuit breaker, shadow mode, passkey approvals above PASSKEY_ABOVE, signed
   receipts, an admin report, and the bot's alert webhook. Every new Policy field is optional with a
