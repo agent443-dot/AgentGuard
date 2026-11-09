@@ -1,15 +1,7 @@
+import type { ChainId } from '@agentguard/shared'
 import { type Bot, type CallbackQueryContext, type Context, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { GuardClient } from '../adapters/guard.js'
-import {
-  budgetText,
-  escapeHtml,
-  isBuilt,
-  killedText,
-  ownerTransactionText,
-} from '../domain/text.js'
-import { statusText } from '../domain/notices.js'
-import type { ChainId } from '@agentguard/shared'
 import {
   anywayLabel,
   chainsText,
@@ -20,8 +12,16 @@ import {
   openLabel,
 } from '../domain/chains.js'
 import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
+import { statusText } from '../domain/notices.js'
 import type { PhantomKill } from '../domain/phantom.js'
 import { REPORT_DAYS, type ReportSchedule, reportPages, weeklyDue } from '../domain/report.js'
+import {
+  budgetText,
+  escapeHtml,
+  isBuilt,
+  killedText,
+  ownerTransactionText,
+} from '../domain/text.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
