@@ -55,15 +55,20 @@ export async function enrolmentOptions(
   return options
 }
 
-export type Enrolled = { ok: true; id: string } | { ok: false; reason: 'exists' | 'not_verified' }
+export type Enrolled =
+  { ok: true; id: string } | { ok: false; reason: 'exists' | 'not_verified' | 'step_up_required' }
 
-/** Stores a new passkey whose registration answers the challenge out for `purpose`. */
+/**
+ * Stores a new passkey whose registration answers the challenge out for `purpose`. With
+ * `firstOnly`, it is refused once any passkey exists: checked with the insert in one transaction,
+ * so two enrolments verified at the same moment cannot both be the first.
+ */
 export async function enrol(
   db: Db,
   setup: Address,
   response: RegistrationResponseJSON,
   now: Date,
-  purpose = 'registration',
+  { purpose = 'registration', firstOnly = false } = {},
 ): Promise<Enrolled> {
   if (store.getPasskey(db, response.id) !== undefined) {
     return { ok: false, reason: 'exists' }
@@ -79,20 +84,32 @@ export async function enrol(
     expectedRPID: setup.rpId,
     requireUserVerification: true,
   }).catch(() => undefined)
-  if (result?.verified !== true) {
+  // The id checked for duplicates above is the one the client sent; the verified one must match.
+  if (result?.verified !== true || result.registrationInfo.credential.id !== response.id) {
     return { ok: false, reason: 'not_verified' }
   }
-  store.dropChallenge(db, purpose)
   const { credential } = result.registrationInfo
-  store.savePasskey(db, {
-    id: credential.id,
-    publicKey: isoBase64URL.fromBuffer(credential.publicKey),
-    counter: credential.counter,
-    transports: credential.transports ?? [],
-    createdAt: now.toISOString(),
-    lastUsedAt: null,
-  })
-  return { ok: true, id: credential.id }
+  // better-sqlite3 runs this synchronously, so no other request's insert can land inside it.
+  return db.$client.transaction((): Enrolled => {
+    if (firstOnly && store.countPasskeys(db) > 0) {
+      return { ok: false, reason: 'step_up_required' }
+    }
+    if (store.getPasskey(db, credential.id) !== undefined) {
+      return { ok: false, reason: 'exists' }
+    }
+    if (!store.takeChallenge(db, purpose, challenge)) {
+      return { ok: false, reason: 'not_verified' }
+    }
+    store.savePasskey(db, {
+      id: credential.id,
+      publicKey: isoBase64URL.fromBuffer(credential.publicKey),
+      counter: credential.counter,
+      transports: credential.transports ?? [],
+      createdAt: now.toISOString(),
+      lastUsedAt: null,
+    })
+    return { ok: true, id: credential.id }
+  })()
 }
 
 /**
@@ -140,8 +157,9 @@ export function stepUpOptions(
 }
 
 /**
- * True only for an assertion from an enrolled passkey over the challenge out for `purpose`. The
- * challenge is used up only by a verified answer, so junk posted at it cannot spend it.
+ * The id of the enrolled passkey that signed this assertion over the challenge out for `purpose`,
+ * or undefined. The challenge is used up only by a verified answer, so junk posted at it cannot
+ * spend it, and only one of several copies of the same answer gets through.
  */
 export async function verifyAssertion(
   db: Db,
@@ -149,11 +167,11 @@ export async function verifyAssertion(
   purpose: string,
   assertion: AuthenticationResponseJSON,
   now: Date,
-): Promise<boolean> {
+): Promise<string | undefined> {
   const challenge = store.peekChallenge(db, purpose, now)
   const passkey = store.getPasskey(db, assertion.id)
   if (challenge === undefined || passkey === undefined) {
-    return false
+    return undefined
   }
   const result = await verifyAuthenticationResponse({
     response: assertion,
@@ -167,12 +185,11 @@ export async function verifyAssertion(
       counter: passkey.counter,
     },
   }).catch(() => undefined)
-  if (result?.verified !== true) {
-    return false
+  if (result?.verified !== true || !store.takeChallenge(db, purpose, challenge)) {
+    return undefined
   }
-  store.dropChallenge(db, purpose)
   store.markUsed(db, passkey.id, result.authenticationInfo.newCounter, now)
-  return true
+  return passkey.id
 }
 
 /** A one-time code for the public enrolment page: shown once, stored only as its hash. */

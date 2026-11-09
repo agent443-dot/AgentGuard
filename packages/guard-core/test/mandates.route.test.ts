@@ -1,7 +1,7 @@
 import type { MandateApprovalRequest } from '@agentguard/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMandate } from '../src/db/mandates.js'
-import { sweep } from '../src/service/payments.js'
+import { sweep } from '../src/service/sweep.js'
 import {
   ADMIN_TOKEN,
   BOT_TOKEN,

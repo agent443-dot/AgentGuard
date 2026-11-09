@@ -5,8 +5,7 @@ import { randomUUID, type KeyObject } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
 import { admit } from '../db/breaker.js'
-import { addMandateSpend, expireMandates, getMandate } from '../db/mandates.js'
-import { pruneExpired } from '../db/passkeys.js'
+import { addMandateSpend, getMandate } from '../db/mandates.js'
 import { getPin } from '../db/pins.js'
 import { ownerApprovalMethod, saveClearance } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
@@ -14,7 +13,7 @@ import { parseAmount, toAmount } from '../domain/amount.js'
 import { mandateReasons } from '../domain/mandate.js'
 import { pinFlags } from '../domain/pinning.js'
 import { evaluate } from '../domain/policy.js'
-import { askOwner, expirePending, expiresAt } from './approvals.js'
+import { askOwner, expiresAt } from './approvals.js'
 import { needsPasskey, type PasskeySetup } from './passkeys.js'
 import { issueReceipt, policyHash } from './receipts.js'
 import { simulate } from './simulate.js'
@@ -293,18 +292,4 @@ export function finish(
   }
   notify(deps, done)
   return done
-}
-
-/** Expires what the owner and the agents left waiting, and tells the bot about each one. */
-export function sweep(deps: PaymentDeps): number {
-  expireMandates(deps.db, deps.now())
-  pruneExpired(deps.db, deps.now())
-  const expired = expirePending(deps.db, deps.now())
-  for (const id of expired) {
-    const intent = repo.getIntent(deps.db, id)
-    if (intent !== undefined) {
-      notify(deps, intent)
-    }
-  }
-  return expired.length
 }

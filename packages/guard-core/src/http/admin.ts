@@ -8,14 +8,14 @@ import { receiptsBetween } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
-import { countPasskeys, listPasskeys } from '../db/passkeys.js'
+import { listPasskeys } from '../db/passkeys.js'
 import { doctor } from '../service/doctor.js'
 import { enrol, enrolmentOptions, issueEnrolCode } from '../service/passkeys.js'
 import { openMandate } from '../service/mandates.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
 import { mandateReply } from './mandates.js'
-import { enrolledNotice } from './owner.js'
+import { enrolledNotice, refusal } from './owner.js'
 import {
   agentIdParam,
   agentRouteParam,
@@ -107,17 +107,11 @@ export function adminRoutes(
     // owner page, so a leaked admin token alone cannot add one.
     app.post('/passkeys', async (request) => {
       const { response } = passkeyEnrolment.parse(request.body)
-      if (countPasskeys(db) > 0) {
-        throw new HttpError(409, 'step_up_required')
-      }
       // The library checks the whole response; the schema only bounded its size and outer shape.
       const registration = response as unknown as RegistrationResponseJSON
-      const enrolled = await enrol(db, passkeyAddress(), registration, now())
+      const enrolled = await enrol(db, passkeyAddress(), registration, now(), { firstOnly: true })
       if (!enrolled.ok) {
-        throw new HttpError(
-          enrolled.reason === 'exists' ? 409 : 400,
-          enrolled.reason === 'exists' ? 'passkey_exists' : 'passkey_not_verified',
-        )
+        throw refusal(enrolled.reason)
       }
       enrolledNotice(deps, enrolled.id, 'admin')
       return { enrolled: true }

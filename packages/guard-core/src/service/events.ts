@@ -34,9 +34,7 @@ export function alert(deps: Deps, event: AlertBody): void {
   void deliver(
     deps,
     () => deps.bot.alert({ ...event, sentAt: deps.now().toISOString() } as AlertEvent),
-    {
-      kind: event.kind,
-    },
+    'agentId' in event ? { kind: event.kind, agentId: event.agentId } : { kind: event.kind },
   )
 }
 

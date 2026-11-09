@@ -224,17 +224,20 @@ passkey is bound to, so a look-alike site cannot use it.
   used up. Whoever holds the owner's Telegram therefore cannot add a passkey of their own.
 - Enrolment through the admin routes, for a tool on the operator's side:
   `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys { response }`. It adds only the
-  first passkey (409 `step_up_required` after that).
+  first passkey (409 `step_up_required` after that). "First" is checked together with the insert,
+  so two enrolments verified at the same moment cannot both be the first.
 - Every enrolment is audited and sent to the bot as `/hooks/alert { kind: "passkey_enrolled",
 detail: <first 8 characters of the credential id>, sentAt }`, so the owner hears of one they did
   not make. A credential already enrolled gets 409 `passkey_exists`, and the code stays good.
 - `GET /v1/admin/passkeys` lists `{ id, createdAt, lastUsedAt }` for each passkey.
 - Removing a passkey has no route: it takes a shell on the machine.
   `pnpm --filter @agentguard/guard-core remove-passkey` lists them, and
-  `pnpm --filter @agentguard/guard-core remove-passkey <id or prefix>` removes one, audited.
+  `pnpm --filter @agentguard/guard-core remove-passkey <id or prefix>` removes one, audited. The
+  prefix must be at least 8 characters and match exactly one passkey.
 - Both require user verification. Challenges are single-use and last five minutes. Opening a page
   again reuses the challenge still out, and a challenge is used up only by a verified answer, so a
-  stray or forged request cannot spoil the owner's open page. Expired challenges and codes are
+  stray or forged request cannot spoil the owner's open page. Challenges and codes are used up by
+  a compare-and-delete, so of several copies of one answer sent at once, only one gets through. Expired challenges and codes are
   pruned by the sweep.
 - The approval request for such an intent carries `passkey: true`, and `/v1/bot/decision` answers
   `approve` with 403 `passkey_required` (a rejection still works).

@@ -82,7 +82,7 @@ export function ownerRoutes(deps: PaymentDeps, rp?: { rpId: string; origin: stri
       }
       // The library checks the whole assertion; the schema only bounded its size and shape.
       const answer = assertion as unknown as AuthenticationResponseJSON
-      if (!(await verifyAssertion(db, deps.passkey, intent.id, answer, now()))) {
+      if ((await verifyAssertion(db, deps.passkey, intent.id, answer, now())) === undefined) {
         repo.audit(db, { event: 'passkey_refused', intentId, agentId: intent.agentId }, now())
         throw new HttpError(401, 'passkey_not_verified')
       }
@@ -150,42 +150,64 @@ export function ownerRoutes(deps: PaymentDeps, rp?: { rpId: string; origin: stri
       if (getPasskey(db, response.id) !== undefined) {
         throw new HttpError(409, 'passkey_exists')
       }
-      if (countPasskeys(db) > 0) {
-        const vouched =
-          assertion !== undefined &&
-          (await verifyAssertion(
-            db,
-            rp,
-            `step-up:${hash}`,
-            assertion as unknown as AuthenticationResponseJSON,
-            now(),
-          ))
-        if (!vouched) {
-          repo.audit(db, { event: 'passkey_step_up_refused' }, now())
-          throw new HttpError(401, 'step_up_required')
-        }
+      // With none enrolled yet, the code alone may add one, but only if it is still the first
+      // when it is saved; otherwise an enrolled passkey must vouch for it.
+      const first = countPasskeys(db) === 0
+      const voucher =
+        first || assertion === undefined
+          ? undefined
+          : await verifyAssertion(
+              db,
+              rp,
+              `step-up:${hash}`,
+              assertion as unknown as AuthenticationResponseJSON,
+              now(),
+            )
+      if (!first && voucher === undefined) {
+        repo.audit(db, { event: 'passkey_step_up_refused' }, now())
+        throw new HttpError(401, 'step_up_required')
       }
-      takeEnrolCode(db, hash, now())
+      if (!takeEnrolCode(db, hash, now())) {
+        throw new HttpError(401, 'code_not_valid')
+      }
       // The library checks the whole response; the schema only bounded its size and shape.
       const registration = response as unknown as RegistrationResponseJSON
-      const enrolled = await enrol(db, rp, registration, now(), `enrol:${hash}`)
+      const enrolled = await enrol(db, rp, registration, now(), {
+        purpose: `enrol:${hash}`,
+        firstOnly: first,
+      })
       if (!enrolled.ok) {
-        throw new HttpError(
-          enrolled.reason === 'exists' ? 409 : 400,
-          enrolled.reason === 'exists' ? 'passkey_exists' : 'passkey_not_verified',
-        )
+        throw refusal(enrolled.reason)
       }
-      enrolledNotice(deps, enrolled.id, 'code')
+      enrolledNotice(deps, enrolled.id, 'code', voucher)
       return { enrolled: true }
     })
   }
 }
 
 /** Every new passkey is audited and told to the owner at once: an unexpected one is an attack. */
-export function enrolledNotice(deps: PaymentDeps, id: string, via: 'code' | 'admin'): void {
+export function enrolledNotice(
+  deps: PaymentDeps,
+  id: string,
+  via: 'code' | 'admin',
+  voucher?: string,
+): void {
   const prefix = id.slice(0, 8)
-  repo.audit(deps.db, { event: 'passkey_enrolled', detail: { via, id: prefix } }, deps.now())
+  const detail = {
+    via,
+    id: prefix,
+    ...(voucher === undefined ? {} : { voucher: voucher.slice(0, 8) }),
+  }
+  repo.audit(deps.db, { event: 'passkey_enrolled', detail }, deps.now())
   alert(deps, { kind: 'passkey_enrolled', detail: prefix })
+}
+
+export function refusal(reason: 'exists' | 'not_verified' | 'step_up_required'): HttpError {
+  return reason === 'exists'
+    ? new HttpError(409, 'passkey_exists')
+    : reason === 'step_up_required'
+      ? new HttpError(409, 'step_up_required')
+      : new HttpError(400, 'passkey_not_verified')
 }
 
 /** "3.00 USDC" for the chain's dollar; any other token in plain base units. */

@@ -1,4 +1,4 @@
-import { count, eq, lte } from 'drizzle-orm'
+import { and, count, eq, gt, lte } from 'drizzle-orm'
 import type { Db } from './client.js'
 import { enrolCodes, passkeyChallenges, passkeys } from './schema.js'
 
@@ -52,9 +52,19 @@ export function peekChallenge(db: Db, purpose: string, now: Date): string | unde
     : undefined
 }
 
-/** Uses a challenge up. Called only once an answer to it has been verified. */
-export function dropChallenge(db: Db, purpose: string): void {
-  db.delete(passkeyChallenges).where(eq(passkeyChallenges.purpose, purpose)).run()
+/**
+ * Uses up this exact challenge, once an answer to it has been verified. Only one of two answers
+ * verified at the same time gets true: the other finds the row gone.
+ */
+export function takeChallenge(db: Db, purpose: string, challenge: string): boolean {
+  return (
+    db
+      .delete(passkeyChallenges)
+      .where(
+        and(eq(passkeyChallenges.purpose, purpose), eq(passkeyChallenges.challenge, challenge)),
+      )
+      .run().changes === 1
+  )
 }
 
 /** Removes expired challenges and enrolment codes; run by the sweep. */
@@ -75,7 +85,10 @@ export function enrolCodeValid(db: Db, hash: string, now: Date): boolean {
 
 /** Uses the code up, whatever happens next: a code answers one enrolment attempt. */
 export function takeEnrolCode(db: Db, hash: string, now: Date): boolean {
-  const valid = enrolCodeValid(db, hash, now)
-  db.delete(enrolCodes).where(eq(enrolCodes.hash, hash)).run()
-  return valid
+  return (
+    db
+      .delete(enrolCodes)
+      .where(and(eq(enrolCodes.hash, hash), gt(enrolCodes.expiresAt, now.toISOString())))
+      .run().changes === 1
+  )
 }

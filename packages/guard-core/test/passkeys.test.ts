@@ -104,6 +104,15 @@ describe('passkey approvals', () => {
     expect((await approve(h, one.intentId, assertion)).statusCode).toBe(404)
   })
 
+  it('approves once when the same assertion is sent several times at once', async () => {
+    const device = await enrol(h)
+    const one = (await pay(h, '3000000')).json()
+    const { challenge } = await openPage(h, one.intentId)
+    const assertion = device.assert(challenge)
+    const sends = await Promise.all([0, 1, 2].map(() => approve(h, one.intentId, assertion)))
+    expect(sends.filter((r) => r.statusCode === 200)).toHaveLength(1)
+  })
+
   it('refuses an assertion made for another origin, as a phishing page would get', async () => {
     const device = await enrol(h)
     const one = (await pay(h, '3000000')).json()

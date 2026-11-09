@@ -17,6 +17,11 @@ if (wanted === undefined) {
   process.exit(0)
 }
 
+// A short prefix could match more than meant; an empty one matches every passkey.
+if (wanted.length < 8) {
+  console.error('give at least the first 8 characters of the id')
+  process.exit(1)
+}
 const matches = enrolled.filter(({ id }) => id.startsWith(wanted))
 const [match] = matches
 if (match === undefined || matches.length > 1) {

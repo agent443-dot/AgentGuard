@@ -126,6 +126,96 @@ describe('enrolling a passkey with a one-time code', () => {
     expect(h.bot.alert).not.toHaveBeenCalled()
   })
 
+  it('lets only one of two first enrolments sent at once through', async () => {
+    const pending = async () => {
+      const { code } = await issue(h)
+      const device = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+      const options = (await post(h, '/v1/owner/passkeys/options', { code })).json()
+      return () =>
+        post(h, '/v1/owner/passkeys', {
+          code,
+          response: device.register(options.registration.challenge),
+        })
+    }
+    const sends = [await pending(), await pending()]
+    const codes = await Promise.all(sends.map((send) => send()))
+    expect(codes.map((r) => r.statusCode).sort()).toEqual([200, 409])
+    expect(countPasskeys(h.db)).toBe(1)
+  })
+
+  it('lets only one of an admin and a code enrolment sent at once through', async () => {
+    const { code } = await issue(h)
+    const phone = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+    const options = (await post(h, '/v1/owner/passkeys/options', { code })).json()
+    const laptop = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+    const adminOptions = (
+      await h.app.inject({
+        method: 'POST',
+        url: '/v1/admin/passkeys/options',
+        headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      })
+    ).json()
+    const both = await Promise.all([
+      post(h, '/v1/owner/passkeys', {
+        code,
+        response: phone.register(options.registration.challenge),
+      }),
+      h.app.inject({
+        method: 'POST',
+        url: '/v1/admin/passkeys',
+        headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+        payload: { response: laptop.register(adminOptions.challenge) },
+      }),
+    ])
+    expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409])
+    expect(countPasskeys(h.db)).toBe(1)
+  })
+
+  it('spends one step-up and one code once, however many times they are sent at once', async () => {
+    const { device: first } = await enrolWithCode(h)
+    const { code } = await issue(h)
+    const options = (await post(h, '/v1/owner/passkeys/options', { code })).json()
+    const assertion = first.assert(options.stepUp.challenge)
+    const sends = await Promise.all(
+      [0, 1, 2].map(() =>
+        post(h, '/v1/owner/passkeys', {
+          code,
+          response: softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin).register(
+            options.registration.challenge,
+          ),
+          assertion,
+        }),
+      ),
+    )
+    expect(sends.filter((r) => r.statusCode === 200)).toHaveLength(1)
+    expect(countPasskeys(h.db)).toBe(2)
+  })
+
+  it('names the passkey that vouched for a new one in the audit', async () => {
+    const { device: first } = await enrolWithCode(h)
+    await enrolWithCode(h, undefined, first)
+    const details = h.db
+      .select()
+      .from(schema.auditLog)
+      .all()
+      .filter((row) => row.event === 'passkey_enrolled')
+      .map((row) => row.detail)
+    expect(details[1]).toMatchObject({ via: 'code', voucher: first.id.slice(0, 8) })
+  })
+
+  it('refuses a registration whose verified id is not the one it claims', async () => {
+    const { code } = await issue(h)
+    const device = softAuthenticator(PASSKEY_RP.id, PASSKEY_RP.origin)
+    const options = (await post(h, '/v1/owner/passkeys/options', { code })).json()
+    const response = device.register(options.registration.challenge)
+    const res = await post(h, '/v1/owner/passkeys', {
+      code,
+      response: { ...response, id: 'AAAAAAAAAAAAAAAAAAAAAA', rawId: 'AAAAAAAAAAAAAAAAAAAAAA' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(countPasskeys(h.db)).toBe(0)
+  })
+
   it('prunes expired codes and challenges', async () => {
     const { code } = await issue(h)
     await post(h, '/v1/owner/passkeys/options', { code })

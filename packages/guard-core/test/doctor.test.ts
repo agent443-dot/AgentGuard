@@ -72,10 +72,16 @@ describe('the doctor', () => {
     vi.useFakeTimers()
     try {
       const d = deps()
-      vi.spyOn(d.chain, 'getAllowanceState').mockReturnValue(new Promise(() => {}))
+      const hang = () => new Promise<never>(() => {})
+      vi.spyOn(d.chain, 'getAllowanceState').mockImplementation(hang)
+      vi.spyOn(d.chain, 'getHotWalletGas').mockImplementation(hang)
+      vi.spyOn(d.chain, 'getHotWalletBalance').mockImplementation(hang)
       const pending = byId(d)
+      // One timeout for the chain, not one per read.
       await vi.advanceTimersByTimeAsync(5_000)
-      expect((await pending)[`${CHAIN}:allowance`]?.status).toBe('fail')
+      const checks = await pending
+      expect(checks[`${CHAIN}:allowance`]?.status).toBe('fail')
+      expect(checks[`${CHAIN}:balance`]?.status).toBe('fail')
     } finally {
       vi.useRealTimers()
     }
