@@ -1,8 +1,8 @@
-import type { PayIntent, SimulationResult } from '@agentguard/shared'
+import type { ApprovalRequest, PayIntent, SimulationResult } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { httpBotNotifier, type ApprovalRequestBody, type BotNotifier } from '../src/adapters/bot.js'
+import { httpBotNotifier, type BotNotifier } from '../src/adapters/bot.js'
 import { loadConfig } from '../src/config.js'
 import { openDb, schema, type Db } from '../src/db/client.js'
 import { webhookSignatureValid } from '../src/domain/auth.js'
@@ -138,7 +138,7 @@ describe('httpBotNotifier', () => {
       return new Response('{}', { status: 200 })
     }) as typeof fetch
 
-    const request: ApprovalRequestBody = {
+    const request: ApprovalRequest = {
       intent: intent(),
       simulation,
       approveBefore: expiresAt(CREATED),

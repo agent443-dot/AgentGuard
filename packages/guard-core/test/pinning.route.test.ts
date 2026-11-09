@@ -1,3 +1,4 @@
+import type { ApprovalRequest } from '@agentguard/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPin } from '../src/db/pins.js'
 import { harness, offer, paid, paymentRequired, type Harness } from './harness.js'
@@ -20,7 +21,10 @@ async function buy(quote = offer({ amount: '500000' })) {
   })
 }
 
-const flagsSent = () => vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0].flags
+/** The last approval request, which here is always about a payment. */
+const lastAsked = () =>
+  vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0] as ApprovalRequest | undefined
+const flagsSent = () => lastAsked()?.flags
 
 describe('x402 recipient and price pinning', () => {
   it('pins the terms of an executed payment', async () => {
@@ -36,7 +40,7 @@ describe('x402 recipient and price pinning', () => {
     const res = await buy(offer({ amount: '500000', payTo: SWAPPED }))
     expect(res.json().status).toBe('pending_approval')
     expect(flagsSent()).toEqual(['RECIPIENT_CHANGED'])
-    const body = vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0]
+    const body = lastAsked()
     expect(body?.passkey).toBe(false)
     expect(body?.pinned).toEqual({ recipient: offer().payTo, amount: '500000' })
   })
@@ -73,6 +77,6 @@ describe('x402 recipient and price pinning', () => {
   it('sends an unflagged request with empty flags', async () => {
     await buy(offer({ amount: '3000000' }))
     expect(flagsSent()).toEqual([])
-    expect(vi.mocked(h.bot.requestApproval).mock.calls.at(-1)?.[0].pinned).toBeUndefined()
+    expect(lastAsked()?.pinned).toBeUndefined()
   })
 })
