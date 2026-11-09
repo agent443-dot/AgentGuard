@@ -431,8 +431,7 @@ AgentGuard launched at 20 a day per chain. It goes to 50 only after each of thes
 5. For Base: its addresses confirmed live and its own pilot, as Robinhood Chain had.
 ```
 
-> 🇧🇷 4. As chaves das hot wallets num KMS, quando o limite subir.
-> 5. Para a Base: endereços confirmados em produção e um piloto próprio, como a Robinhood Chain teve.
+> 🇧🇷 4. As chaves das hot wallets num KMS, quando o limite subir. 5. Para a Base: endereços confirmados em produção e um piloto próprio, como a Robinhood Chain teve.
 
 ### 16:00 BRT (19:00 UTC) · Thread de resumo · 6/6
 
