@@ -13,7 +13,7 @@ export interface GuardClient {
   decide(intentId: string, decision: Decision, telegramUserId: number): Promise<DecisionResult>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
-  budget(agentId: string): Promise<BudgetView | undefined>
+  budget(agentId: string): Promise<Budget | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
   healthy(): Promise<boolean>
@@ -68,8 +68,12 @@ const chainList = z.object({
     .max(16),
 })
 
+/** What shadow mode would have spent today; a guard-core without shadow mode leaves it out. */
+export type Budget = BudgetView & { shadowSpentToday?: string }
+
 const budgetView = z.object({
   spentToday: atomic,
+  shadowSpentToday: atomic.optional(),
   dailyMax: atomic,
   perTxMax: atomic,
   hotWalletBalances: z.record(z.string(), atomic),

@@ -47,6 +47,7 @@ const server = await buildServer({
   handlers: {
     approvalRequest: (request) => desk.post(request),
     intentEvent: (event) => desk.event(event),
+    alert: (event) => desk.alert(event),
   },
   logger: log,
   rateLimitPerMinute: config.HOOK_RATE_LIMIT_PER_MINUTE,
