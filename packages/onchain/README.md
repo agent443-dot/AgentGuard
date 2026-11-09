@@ -98,6 +98,18 @@ Ledger as owner from the start.
 
 ## Reference
 
+### Hot wallet gas
+
+`getHotWalletGas()` returns the hot wallet's native coin and the `minimum` that a few draws and
+payments need. guard-core's doctor warns below it.
+
+- **Solana:** two token accounts' rent and ten 5,000-lamport fees, plus a quarter: about 0.0052
+  SOL. A top-up creates the hot wallet's USDC account if it is missing, and a direct payment
+  creates the recipient's, both paid by the hot wallet. On x402 payments the facilitator pays the
+  fees.
+- **EVM:** four calls at 250,000 gas each, at the current max fee per gas. On Robinhood Chain the
+  gas a transaction uses includes its L1 data cost, so this is well above an L1 draw's.
+
 ### Solana adapter
 
 `createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
