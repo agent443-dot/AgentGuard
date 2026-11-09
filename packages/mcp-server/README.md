@@ -17,19 +17,30 @@ pnpm --filter @agentguard/mcp-server run setup claude-code   # or claude-desktop
 ```
 
 Run it from a checkout with dependencies installed; the config it prints starts the server from that
-checkout. Once the package is on npm, `npx @agentguard/mcp-server setup <client>` will do the same.
+checkout.
 
 It asks for the AgentGuard URL and the agent id (or takes `--guard-url` and `--agent-id`), then for
-the agent token at a hidden prompt; piped in, the first line of stdin is the token. The token is
-never an argument and is never printed. It is saved to `~/.agentguard/mcp/<agent id>.token`, readable
-by you only, and the output names that file in `AGENT_TOKEN_FILE`:
+the agent token at a hidden prompt. The token is never an argument and is never printed. It is saved
+to `~/.agentguard/mcp/<agent id>.token`, readable by you only, and the output names that file in
+`AGENT_TOKEN_FILE`:
 
 - `claude-code`: the `claude mcp add … --scope user` command to run;
 - `claude-desktop` and `cursor`: the JSON block for the config file, and where that file is;
 - `generic`: the variables and the command, for any client that starts a stdio server.
 
-`--check` calls `get_budget` with these values first and saves nothing if AgentGuard does not
-accept them. `--name` changes the server's name in the client (default `agentguard`).
+Options:
+
+- `--check` calls `get_budget` with these values first and saves nothing if AgentGuard does not
+  accept them.
+- `--chain` sets `DEFAULT_CHAIN` in the printed config (default Solana devnet).
+- `--name` changes the server's name in the client (default `agentguard`).
+- If a token is already saved for that agent, setup asks before replacing it; `--replace` skips the
+  question.
+- To pipe the token in from a password manager, pass `--guard-url` and `--agent-id` too: the first
+  line of stdin is then the token and nothing else is asked.
+
+Setup refuses an `~/.agentguard` or `~/.agentguard/mcp` folder that other users can open, and the
+server refuses a token file they can read.
 
 The rest of this section does the same by hand.
 
@@ -245,7 +256,7 @@ day). It then passes the returned `mandateId` to each `paid_fetch` and `transfer
 - One budget per task, not one per payment. The tool descriptions tell the model so.
 - A budget at or above the approval threshold waits for the owner, like a payment. The result says
   `pending_approval`; the agent tells the user and calls `get_budget` until the budget is listed as
-  open.
+  open, and stops after 10 minutes.
 - `get_budget` lists the open budgets with what each has spent. When the owner runs the agent in
   shadow mode, it also says what the agent would have spent today; nothing of that is paid.
 - An owner can require a budget for every payment. Then a payment without `mandateId` is refused.
@@ -278,7 +289,7 @@ Every result starts with the outcome. A tool error (`isError: true`) means the c
 decision. A rejection is a decision, not an error.
 
 **Reject codes.** A `rejected` payment lists one or more codes, each explained in the result. None is
-worth retrying unchanged; only `MANDATE_REQUIRED` asks for the same payment again, with a `mandateId`.
+a reason to retry the same payment; only `MANDATE_REQUIRED` asks for it again, with a `mandateId`.
 
 | Code                                                                                                                               | Meaning                                                                                                | What the agent should do                                                 |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |

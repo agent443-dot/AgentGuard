@@ -11,13 +11,15 @@ import { createServer } from './server.js'
 import { checkDefaultChain } from './startup.js'
 import { runSetup } from './setup/run.js'
 import { launchCommand } from './setup/launch.js'
-import { ask, askSecret, writeSecretFile } from './setup/terminal.js'
+import { ask, askSecret, fileExists, writeSecretFile } from './adapters/terminal.js'
 import { withTokenFile } from './token-file.js'
 
 if (process.argv[2] === 'setup') {
   const code = await runSetup(process.argv.slice(3), {
     ask,
     askSecret,
+    interactive: process.stdin.isTTY === true,
+    exists: fileExists,
     writeSecretFile,
     out: (text) => process.stdout.write(`${text}\n`),
     err: (text) => process.stderr.write(`${text}\n`),

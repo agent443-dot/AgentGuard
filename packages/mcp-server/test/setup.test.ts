@@ -10,7 +10,8 @@ const values: SetupValues = {
   guardUrl: 'https://guard.example.com',
   agentId: 'agent-1',
   tokenFile: '/home/me/.agentguard/mcp/agent-1.token',
-  launch: { command: 'npx', args: ['-y', '@agentguard/mcp-server'] },
+  defaultChain: 'eip155:84532',
+  launch: { command: '/repo/node_modules/.bin/tsx', args: ['/repo/src/main.ts'] },
 }
 
 describe('renderClient', () => {
@@ -18,7 +19,7 @@ describe('renderClient', () => {
     expect(renderClient('claude-code', values)).toContain(
       'claude mcp add agentguard --scope user -e GUARD_URL=https://guard.example.com ' +
         '-e AGENT_ID=agent-1 -e AGENT_TOKEN_FILE=/home/me/.agentguard/mcp/agent-1.token ' +
-        '-- npx -y @agentguard/mcp-server',
+        '-e DEFAULT_CHAIN=eip155:84532 -- /repo/node_modules/.bin/tsx /repo/src/main.ts',
     )
   })
 
@@ -28,12 +29,13 @@ describe('renderClient', () => {
     expect(config).toEqual({
       mcpServers: {
         agentguard: {
-          command: 'npx',
-          args: ['-y', '@agentguard/mcp-server'],
+          command: '/repo/node_modules/.bin/tsx',
+          args: ['/repo/src/main.ts'],
           env: {
             GUARD_URL: 'https://guard.example.com',
             AGENT_ID: 'agent-1',
             AGENT_TOKEN_FILE: '/home/me/.agentguard/mcp/agent-1.token',
+            DEFAULT_CHAIN: 'eip155:84532',
           },
         },
       },
@@ -48,7 +50,8 @@ describe('renderClient', () => {
   it('prints env assignments and the command for any other client', () => {
     expect(renderClient('generic', values)).toContain(
       'GUARD_URL=https://guard.example.com AGENT_ID=agent-1 ' +
-        'AGENT_TOKEN_FILE=/home/me/.agentguard/mcp/agent-1.token npx -y @agentguard/mcp-server',
+        'AGENT_TOKEN_FILE=/home/me/.agentguard/mcp/agent-1.token DEFAULT_CHAIN=eip155:84532 ' +
+        '/repo/node_modules/.bin/tsx /repo/src/main.ts',
     )
   })
 
@@ -68,10 +71,10 @@ describe('quote', () => {
 })
 
 describe('launchCommand', () => {
-  it('uses npx from the published package', () => {
+  it('runs a built entry point with node, never a package fetched by name', () => {
     expect(launchCommand('file:///x/dist/main.js')).toEqual({
-      command: 'npx',
-      args: ['-y', '@agentguard/mcp-server'],
+      command: 'node',
+      args: ['/x/dist/main.js'],
     })
   })
 
@@ -91,7 +94,23 @@ interface Fake {
   asked: string[]
 }
 
-function fake(answers: string[] = [], secret = TOKEN, fetch?: typeof globalThis.fetch): Fake {
+interface FakeOptions {
+  answers?: string[]
+  secret?: string
+  fetch?: typeof globalThis.fetch
+  interactive?: boolean
+  saved?: boolean
+  failWrite?: boolean
+}
+
+function fake({
+  answers = [],
+  secret = TOKEN,
+  fetch,
+  interactive = true,
+  saved = false,
+  failWrite = false,
+}: FakeOptions = {}): Fake {
   const out: string[] = []
   const err: string[] = []
   const files = new Map<string, string>()
@@ -102,7 +121,14 @@ function fake(answers: string[] = [], secret = TOKEN, fetch?: typeof globalThis.
       return answers.shift() ?? ''
     },
     askSecret: async () => secret,
-    writeSecretFile: (path, content) => files.set(path, content),
+    interactive,
+    exists: () => saved,
+    writeSecretFile: (path, content) => {
+      if (failWrite) {
+        throw new Error('/home/me/.agentguard is open to other users: run chmod 700 on it')
+      }
+      files.set(path, content)
+    },
     out: (text) => out.push(text),
     err: (text) => err.push(text),
     home: '/home/me',
@@ -135,7 +161,7 @@ describe('runSetup', () => {
   })
 
   it('asks for what the flags leave out', async () => {
-    const f = fake(['https://guard.example.com', 'agent-1'])
+    const f = fake({ answers: ['https://guard.example.com', 'agent-1'] })
     expect(await runSetup(['claude-code'], f.io)).toBe(0)
     expect(f.asked).toEqual(['AgentGuard URL: ', 'Agent id: '])
     expect(f.out.join('\n')).toContain('claude mcp add agentguard')
@@ -154,7 +180,7 @@ describe('runSetup', () => {
   ])('prints usage and exits 2 on %j (%s)', async (argv) => {
     const f = fake()
     expect(await runSetup(argv, f.io)).toBe(2)
-    expect(f.err.join('\n')).toContain('Usage: agentguard-mcp setup')
+    expect(f.err.join('\n')).toContain('Usage: pnpm --filter @agentguard/mcp-server run setup')
     expect(f.files.size).toBe(0)
   })
 
@@ -174,7 +200,7 @@ describe('runSetup', () => {
 
   it('refuses an empty or spaced token without echoing it', async () => {
     for (const secret of ['', 'two words']) {
-      const f = fake([], secret)
+      const f = fake({ secret })
       expect(await runSetup(['cursor', ...flags], f.io)).toBe(2)
       expect(f.err.join('\n')).toContain('Agent token')
       expect(f.files.size).toBe(0)
@@ -182,25 +208,76 @@ describe('runSetup', () => {
   })
 
   it('--check reports the budget before saving', async () => {
-    const f = fake([], TOKEN, budgetFetch(200))
+    const f = fake({ fetch: budgetFetch(200) })
     expect(await runSetup(['generic', ...flags, '--check'], f.io)).toBe(0)
     expect(f.err.join('\n')).toContain('AgentGuard answered: payments active, $1.50 of $20.00')
     expect(f.files.size).toBe(1)
   })
 
   it('--check saves nothing when AgentGuard refuses the token', async () => {
-    const f = fake([], TOKEN, budgetFetch(401))
+    const f = fake({ fetch: budgetFetch(401) })
     expect(await runSetup(['generic', ...flags, '--check'], f.io)).toBe(1)
     expect(f.err.join('\n')).toMatch(/Check failed: .* Nothing was saved\./)
     expect(f.files.size).toBe(0)
     expect(f.out).toEqual([])
   })
 
+  it('asks before replacing a saved token, and keeps it on no', async () => {
+    const no = fake({ saved: true, answers: ['n'] })
+    expect(await runSetup(['cursor', ...flags], no.io)).toBe(1)
+    expect(no.asked[0]).toMatch(/already saved .* Replace it\? \[y\/N\]/)
+    expect(no.files.size).toBe(0)
+    const yes = fake({ saved: true, answers: ['y'] })
+    expect(await runSetup(['cursor', ...flags], yes.io)).toBe(0)
+    expect(yes.files.size).toBe(1)
+  })
+
+  it('needs --replace to overwrite a saved token when piped', async () => {
+    const piped = fake({ saved: true, interactive: false })
+    expect(await runSetup(['cursor', ...flags], piped.io)).toBe(1)
+    expect(piped.err.join('\n')).toContain('Pass --replace')
+    const forced = fake({ saved: true, interactive: false })
+    expect(await runSetup(['cursor', ...flags, '--replace'], forced.io)).toBe(0)
+    expect(forced.files.size).toBe(1)
+  })
+
+  it('needs both flags when the token is piped', async () => {
+    const f = fake({ interactive: false })
+    expect(await runSetup(['cursor', '--agent-id', 'agent-1'], f.io)).toBe(2)
+    expect(f.err.join('\n')).toContain('pass --guard-url and --agent-id')
+    expect(f.asked).toEqual([])
+  })
+
+  it('reports a save that fails and prints no config', async () => {
+    const f = fake({ failWrite: true })
+    expect(await runSetup(['cursor', ...flags], f.io)).toBe(1)
+    expect(f.err.join('\n')).toContain('Could not save the token: /home/me/.agentguard is open')
+    expect(f.out).toEqual([])
+  })
+
+  it.each([
+    [['--name', '-x'], '--name'],
+    [['--chain', 'eip155:1'], '--chain'],
+  ])('refuses %j', async (extraFlags, field) => {
+    const f = fake()
+    expect(await runSetup(['claude-code', ...flags, ...extraFlags], f.io)).toBe(2)
+    expect(f.err.join('\n')).toContain(field)
+  })
+
+  it('defaults the chain to Solana devnet and takes --chain', async () => {
+    const f = fake()
+    await runSetup(['generic', ...flags], f.io)
+    expect(f.out.join('\n')).toContain('DEFAULT_CHAIN=solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1')
+    const base = fake()
+    await runSetup(['generic', ...flags, '--chain', 'eip155:84532'], base.io)
+    expect(base.out.join('\n')).toContain('DEFAULT_CHAIN=eip155:84532')
+  })
+
   it('--check names the URL when AgentGuard does not answer', async () => {
     const down: typeof globalThis.fetch = async () => {
       throw new TypeError('fetch failed')
     }
-    const f = fake([], TOKEN, down)
+    const f = fake({ fetch: down })
     expect(await runSetup(['generic', ...flags, '--check'], f.io)).toBe(1)
     expect(f.err.join('\n')).toContain('AgentGuard did not answer at https://guard.example.com.')
   })

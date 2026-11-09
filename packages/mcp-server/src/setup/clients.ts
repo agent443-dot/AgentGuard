@@ -11,6 +11,7 @@ export interface SetupValues {
   guardUrl: string
   agentId: string
   tokenFile: string
+  defaultChain: string
   launch: Launch
 }
 
@@ -41,6 +42,7 @@ function env(values: SetupValues): Record<string, string> {
     GUARD_URL: values.guardUrl,
     AGENT_ID: values.agentId,
     AGENT_TOKEN_FILE: values.tokenFile,
+    DEFAULT_CHAIN: values.defaultChain,
   }
 }
 
@@ -81,7 +83,7 @@ function generic(values: SetupValues): string {
     '',
     [...assignments, quote(values.launch.command), ...values.launch.args.map(quote)].join(' '),
     '',
-    'Any MCP client that launches a command can use it: the command, its arguments and the three',
+    'Any MCP client that launches a command can use it: the command, its arguments and the',
     'variables above are all it needs.',
   ].join('\n')
 }
