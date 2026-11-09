@@ -1175,12 +1175,14 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 **A. O que não depende da rede**
 
-1. Ensaio de recuperar a base de dados de uma cópia de segurança (o integrator já começou).
-2. O que falta da revisão de segurança: `fly ips list` do bot, um token revogado testado ao vivo, e
+1. ✅ Ensaio de recuperar a base de dados de uma cópia de segurança — passou: a cópia bateu com o
+   sistema vivo na política, nos gastos, nos pedidos e nos 15 eventos de auditoria.
+2. ✅ O que falta da revisão de segurança — passou (o bot não tem IP público, um token revogado deixa
+   de funcionar na hora, zero segredos nos logs): `fly ips list` do bot, um token revogado testado ao vivo, e
    procurar segredos nos logs.
-3. Cópias de segurança automáticas da base de dados.
-4. Confirmar que a página de assinatura publicada no Vercel é a do `main`.
-5. **Deploy automático no Fly** sempre que algo entra no `main` — acaba com o bot desatualizado.
+3. ⏳ Cópias de segurança automáticas da base de dados (14 dias de retenção) — falta a tua confirmação.
+4. ✅ A página de assinatura no Vercel só publica a partir do `main`.
+5. ✅ **Deploy automático no Fly** sempre que algo entra no `main` — acaba com o bot desatualizado.
    Depois de o integrator abrir o PR do workflow, crias um token de deploy por app e guardas cada um
    diretamente nos segredos do GitHub, sem ele aparecer no ecrã:
 
