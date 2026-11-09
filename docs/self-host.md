@@ -6,7 +6,7 @@ an agent paying an x402 API under a daily cap, with a kill switch that works.
 
 Each step links to the package README that holds the exact commands. Those READMEs are kept in step
 with the code by its tests; this page gives the order. If something goes wrong, see
-[`troubleshooting.md`](./troubleshooting.md). Em português: [`self-host.pt-BR.md`](./self-host.pt-BR.md).
+[`troubleshooting.md`](./troubleshooting.md).
 
 > **Public beta.** Real money, no external audit yet. Hold in the vault only what you can afford to
 > lose, and keep the daily cap small.

@@ -5,11 +5,10 @@ Read /SPEC.md before anything. SPEC is the source of truth for interfaces.
 ## Language (strict)
 - The PRODUCT is 100% English: code, comments, UI, Telegram bot messages, MCP tool descriptions, API errors,
   logs, READMEs, docs, ADRs, commits, PRs, BOARD.md, messages between sessions, CHANGES_REQUESTED.md.
-- Anything addressed to the HUMAN OWNER is in Portuguese: chat replies to him, questions, status updates,
-  requests for him to do something, and /coordination/HUMAN_TODO.md.
-- Never mix: no Portuguese inside the product, no English when asking the owner to do something.
-- One exception: `docs/self-host.pt-BR.md`, a translation of `docs/self-host.md` (ADR 004). Keep the two
-  in step in the same PR.
+- Everything in the repository is English, with no exception: /coordination/HUMAN_TODO.md included.
+- Only the chat with the HUMAN OWNER is in Portuguese: replies to him, questions, status updates and
+  requests for him to do something.
+- Never mix: no Portuguese anywhere in the repository, no English when talking to the owner.
 
 ## Roles
 - manager: owns /coordination, talks to the human owner, assigns tasks, never writes product code

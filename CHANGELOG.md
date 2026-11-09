@@ -8,8 +8,7 @@ their vault is owned by their own Phantom wallet. It has had internal reviews bu
 audit yet. Hold in the vault only what you can afford to lose, and keep the daily cap small.
 
 **Install:** "Install the beta" in the [README](./README.md#install-the-beta), or
-[`docs/self-host.md`](./docs/self-host.md) by hand
-([português](./docs/self-host.pt-BR.md)).
+[`docs/self-host.md`](./docs/self-host.md) by hand.
 
 ### What is in it
 
