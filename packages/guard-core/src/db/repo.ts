@@ -6,7 +6,7 @@ import type {
   PolicyDecision,
   RejectCode,
 } from '@agentguard/shared'
-import { and, eq, gt, like, sql } from 'drizzle-orm'
+import { and, eq, gt, gte, like, lte, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
 import { POLICY_DEFAULTS } from '../domain/policy.js'
 import type { Db } from './client.js'
@@ -83,6 +83,27 @@ function toIntent(row: IntentRow): PayIntent {
     ...(txId === null ? {} : { txId }),
     ...(mandateId === null ? {} : { mandateId }),
   }
+}
+
+/** Every intent created from `from` up to and including `to`, for the owner's report. */
+export function intentsBetween(db: Db, from: Date, to: Date): PayIntent[] {
+  return db
+    .select()
+    .from(intents)
+    .where(
+      and(gte(intents.createdAt, from.toISOString()), lte(intents.createdAt, to.toISOString())),
+    )
+    .all()
+    .map(toIntent)
+}
+
+export function agentIds(db: Db): string[] {
+  return db
+    .select({ id: agents.id })
+    .from(agents)
+    .orderBy(agents.id)
+    .all()
+    .map((row) => row.id)
 }
 
 export function getIntent(db: Db, id: string): PayIntent | undefined {

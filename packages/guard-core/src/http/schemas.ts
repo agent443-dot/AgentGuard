@@ -106,3 +106,23 @@ export type X402FetchRequest = z.infer<typeof x402FetchRequest>
 export type TransferRequest = z.infer<typeof transferRequest>
 export type BotDecisionRequest = z.infer<typeof botDecisionRequest>
 export type PolicyBody = z.infer<typeof policyBody>
+
+const DAY_MS = 86_400_000
+
+/** Defaults to the last seven days. A year at most, so one request cannot read the whole log. */
+export const reportQuery = z
+  .object({ from: z.iso.datetime().optional(), to: z.iso.datetime().optional() })
+  .transform(({ from, to }) => {
+    const end = to === undefined ? undefined : new Date(to)
+    const start = from === undefined ? undefined : new Date(from)
+    return { start, end }
+  })
+  .refine(
+    ({ start, end }) =>
+      start === undefined ||
+      end === undefined ||
+      (start < end && end.getTime() - start.getTime() <= 366 * DAY_MS),
+    'from must be before to, at most a year apart',
+  )
+
+export const REPORT_DEFAULT_SPAN_MS = 7 * DAY_MS

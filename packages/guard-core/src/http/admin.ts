@@ -7,7 +7,15 @@ import { HttpError } from './errors.js'
 import { revokeMandate } from '../db/mandates.js'
 import { openMandate } from '../service/mandates.js'
 import { mandateReply } from './mandates.js'
-import { agentIdParam, intentIdParam, mandateRequest, policyBody } from './schemas.js'
+import { summarise } from '../domain/report.js'
+import {
+  agentIdParam,
+  intentIdParam,
+  mandateRequest,
+  policyBody,
+  REPORT_DEFAULT_SPAN_MS,
+  reportQuery,
+} from './schemas.js'
 
 export function adminRoutes(deps: PaymentDeps) {
   const { db, now } = deps
@@ -63,6 +71,16 @@ export function adminRoutes(deps: PaymentDeps) {
         now(),
       )
       return mandate
+    })
+
+    app.get('/report', async (request) => {
+      const { start, end } = reportQuery.parse(request.query)
+      const to = end ?? now()
+      const from = start ?? new Date(to.getTime() - REPORT_DEFAULT_SPAN_MS)
+      if (from >= to) {
+        throw new HttpError(400, 'invalid_request')
+      }
+      return { agents: summarise(repo.agentIds(db), repo.intentsBetween(db, from, to)) }
     })
 
     app.put('/policy/:agentId', async (request) => {

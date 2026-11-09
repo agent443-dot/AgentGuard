@@ -140,6 +140,34 @@ so an agent learns where it can pay and nothing more of the setup.
 `GET /v1/admin/budget/:agentId` returns the same view as the agent's own budget route, for the bot,
 which holds no agent token.
 
+### Mandates
+
+A mandate is a budget for one task, inside the policy: its domains and recipients must already be
+allowed, its budget is at most the daily max, and it lives 60 seconds to a day (`ttlSeconds`).
+
+- `POST /v1/agent/mandates`: below `approvalThreshold` it starts `active`. At or above it, it is
+  `pending_approval` and goes to the owner on the approval-request hook as `{ mandate, simulation,
+approveBefore }`, with no intent. The bot answers at `POST /v1/bot/mandates/:id/decision`: 409
+  once decided, 410 after the same ten minutes as a payment. Its time starts at the approval.
+- `POST /v1/admin/mandates` opens one that starts active; `POST /v1/admin/mandates/:id/revoke`
+  ends one. Both admin routes are the owner's.
+- A transfer or x402 fetch with `mandateId` must fit the mandate as well as the policy:
+  `MANDATE_EXCEEDED` above what is left (or once it is used up), `MANDATE_EXPIRED` when it is not
+  active or its time is over, and the recipient or domain must be the mandate's. With
+  `requireMandate`, a payment without one is `MANDATE_REQUIRED`, as is an unknown id or another
+  agent's.
+- Spend is added to the mandate at the same moment as to the day's total, under the agent's lock.
+  At its budget it becomes `exhausted`. The sweep expires mandates, and the budget routes list the
+  active ones.
+
+A mandate wider than the policy is refused with 422 `{ error: "outside_policy", rejectReasons }`.
+
+### Report
+
+`GET /v1/admin/report?from&to` (ISO times; the last seven days by default, a year at most) returns
+every agent, a quiet one included, with what its executed payments spent, how many there were,
+every refusal counted by code, and the spend per x402 domain, biggest first.
+
 ### Events to the bot
 
 A flagged approval request also carries `pinned: { recipient, amount }`, the domain's last executed
