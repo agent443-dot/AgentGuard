@@ -20,7 +20,7 @@ Owner vault (Squads multisig or Safe, owned by the owner's Phantom wallet)
 The most a day can cost is capped onchain at the daily cap plus whatever sits in the hot wallet,
 even if the offchain guard has a bug.
 
-Live on Robinhood Chain mainnet (USDG). Solana mainnet (USDC) follows, then Base. Base Sepolia is for
+Live on Robinhood Chain mainnet (USDG) and Solana mainnet (USDC). Base comes next. Base Sepolia is for
 development.
 
 **Run your own:** [`docs/self-host.md`](./docs/self-host.md). **Connect an agent:** "For agent
@@ -100,8 +100,9 @@ Per-package commands: `pnpm --filter @agentguard/guard-core test`.
 
 ## Status
 
-Launched on 2026-11-09 on Robinhood Chain mainnet, after a real-money pilot there ran end to end:
-a Safe, an allowance, an x402 payment and the kill. Solana mainnet follows, and Base after it. The
+Launched on 2026-11-09 on Robinhood Chain and Solana mainnet. A real-money pilot ran end to end on
+Robinhood Chain (a Safe, an allowance, an x402 payment and the kill), and the kill was rehearsed on
+Solana mainnet. Base comes next. The
 release report is [`docs/final-report.md`](./docs/final-report.md). Open work, and what has to happen
 before caps go up, are in [`LAUNCH.md`](./LAUNCH.md). The task board is
 [`coordination/BOARD.md`](./coordination/BOARD.md). AI sessions build this repository under the rules

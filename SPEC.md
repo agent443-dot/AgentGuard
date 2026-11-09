@@ -78,7 +78,8 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
-  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
+  // v0.6 (CR-010). Optional on PUT: omitted keeps the stored value, and a policy that has none gets
+  // the default. So a v0.5 client's PUT never turns shadow back into live. The defaults only add protection.
   mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
   priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
   maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
@@ -224,6 +225,10 @@ GET  /v1/admin/receipts?from&to -> { receipts: Receipt[] }
 GET  /v1/admin/report?from&to -> { agents: { agentId, spent, payments, refused: Record<RejectCode, number>,
                                    domains: { domain, spent }[] }[] }
 POST /v1/admin/passkeys/options -> WebAuthn registration options; POST /v1/admin/passkeys { response }
+POST /v1/admin/passkeys/code -> { code, expiresAt }   one-time, 10 minutes, hashed at rest; for
+  GET /owner/enrol#code=… on the public listener (in the fragment, so no request line or log holds it),
+  which runs WebAuthn registration for this origin via POST /v1/owner/passkeys/options { code } and
+  POST /v1/owner/passkeys { code, response }. The bot's /passkey enrol sends the link.
 GET  /v1/receipts/key -> { publicKey }   public: lets anyone check a receipt
 GET  /owner/approve/:intentId            public page: WebAuthn for this origin, then
 POST /v1/owner/approve { intentId, assertion } -> PayIntent
@@ -255,7 +260,8 @@ The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (e
 pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
 open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
-simulation with an empty balanceChanges).
+simulation with an empty balanceChanges). A mandate request also carries ttlSeconds, how long the budget
+runs once approved: while pending, the mandate's expiresAt is only the approval deadline.
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
