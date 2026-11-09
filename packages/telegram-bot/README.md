@@ -203,8 +203,9 @@ fly apps create agentguard-bot --org <your-fly-org>
 #    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
 cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
 
-# 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
-cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
+# 4. Deploy one machine. The test refuses to run unless the root .dockerignore applies and excludes
+#    .env files. A Dockerfile.dockerignore next to the Dockerfile would replace it, not add to it.
+cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore && [ ! -e packages/telegram-bot/Dockerfile.dockerignore ]; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the build context must use the root .dockerignore, and it must exclude **/.env'; fi
 
 # 5. Check: one machine started, and the log shows the hooks listening with no config error.
 fly status --app agentguard-bot && fly logs --app agentguard-bot --no-tail
