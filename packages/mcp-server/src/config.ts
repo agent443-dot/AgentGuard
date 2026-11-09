@@ -6,7 +6,7 @@ import { isLoopback } from './domain/loopback.js'
  * The agent token rides on every request, so plain http is allowed only where it never leaves the
  * machine. One refine that cannot throw: zod runs a chained refine even after the first one failed.
  */
-const guardUrl = z.string().refine((value) => {
+export const guardUrl = z.string().refine((value) => {
   try {
     const { protocol, hostname, username, password } = new URL(value)
     // A token in the URL ends up in logs and process listings; it belongs in AGENT_TOKEN.

@@ -1,4 +1,4 @@
-import type { BudgetView } from '@agentguard/shared'
+import type { BudgetView, Mandate } from '@agentguard/shared'
 import { z } from 'zod'
 
 const intentStatus = z.enum([
@@ -8,13 +8,14 @@ const intentStatus = z.enum([
   'executed',
   'failed',
   'expired',
+  'shadowed',
 ])
 
 const rejectReasons = z.array(z.string()).default([])
 
 export const fetchResult = z
   .object({
-    // CR-003: both are absent when the resource asked for no payment, and intentId is absent when the
+    // Both are absent when the resource asked for no payment, and intentId is absent when the
     // host was refused before an intent existed.
     intentId: z.string().optional(),
     status: intentStatus.optional(),
@@ -36,14 +37,36 @@ export const transferResult = z.object({
   rejectReasons,
 })
 
+/** An integer count of atomic units, as guard-core sends amounts. */
+const atomic = z.string().regex(/^\d{1,40}$/)
+
+export const mandate = z.object({
+  id: z.uuid(),
+  agentId: z.string(),
+  budget: atomic,
+  spent: atomic,
+  domains: z.array(z.string()),
+  recipients: z.array(z.string()),
+  reason: z.string(),
+  status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
+  createdAt: z.iso.datetime({ offset: true }),
+  expiresAt: z.iso.datetime({ offset: true }),
+}) satisfies z.ZodType<Mandate>
+
+/** Only what proves a receipt exists; the agent has no use for the rest. */
+const receipt = z.object({ signature: z.string().min(1) })
+
 export const budget = z.object({
   spentToday: z.string(),
   dailyMax: z.string(),
   perTxMax: z.string(),
   hotWalletBalances: z.record(z.string(), z.string()).default({}),
   paused: z.boolean(),
-  // CR-006. Absent means "not reported", per the shared type.
+  // Absent means "not reported", per the shared type.
   chains: z.array(z.string()).optional(),
+  // Absent from a guard-core older than task budgets and shadow mode.
+  shadowSpentToday: z.string().optional(),
+  mandates: z.array(mandate).optional(),
 }) satisfies z.ZodType<BudgetView>
 
 export const payIntent = z.object({
@@ -71,6 +94,7 @@ export interface FetchInput {
   headers?: Record<string, string>
   body?: string
   maxAmount?: string
+  mandateId?: string
 }
 
 export interface TransferInput {
@@ -78,6 +102,15 @@ export interface TransferInput {
   token: string
   amount: string
   recipient: string
+  reason: string
+  mandateId?: string
+}
+
+export interface MandateInput {
+  budget: string
+  domains: string[]
+  recipients?: string[]
+  ttlSeconds: number
   reason: string
 }
 
@@ -87,6 +120,9 @@ export interface Guard {
   transfer(input: TransferInput): Promise<TransferResult>
   budget(): Promise<Budget>
   intent(id: string): Promise<Intent>
+  startTask(input: MandateInput): Promise<Mandate>
+  /** Whether guard-core holds a signed receipt for the intent. Its content is for the owner. */
+  hasReceipt(id: string): Promise<boolean>
 }
 
 /** A guard-core call that did not produce a usable answer. `message` is safe to show the model. */
@@ -149,6 +185,18 @@ export function httpGuard(options: HttpGuardOptions): Guard {
     transfer: (input) => call(transferResult, '/v1/agent/transfer', { agentId, ...input }),
     budget: () => call(budget, `/v1/agent/budget/${agent}`),
     intent: (id) => call(payIntent, `/v1/agent/intents/${encodeURIComponent(id)}`),
+    startTask: (input) => call(mandate, '/v1/agent/mandates', { agentId, ...input }),
+    hasReceipt: (id) =>
+      call(receipt, `/v1/agent/intents/${encodeURIComponent(id)}/receipt`).then(
+        () => true,
+        (error: unknown) => {
+          // 404 is the documented answer until the intent is executed.
+          if (error instanceof GuardError && error.httpStatus === 404) {
+            return false
+          }
+          throw error
+        },
+      ),
   }
 }
 

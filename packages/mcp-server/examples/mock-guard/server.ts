@@ -13,7 +13,9 @@ import { CHAINS } from '@agentguard/shared'
  *   paid with a fake payment header; under a "/premium" path it costs $2.00 and needs approval.
  * - transfer to a recipient outside `allowedRecipients` is rejected; $1.00 or more needs approval.
  * - after `approveAfterMs` a pending transfer executes, and a pending x402 payment becomes approved.
- *   Repeating the same fetch then redeems that approval once, as CR-003 specifies.
+ *   Repeating the same fetch then redeems that approval once, as guard-core does.
+ * - a task budget opens at once, whatever its size, and the budget lists it. Payments do not
+ *   draw it down: the mock checks no task budget.
  */
 export interface MockGuardOptions {
   agentId: string
@@ -67,6 +69,7 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
   const intents = new Map<string, MockIntent>()
   const requests: MockGuard['requests'] = []
   let spent = 0n
+  const mandates: Record<string, unknown>[] = []
 
   function settle(intent: MockIntent) {
     const pending = intent.status === 'pending_approval'
@@ -191,6 +194,23 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
     if (req.method === 'POST' && path === '/v1/agent/x402/fetch') {
       return send(res, 200, await x402(body ?? {}))
     }
+    if (req.method === 'POST' && path === '/v1/agent/mandates') {
+      const created = now()
+      const mandate = {
+        id: randomUUID(),
+        agentId,
+        budget: String(body?.['budget']),
+        spent: '0',
+        domains: body?.['domains'] ?? [],
+        recipients: [],
+        reason: String(body?.['reason']),
+        status: 'active',
+        createdAt: created.toISOString(),
+        expiresAt: new Date(created.getTime() + Number(body?.['ttlSeconds']) * 1000).toISOString(),
+      }
+      mandates.push(mandate)
+      return send(res, 200, mandate)
+    }
     if (req.method === 'POST' && path === '/v1/agent/transfer') {
       return send(res, 200, transfer(body ?? {}))
     }
@@ -201,6 +221,7 @@ export async function startMockGuard(options: MockGuardOptions): Promise<MockGua
         perTxMax: '2000000',
         hotWalletBalances: { [CHAINS.solanaDevnet]: '10000000' },
         chains: [CHAINS.solanaDevnet],
+        mandates,
         paused: false,
       })
     }

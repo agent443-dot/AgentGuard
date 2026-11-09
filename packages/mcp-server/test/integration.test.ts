@@ -116,6 +116,21 @@ describe('against the mock guard-core', () => {
     expect(settled.text).toMatch(/Transaction id: mock-tx-/)
   })
 
+  it('opens a task budget and lists it in the budget', async () => {
+    const mcp = await client()
+    const opened = await call(mcp, 'start_task', {
+      budgetUsd: '2',
+      domains: ['127.0.0.1'],
+      minutes: 10,
+      reason: 'weather run',
+    })
+    const id = /mandateId: (\S+)/.exec(opened.text)?.[1] ?? ''
+    expect(opened.text).toMatch(/: active\./)
+    expect((await call(mcp, 'get_budget')).text).toContain(
+      `- ${id}: $0.00 of $2.00 spent, for 127.0.0.1`,
+    )
+  })
+
   it('shows the budget', async () => {
     expect((await call(await client(), 'get_budget')).text).toMatch(
       /Spent today: \$3\.51 of \$5\.00/,
@@ -162,7 +177,7 @@ describe('streamable HTTP transport', () => {
       }),
     )
     const { tools } = await mcp.listTools()
-    expect(tools).toHaveLength(4)
+    expect(tools).toHaveLength(5)
     expect((await call(mcp, 'get_budget')).text).toMatch(/Payments are active/)
     await mcp.close()
   })

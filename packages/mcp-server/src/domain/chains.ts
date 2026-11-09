@@ -16,7 +16,7 @@ export function chainName(chain: string): string {
 const BASE_CHAINS: readonly string[] = [CHAINS.base, CHAINS.baseSepolia]
 
 /**
- * The chain's dollar: USDC, or USDG on Robinhood Chain (CR-007). A verified token in shared wins.
+ * The chain's dollar: USDC, or USDG on Robinhood Chain. A verified token in shared wins.
  * `baseUsdc` covers only a Base chain shared has none for yet, as guard-core does: on any other chain
  * a USDC address would be someone else's token. A wrong value cannot move money, because guard-core
  * checks the token against the policy.
