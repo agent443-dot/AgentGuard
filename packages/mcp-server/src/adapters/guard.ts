@@ -131,6 +131,8 @@ export class GuardError extends Error {
     readonly code: 'unreachable' | 'http' | 'bad_response',
     message: string,
     readonly httpStatus?: number,
+    /** Policy codes when guard-core refused the request outright, as for a task budget. */
+    readonly rejectReasons: readonly string[] = [],
   ) {
     super(message)
   }
@@ -167,7 +169,14 @@ export function httpGuard(options: HttpGuardOptions): Guard {
       )
     }
     if (!response.ok) {
-      throw new GuardError('http', await errorText(response), response.status)
+      const detail = errorBody.safeParse(await response.json().catch(() => undefined))
+      const error = detail.success ? detail.data : undefined
+      throw new GuardError(
+        'http',
+        errorText(response.status, error),
+        response.status,
+        error?.rejectReasons,
+      )
     }
     const parsed = schema.safeParse(await response.json().catch(() => undefined))
     if (!parsed.success) {
@@ -203,12 +212,15 @@ export function httpGuard(options: HttpGuardOptions): Guard {
 const errorBody = z.object({
   error: z.string(),
   issues: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+  // Codes only: free text from here would reach the model.
+  rejectReasons: z
+    .array(z.string().regex(/^[A-Z0-9_]{1,64}$/))
+    .max(32)
+    .optional(),
 })
 
-async function errorText(response: Response): Promise<string> {
-  const parsed = errorBody.safeParse(await response.json().catch(() => undefined))
-  const detail = parsed.success ? parsed.data : undefined
-  switch (response.status) {
+function errorText(status: number, detail: z.infer<typeof errorBody> | undefined): string {
+  switch (status) {
     case 400: {
       const issues = detail?.issues?.map((issue) => `${issue.path}: ${issue.message}`).join('; ')
       return `AgentGuard refused the request as invalid${issues ? ` (${issues})` : ''}.`
@@ -221,6 +233,6 @@ async function errorText(response: Response): Promise<string> {
     case 429:
       return 'AgentGuard is rate limiting this agent. Wait a minute before trying again.'
     default:
-      return `AgentGuard returned an error (HTTP ${response.status}).`
+      return `AgentGuard returned an error (HTTP ${status}).`
   }
 }
