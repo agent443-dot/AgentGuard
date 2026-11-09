@@ -3,6 +3,7 @@ import * as multisig from '@sqds/multisig'
 import { chromium, type Browser } from 'playwright'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createMultisigInstruction } from '../../src/svm/squads.js'
+import { plantProgramConfig } from '../../test/fixture.js'
 import { heading, lines, sentInstructions, shape, stage } from './harness.js'
 
 /** The create page: a multisig the connected wallet controls, as create-multisig makes it. */
@@ -62,6 +63,17 @@ describe('the create page', () => {
     )
     expect(shown.at(-1)).toBe('Not signed: Error: User rejected the request.')
     expect(s.server.signed).toEqual([])
+  })
+
+  // Mainnet's config charges a creation fee to Squads' treasury; the planted default charges none.
+  it('pays a creation fee to the treasury the program config names, as on mainnet', async () => {
+    const treasury = Keypair.generate().publicKey
+    plantProgramConfig(s.c, { fee: 100_000_000, treasury })
+    const page = await s.open(browser, { action: 'create' })
+    await expect
+      .poll(() => heading(page).textContent(), { timeout: 20_000 })
+      .toBe('Multisig created')
+    expect(s.c.svm.getBalance(treasury)).toBe(100_000_000n)
   })
 
   it('makes the multisig for whichever wallet is connected, never for another', async () => {
