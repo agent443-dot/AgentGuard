@@ -238,6 +238,7 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 POST {BOT_URL}/hooks/alert             (same X-Guard-Signature scheme; CR-010)
 { kind: "breaker_tripped", agentId: string, detail: string, sentAt: string }
 The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (empty when none),
+pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
 open a mandate rather than to pay (then intent is absent).
 
