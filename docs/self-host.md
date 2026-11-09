@@ -8,6 +8,9 @@ Each step links to the package README that holds the exact commands. Those READM
 with the code by its tests; this page gives the order. If something goes wrong, see
 [`troubleshooting.md`](./troubleshooting.md). Em português: [`self-host.pt-BR.md`](./self-host.pt-BR.md).
 
+> **Public beta.** Real money, no external audit yet. Hold in the vault only what you can afford to
+> lose, and keep the daily cap small.
+
 ## What you need
 
 - Node 20+ and pnpm 10. On Windows, WSL2 with Ubuntu, and the repository cloned under `~`.

@@ -273,8 +273,7 @@ Each line can be checked by someone other than its author.
 - [x] **Open-source release (D7, D8).** Done on 2026-11-09. In the repository: `LICENSE`,
       `SECURITY.md`, `docs/self-host.md`, and the README rewritten for outside readers. A scan of all
       494 commits found no key, token or keypair. The owner then made these GitHub settings, and the
-      repository is public at `github.com/agent443-dot/AgentGuard` (renamed from `kikume`; old links
-      redirect):
+      repository is public at `github.com/agent443-dot/AgentGuard`:
   1. `main` is the default branch;
   2. a ruleset protects `main`: PRs only, the CI checks required, no force-push or deletion;
   3. private vulnerability reporting, Dependabot and malware alerts, CodeQL default setup, secret
