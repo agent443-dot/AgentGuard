@@ -1157,6 +1157,51 @@ ficam uns **10 USDG**, e uns **5 dólares de ETH** para as taxas. O integrator g
 
 ---
 
+## ⏳ HUMAN-22 — Lançamento: Solana e Robinhood Chain com dinheiro real
+
+**As tuas decisões de 2026-11-09** (no `LAUNCH.md`, §1), que substituem as de 2026-11-05 onde mudam:
+
+|     | Decidido                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------- |
+| D6  | **Solana e Robinhood Chain juntas** no lançamento; a Base depois                               |
+| D1  | **20 por dia em cada rede**; cada hot wallet com no máximo 10                                  |
+| D2  | **5 por pagamento, 20 por dia, aprovação acima de 1**                                          |
+| D4  | **Uma só Phantom (uma frase) é dona dos dois cofres** — risco aceite, com as três regras da D4 |
+
+Isto quer dizer que, se essa frase escapar, os dois cofres ficam expostos de uma vez. As três regras
+da D4 (frase nova só para isto, conta que não faz mais nada, cofres com pouco) passam a valer a dobrar.
+
+O integrator guia-te em cada bloco; aqui fica a ordem:
+
+**A. O que não depende da rede**
+
+1. Ensaio de recuperar a base de dados de uma cópia de segurança (o integrator já começou).
+2. O que falta da revisão de segurança: `fly ips list` do bot, um token revogado testado ao vivo, e
+   procurar segredos nos logs.
+3. Cópias de segurança automáticas da base de dados.
+4. Confirmar que a página de assinatura publicada no Vercel é a do `main`.
+
+**B. Robinhood Chain** — na Safe que já tens (`0xB460…9d8a`)
+
+5. Subir o teto de 5 para **20 USDG por dia** na página de assinatura, e pôr no cofre o que quiseres
+   para as primeiras semanas.
+6. A política do agente com os valores da D2, e um pagamento de teste.
+
+**C. Solana mainnet**
+
+7. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
+8. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
+9. Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
+10. Um kill de teste, e repor o teto.
+
+**D. Antes de abrir**
+
+11. A landing page, e decidir se o repositório fica público.
+12. O relatório final.
+13. **A tua autorização escrita para lançar** (`HUMAN-8`).
+
+---
+
 ## ⬜ HUMAN-7 — Contas de deploy
 
 Só quando o `INT-3` estiver pronto. Vamos precisar de alojar o `guard-core` e o `telegram-bot`
