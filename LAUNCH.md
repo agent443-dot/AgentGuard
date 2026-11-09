@@ -244,6 +244,18 @@ Each line can be checked by someone other than its author.
 
   Commit author emails become public with the history.
 
+  **`coordination/` goes public too:**
+  - what it holds: HUMAN_TODO, which names the owner's local paths and wallet addresses; the
+    sessions' messages; and SESSION_PROMPTS;
+  - what is not in it: nothing secret. The scan above covered it, and the wallet addresses are
+    public onchain anyway;
+  - recommendation: **keep it**, as the record of how the product was built and reviewed. Deleting
+    it on `main` would not hide it, because it stays in the history. Squashing the history would mean
+    force-pushing `main`, which this repository never does, and it would erase the provenance the
+    security review points to;
+  - if the owner would rather not show it on `main`, delete it there before the flip, knowing the
+    history keeps it.
+
 - [ ] **Final report** (INT-9), and the owner's written go-ahead (HUMAN-8).
 
 ## 3. Deployment shape
