@@ -160,16 +160,17 @@ Release: https://github.com/agent443-dot/AgentGuard/releases/tag/v0.1.0-beta
 >
 > Um assistente de instalação faz o resto, com --dry-run para ver cada passo antes.
 
-Responda ao 9/9 com o link de instalação:
+Responda ao 9/9 com os links de instalação e do whitepaper (⚠️ só poste depois que docs/whitepaper.md estiver no main):
 
 ```text
-Install the beta (English), with a Portuguese guide for Brazilian builders in docs/self-host.pt-BR.md:
-
+Install the beta (Portuguese guide in docs/self-host.pt-BR.md):
 https://github.com/agent443-dot/AgentGuard#install-the-beta
+
+Technical whitepaper:
+https://github.com/agent443-dot/AgentGuard/blob/main/docs/whitepaper.md
 ```
 
-> 🇧🇷 Instale o beta (em inglês), com um guia em português para quem é do Brasil em
-> docs/self-host.pt-BR.md.
+> 🇧🇷 Instale o beta (guia em português em docs/self-host.pt-BR.md), e o whitepaper técnico.
 
 ---
 
