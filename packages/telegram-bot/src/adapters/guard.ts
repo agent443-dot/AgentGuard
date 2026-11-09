@@ -18,7 +18,7 @@ export interface GuardClient {
   decideMandate(mandateId: string, decision: Decision, telegramUserId: number): Promise<Settled>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
-  budget(agentId: string): Promise<Budget | undefined>
+  budget(agentId: string): Promise<BudgetView | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
   /** Undefined while guard-core has no report route. */
@@ -75,12 +75,19 @@ const chainList = z.object({
     .max(16),
 })
 
-/** What shadow mode would have spent today; a guard-core without shadow mode leaves it out. */
-export type Budget = BudgetView & { shadowSpentToday?: string }
+/** Since the agent's first shadowed payment: what shadow mode would have spent, and how often. */
+export type ShadowTotal = NonNullable<BudgetView['shadow']>
 
 const budgetView = z.object({
   spentToday: atomic,
   shadowSpentToday: atomic.optional(),
+  shadow: z
+    .object({
+      since: z.iso.datetime({ offset: true }),
+      total: atomic,
+      count: z.number().int().nonnegative(),
+    })
+    .optional(),
   dailyMax: atomic,
   perTxMax: atomic,
   hotWalletBalances: z.record(z.string(), atomic),
@@ -103,7 +110,8 @@ const report = z.object({
     .max(1000),
 })
 
-export function httpGuardClient(options: GuardClientOptions): GuardClient {
+/** The calls every guard-core client makes: a bearer token, JSON, and a 10-second ceiling. */
+export function requester(options: GuardClientOptions) {
   const fetchImpl = options.fetch ?? fetch
 
   async function call(token: string, method: string, path: string, body?: unknown) {
@@ -118,16 +126,22 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
     })
   }
 
-  async function admin(method: string, path: string, body?: unknown) {
-    return call(options.adminToken, method, path, body)
+  return {
+    call,
+    admin: (method: string, path: string, body?: unknown) =>
+      call(options.adminToken, method, path, body),
+    async ok(response: Response): Promise<unknown> {
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
+      return response.json()
+    },
   }
+}
 
-  async function ok(response: Response): Promise<unknown> {
-    if (!response.ok) {
-      throw new GuardError(response.status)
-    }
-    return response.json()
-  }
+export function httpGuardClient(options: GuardClientOptions): GuardClient {
+  const fetchImpl = options.fetch ?? fetch
+  const { call, admin, ok } = requester(options)
 
   return {
     async decide(intentId, decision, telegramUserId) {

@@ -1,9 +1,10 @@
-import type { ApprovalRequest, PayIntent } from '@agentguard/shared'
+import type { ApprovalRequest, PayIntent, Policy } from '@agentguard/shared'
 import { CHAINS } from '@agentguard/shared'
 import type { Bot } from 'grammy'
 import type { Update, UserFromGetMe } from 'grammy/types'
-import { pino } from 'pino'
+import { type Logger, pino } from 'pino'
 import { vi } from 'vitest'
+import type { AdminClient } from '../src/adapters/admin.js'
 import type { GuardClient } from '../src/adapters/guard.js'
 import { createBot } from '../src/bot/index.js'
 import type { PhantomKill } from '../src/domain/phantom.js'
@@ -91,6 +92,8 @@ export function mandateRequest(overrides: Record<string, unknown> = {}) {
 export interface ApiCall {
   method: string
   payload: Record<string, unknown>
+  /** The message id a sendMessage was given. */
+  messageId?: number
 }
 
 /** Every Telegram API call the bot makes lands here instead of on the network. */
@@ -98,10 +101,13 @@ export function mockTelegram(bot: Bot, fail: (call: ApiCall) => boolean = () => 
   const calls: ApiCall[] = []
   let nextId = 1
   bot.api.config.use(async (_prev, method, payload) => {
-    const call = { method, payload: payload as Record<string, unknown> }
+    const call: ApiCall = { method, payload: payload as Record<string, unknown> }
     calls.push(call)
     if (fail(call)) {
       return { ok: false, error_code: 403, description: 'Forbidden: bot was blocked by the user' }
+    }
+    if (method === 'sendMessage') {
+      call.messageId = nextId
     }
     const result =
       method === 'sendMessage'
@@ -137,6 +143,73 @@ export function fakeGuard(overrides: Partial<GuardClient> = {}): GuardClient {
   }
 }
 
+export function policy(overrides: Partial<Policy> = {}): Policy {
+  return {
+    agentId: 'research-agent',
+    chains: [CHAINS.solanaDevnet],
+    tokens: ['4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'],
+    perTxMax: '2000000',
+    dailyMax: '10000000',
+    approvalThreshold: '1000000',
+    allowedRecipients: [],
+    allowedDomains: ['api.example.com'],
+    paused: false,
+    mode: 'shadow',
+    ...overrides,
+  }
+}
+
+export function fakeAdmin(overrides: Partial<AdminClient> = {}): AdminClient {
+  let stored = policy()
+  return {
+    createAgent: vi.fn(async (agentId: string) => ({ agentId, token: 'agt_' + 'z'.repeat(40) })),
+    listAgents: vi.fn(async () => [
+      { agentId: 'research-agent', paused: false, mode: 'shadow' as const },
+    ]),
+    revokeAgent: vi.fn(async () => true),
+    policy: vi.fn(async (agentId: string) => (agentId === stored.agentId ? stored : undefined)),
+    putPolicy: vi.fn(async (next: Policy) => {
+      stored = next
+      return next
+    }),
+    doctor: vi.fn(async () => []),
+    enrolCode: vi.fn(async () => ({
+      code: 'enrol-code-123456',
+      expiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
+    })),
+    ...overrides,
+  }
+}
+
+/** The callback data of the button labelled text in a sent or edited message. */
+export function buttonData(call: ApiCall | undefined, text: string): string {
+  const markup = call?.payload['reply_markup'] as
+    { inline_keyboard: { text: string; callback_data?: string }[][] } | undefined
+  const found = markup?.inline_keyboard.flat().find((button) => button.text === text)
+  if (found?.callback_data === undefined) {
+    throw new Error(`no button ${text}`)
+  }
+  return found.callback_data
+}
+
+/** A text message from an owner, optionally replying to one of the bot's messages. */
+export function say(from: typeof OWNER, text: string, replyTo?: number): Update {
+  const chat = { id: from.id, type: 'private' as const, first_name: from.first_name }
+  return {
+    update_id: updateId++,
+    message: {
+      message_id: updateId,
+      date: 0,
+      chat,
+      from,
+      text,
+      ...(replyTo === undefined
+        ? {}
+        : { reply_to_message: { message_id: replyTo, date: 0, chat, text: 'question' } }),
+    } as never,
+  }
+}
+
 export function setup(
   options: {
     guard?: GuardClient
@@ -145,15 +218,19 @@ export function setup(
     phantomKills?: PhantomKill[]
     weekly?: ReportSchedule
     guardPublicUrl?: string
+    admin?: AdminClient
+    log?: Logger
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
-  const { bot, desk, commands } = createBot({
+  const admin = options.admin ?? fakeAdmin()
+  const { bot, desk, commands, owner } = createBot({
     token: '42:test-token',
     owners: new Set([OWNER.id, OTHER_OWNER.id]),
     guard,
+    admin,
     notifyAbove: 1_000_000n,
-    log: silent,
+    log: options.log ?? silent,
     now: options.now ?? (() => NOW),
     botConfig: { botInfo: BOT_INFO },
     phantomKills: options.phantomKills,
@@ -161,7 +238,7 @@ export function setup(
     guardPublicUrl: options.guardPublicUrl,
   })
   const calls = mockTelegram(bot, options.fail)
-  return { bot, desk, commands, guard, calls }
+  return { bot, desk, commands, owner, guard, admin, calls }
 }
 
 let updateId = 1

@@ -186,7 +186,7 @@ export class Desk {
 
   async event({ intent, sentAt }: IntentEvent | ShadowedEvent): Promise<Admission> {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
-    // Shadow mode signs nothing: /budget sums what it would have spent, the chat stays quiet.
+    // Shadow mode signs nothing: guard-core sums what it would have spent, the chat stays quiet.
     if (admission === 'accepted' && intent.status !== 'shadowed') {
       await this.#settledElsewhere(intent)
       for (const alert of this.#alerts.for(intent, this.#now())) {
@@ -223,8 +223,8 @@ export class Desk {
   }
 
   /** A message for every owner that needs no answer; resolves to how many it reached. */
-  async announce(text: string): Promise<number> {
-    return (await this.#broadcast(text)).length
+  async announce(text: string, keyboard?: InlineKeyboard): Promise<number> {
+    return (await this.#broadcast(text, keyboard)).length
   }
 
   /** Nothing to approve: a tripped breaker has already paused the agent, a passkey is already added. */
