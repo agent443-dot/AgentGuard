@@ -256,6 +256,7 @@ most severe findings were each checked against the code, then fixed with a test:
 | x402 over plain http to an allowlisted host: anyone on the path could rewrite the 402 and its `payTo`                                                                        | medium   | https only, plain http only to loopback                                                                           |
 | The paid server's settlement id and refused terms were stored and shown as given: a long id hid the owner's payment alert, and text reached the agent through `check_intent` | medium   | Only a base58 or hex id is kept; refused terms keep address characters only                                       |
 | viem quotes the RPC URL in its errors, so a key in the URL path reached the logs                                                                                             | medium   | guard-core's error serializer removes every URL                                                                   |
+| A malformed keypair file quoted some of its secret bytes in the JSON parse error                                                                                             | low      | Both loaders name the path only                                                                                   |
 
 Open, low, none of which moves money past the policy:
 
@@ -266,7 +267,6 @@ Open, low, none of which moves money past the policy:
 - `/status` with 25 or more pending approvals exceeds Telegram's message size;
 - the Solana kill page trusts the multisig from the link, so a decoy multisig the owner controls
   reads "Already killed". The owner compares the address with `pnpm status`;
-- a malformed keypair file can quote part of itself in the JSON parse error;
 - the Solana token-account creation in a payment does not check who pays the rent (about 0.002 SOL).
 
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).

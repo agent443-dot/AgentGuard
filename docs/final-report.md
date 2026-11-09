@@ -49,16 +49,16 @@ strict Content-Security-Policy, and reads each result back from the chain.
 
 ## Test results
 
-`pnpm test` on `main` at `c0b29ca`, all passing:
+`pnpm test` on the release branch, after the pre-release review's fixes, all passing:
 
 | Package      | Tests   |
 | ------------ | ------- |
-| guard-core   | 298     |
-| onchain      | 217     |
+| guard-core   | 307     |
+| onchain      | 218     |
 | mcp-server   | 168     |
-| telegram-bot | 148     |
+| telegram-bot | 149     |
 | e2e          | 53      |
-| **Total**    | **884** |
+| **Total**    | **895** |
 
 Coverage on guard-core's `domain/` meets the 90% threshold. CI also runs:
 
@@ -83,7 +83,10 @@ Live runs found real bugs, each fixed with a test:
 - the bot on Fly was older than `main` and lacked the Robinhood kill button. Deploys now follow CI
   on `main` (#118, #124);
 - the bot offered a Phantom kill button for a Solana limit already removed. It now offers one only
-  for a limit that still exists (#116).
+  for a limit that still exists (#116);
+- a pre-release review of every package found two high and six medium issues, among them a kill
+  that did not reach payments already queued, and a Solana kill page that trusted the hot wallet
+  in its link. All are fixed with tests; the list is in `docs/security-review.md`.
 
 ## Known risks
 
