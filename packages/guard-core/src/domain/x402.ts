@@ -117,6 +117,12 @@ export function refusedTerms(offer: PaymentRequirements | undefined) {
   }
 }
 
+// The server's own words, shown to the owner and the agent: only the characters an address or a
+// network id needs, so it cannot carry an instruction.
+const PLAIN = /^[A-Za-z0-9:._-]+$/
+
 function bounded(value: string | undefined, min: number, max: number): string {
-  return value !== undefined && value.length >= min && value.length <= max ? value : UNKNOWN
+  return value !== undefined && value.length >= min && value.length <= max && PLAIN.test(value)
+    ? value
+    : UNKNOWN
 }

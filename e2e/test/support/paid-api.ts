@@ -87,7 +87,7 @@ export async function paidApi(net: Net = SOLANA): Promise<PaidApi> {
     }
     const settled = encodePaymentResponseHeader({
       success: true,
-      transaction: `settled-${api.payments.length}`,
+      transaction: `settled${api.payments.length}`,
       network: net.chain as PaymentRequirements['network'],
     })
     res.writeHead(200, { 'content-type': 'application/json', 'payment-response': settled })

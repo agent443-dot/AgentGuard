@@ -57,8 +57,8 @@ export function agentRoutes(
 
     app.post('/transfer', async (request) => {
       const body = transferRequest.parse(request.body)
-      const policy = ownPolicy(request, body.agentId)
-      const intent = await transfer(deps, body, policy)
+      ownPolicy(request, body.agentId)
+      const intent = await transfer(deps, body)
       return {
         intentId: intent.id,
         status: intent.status,

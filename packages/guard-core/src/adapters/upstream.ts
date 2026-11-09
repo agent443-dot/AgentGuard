@@ -89,7 +89,11 @@ export function decode402(upstream: Upstream): PaymentRequired | undefined {
   }
 }
 
-/** The settlement transaction the server reports, if it reports one we can read. */
+// A signature or hash: base58 on Solana, 0x-hex on EVM. Anything else is the paid server's text, and
+// it would reach the owner's alert and the agent's tool output under our name.
+const TX_ID = /^[A-Za-z0-9]{1,128}$/
+
+/** The settlement transaction the server reports, if it reports one that looks like one. */
 export function settledTx(upstream: Upstream): string | undefined {
   const header = upstream.headers['payment-response']
   if (header === undefined) {
@@ -97,7 +101,7 @@ export function settledTx(upstream: Upstream): string | undefined {
   }
   try {
     const { transaction } = decodePaymentResponseHeader(header)
-    return typeof transaction === 'string' && transaction.length > 0 ? transaction : undefined
+    return typeof transaction === 'string' && TX_ID.test(transaction) ? transaction : undefined
   } catch {
     return undefined
   }

@@ -2,7 +2,7 @@ import { CHAINS } from '@agentguard/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { schema } from '../src/db/client.js'
 import { expirePending } from '../src/service/approvals.js'
-import { CHAIN, harness, MERCHANT, MINT, spent, type Harness } from './harness.js'
+import { ADMIN_TOKEN, CHAIN, harness, MERCHANT, MINT, spent, type Harness } from './harness.js'
 
 const transfer = (amount: string, overrides: object = {}) => ({
   agentId: 'agent-1',
@@ -61,6 +61,31 @@ describe('POST /v1/agent/transfer', () => {
       transfer('1000000', { agentId: 'agent-2' }),
     )
     expect(res.statusCode).toBe(403)
+  })
+
+  it('refuses a transfer that was waiting its turn when the kill landed', async () => {
+    let release = () => {}
+    const send = h.chain.send.bind(h.chain)
+    vi.spyOn(h.chain, 'send').mockImplementationOnce(async (intent) => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return send(intent)
+    })
+    const first = h.agent('POST', '/v1/agent/transfer', transfer('1000000'))
+    await vi.waitFor(() => expect(h.chain.send).toHaveBeenCalledTimes(1))
+    const queued = h.agent('POST', '/v1/agent/transfer', transfer('1000000'))
+    // Long enough for the second request to pass auth and wait on the agent's lock.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const kill = await h.app.inject({
+      method: 'POST',
+      url: '/v1/admin/kill',
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {},
+    })
+    expect(kill.statusCode).toBe(200)
+    release()
+    expect((await first).json().status).toBe('executed')
+    expect((await queued).json()).toMatchObject({ status: 'rejected', rejectReasons: ['PAUSED'] })
+    expect(h.chain.sent).toHaveLength(1)
   })
 
   it('keeps concurrent transfers inside the daily max', async () => {

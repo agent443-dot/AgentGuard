@@ -142,10 +142,10 @@ export function paymentRequired(accepts: PaymentRequirements[]): Response {
   return new Response('{}', { status: 402, headers: { 'payment-required': header } })
 }
 
-export function paid(body = '{"data":42}'): Response {
+export function paid(body = '{"data":42}', transaction = 'settledSignature'): Response {
   const header = encodePaymentResponseHeader({
     success: true,
-    transaction: 'settled-signature',
+    transaction,
     network: CHAIN,
   })
   return new Response(body, { status: 200, headers: { 'payment-response': header } })

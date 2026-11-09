@@ -1,5 +1,5 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { ChainId, PayIntent, Policy, RejectCode, SimulationResult } from '@agentguard/shared'
+import type { ChainId, PayIntent, RejectCode, SimulationResult } from '@agentguard/shared'
 import type { FastifyBaseLogger } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
@@ -11,6 +11,7 @@ import { checkSimulation } from '../domain/simulation.js'
 import { expirePending, expiresAt, requestApproval } from './approvals.js'
 import { notify } from './events.js'
 import type { Serial } from './serial.js'
+import { redactUrls } from '../domain/redact.js'
 
 export interface PaymentDeps {
   db: Db
@@ -53,11 +54,16 @@ export type Clearance =
 export async function clear(
   deps: PaymentDeps,
   intent: PayIntent,
-  policy: Policy,
   ownerApproved: boolean,
 ): Promise<Clearance> {
   const { db, now } = deps
   repo.saveIntent(db, intent)
+  // Read here, under the agent's lock, not when the request arrived: a pause, a kill or a tighter
+  // policy must reach a payment that was already waiting its turn. No policy allows nothing.
+  const policy = repo.getPolicy(db, intent.agentId)
+  if (policy === undefined) {
+    return { cleared: false, intent: reject(deps, intent, ['PAUSED']) }
+  }
   const adapter = deps.chains.get(intent.chain)
   const verdict = evaluate(intent, policy, repo.spentToday(db, intent.agentId, repo.utcDay(now())))
   const reasons = [...verdict.reasons]
@@ -119,11 +125,7 @@ async function simulate(
     return { simulation: outcome.simulation, reasons }
   } catch (thrown) {
     // Without the adapter's message a SIM_FAILED on a live chain leaves nothing to debug from.
-    // RPC clients quote the endpoint in it, and a provider URL often carries the API key.
-    const error = (thrown instanceof Error ? thrown.message : String(thrown)).replace(
-      /\w+:\/\/\S+/g,
-      '<url>',
-    )
+    const error = String(redactUrls(thrown instanceof Error ? thrown.message : String(thrown)))
     deps.log.warn({ intentId: intent.id, chain: intent.chain, error }, 'simulation failed')
     return { reasons: ['SIM_FAILED'], error }
   }
