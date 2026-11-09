@@ -246,14 +246,17 @@ Each line can be checked by someone other than its author.
   - Landing page: a draft in `site/` (#34, #36). Its repo links say "coming soon" until the repo is
     public.
   - Bug bounty: not started.
-- [ ] **Open-source release (D7, D8).** Done in the repository: `LICENSE`, `SECURITY.md`,
-      `docs/self-host.md`, and the README rewritten for outside readers. A scan of all 494 commits
-      found no key, token or keypair (2026-11-09). Left for the owner, in GitHub settings, in this
-      order:
-  1. make `main` the default branch;
-  2. protect `main`: PRs only, green CI, no force-push;
-  3. turn on private vulnerability reporting, secret scanning and push protection;
-  4. flip the repository to **public**, last.
+- [x] **Open-source release (D7, D8).** Done on 2026-11-09. In the repository: `LICENSE`,
+      `SECURITY.md`, `docs/self-host.md`, and the README rewritten for outside readers. A scan of all
+      494 commits found no key, token or keypair. The owner then made these GitHub settings, and the
+      repository is public at `github.com/agent443-dot/AgentGuard` (renamed from `kikume`; old links
+      redirect):
+  1. `main` is the default branch;
+  2. a ruleset protects `main`: PRs only, the CI checks required, no force-push or deletion;
+  3. private vulnerability reporting, Dependabot and malware alerts, CodeQL default setup, secret
+     protection and push protection are on;
+  4. the `agent guard` environment, which holds the Fly deploy tokens, is limited to `main`;
+  5. the repository was flipped to public last.
 
   Commit author emails become public with the history.
 
