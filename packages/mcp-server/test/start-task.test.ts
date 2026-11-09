@@ -1,6 +1,11 @@
 import type { Mandate } from '@agentguard/shared'
 import { describe, expect, it, vi } from 'vitest'
-import type { FetchInput, MandateInput, TransferInput } from '../src/adapters/guard.js'
+import {
+  type FetchInput,
+  GuardError,
+  type MandateInput,
+  type TransferInput,
+} from '../src/adapters/guard.js'
 import { listOf } from '../src/domain/list.js'
 import { call, connect, fakeGuard } from './support.js'
 
@@ -40,6 +45,44 @@ describe('start_task', () => {
     expect(result.text).toMatch(/mandateId: 3f1c2a4e-7b8d-4e6f-9a0b-1c2d3e4f5a6b/)
     expect(result.text).toMatch(/Budget: \$5\.00 \(asked for \$5\.00\), for api\.weather\.test\./)
     expect(result.text).toMatch(/Pass this mandateId to every paid_fetch and transfer/)
+  })
+
+  it('explains a budget refused by the policy as a decision, with each code', async () => {
+    const startTask = vi.fn(async () => {
+      throw new GuardError('http', 'AgentGuard returned an error (HTTP 422).', 422, [
+        'DOMAIN_NOT_ALLOWED',
+        'DAILY_EXCEEDED',
+      ])
+    })
+    const client = await connect(fakeGuard({ startTask }))
+    const result = await call(client, 'start_task', {
+      budgetUsd: '50',
+      domains: ['api.weather.test'],
+      minutes: 60,
+      reason: 'weather report',
+    })
+    expect(result.isError).toBe(false)
+    expect(result.text).toMatch(/^AgentGuard refused this task budget/)
+    expect(result.text).toContain(
+      '- DOMAIN_NOT_ALLOWED: the policy does not allow paying this website',
+    )
+    expect(result.text).toContain('- DAILY_EXCEEDED:')
+    expect(result.text).toContain('Do not open the same budget again.')
+  })
+
+  it('keeps other guard errors as errors', async () => {
+    const startTask = vi.fn(async () => {
+      throw new GuardError('http', 'AgentGuard returned an error (HTTP 422).', 422)
+    })
+    const client = await connect(fakeGuard({ startTask }))
+    const result = await call(client, 'start_task', {
+      budgetUsd: '5',
+      domains: ['api.weather.test'],
+      minutes: 60,
+      reason: 'r',
+    })
+    expect(result.isError).toBe(true)
+    expect(result.text).toBe('AgentGuard returned an error (HTTP 422).')
   })
 
   it('passes recipients for a task that transfers, with no website needed', async () => {

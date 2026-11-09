@@ -253,6 +253,9 @@ For a task that will pay more than once, the agent opens one budget for the whol
 day). It then passes the returned `mandateId` to each `paid_fetch` and `transfer` for that task.
 
 - A budget lives inside the policy and never raises it: a payment must fit both.
+- A budget that does not fit the policy (a website or recipient it does not allow, more than is
+  left of the daily limit, or payments paused) is refused before anything opens. The result lists
+  the reject codes, explained, and tells the agent not to ask for the same budget again.
 - One budget per task, not one per payment. The tool descriptions tell the model so.
 - A budget at or above the approval threshold waits for the owner, like a payment. The result says
   `pending_approval`; the agent tells the user and calls `get_budget` until the budget is listed as

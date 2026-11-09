@@ -94,3 +94,15 @@ export function explainStatus(
   }
   return lines.join('\n')
 }
+
+/** guard-core refuses a task budget outright, before any intent, when it leaves the policy. */
+export function explainRefusedTask(rejectReasons: readonly string[]): string {
+  return [
+    "AgentGuard refused this task budget: it does not fit the owner's policy. Nothing was opened.",
+    'Reasons:',
+    ...rejectReasons.map((code) => `- ${explainReject(code)}`),
+    'Ask only for websites and recipients the policy allows, and for no more than is left of the ' +
+      'daily limit; get_budget shows what is left. If the user needs more, tell them the owner has ' +
+      'to change the policy. Do not open the same budget again.',
+  ].join('\n')
+}

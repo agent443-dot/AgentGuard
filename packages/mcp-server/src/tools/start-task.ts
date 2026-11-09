@@ -1,6 +1,8 @@
 import type { Mandate } from '@agentguard/shared'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { GuardError } from '../adapters/guard.js'
+import { explainRefusedTask } from '../domain/explain.js'
 import { listOf } from '../domain/list.js'
 import { formatAmount, formatUsd, parseUsd } from '../domain/usd.js'
 import type { ToolDeps } from './deps.js'
@@ -66,17 +68,29 @@ export function registerStartTask(server: McpServer, { guard, log }: ToolDeps): 
         return failure('A task budget needs at least one website in domains or one recipient.')
       }
       return guarded(log, async () => {
-        const mandate = await guard.startTask({
-          budget: budget.atomic.toString(),
-          domains,
-          ...(recipients === undefined ? {} : { recipients }),
-          ttlSeconds: minutes * 60,
-          reason,
-        })
-        return text(describeMandate(mandate, formatUsd(budget.atomic)))
+        const mandate = await guard
+          .startTask({
+            budget: budget.atomic.toString(),
+            domains,
+            ...(recipients === undefined ? {} : { recipients }),
+            ttlSeconds: minutes * 60,
+            reason,
+          })
+          .catch(refusal)
+        // A refusal is a decision about the budget, not a failed call.
+        return 'refused' in mandate
+          ? text(explainRefusedTask(mandate.refused))
+          : text(describeMandate(mandate, formatUsd(budget.atomic)))
       })
     },
   )
+}
+
+function refusal(error: unknown): { refused: readonly string[] } {
+  if (error instanceof GuardError && error.httpStatus === 422 && error.rejectReasons.length > 0) {
+    return { refused: error.rejectReasons }
+  }
+  throw error
 }
 
 const NEXT_STEP: Record<Mandate['status'], string> = {
