@@ -105,6 +105,7 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 | `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                           |
 | `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |
 | `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
+| `/report`           | The last 7 days from `GET /v1/admin/report` (CR-010): per agent, spend and payment count, refusals by code, and the top 5 domains by spend. Paged to fit Telegram's 4096 characters; an agent is never split across two messages                                 |
 
 ## Onchain kill in Phantom
 
@@ -149,6 +150,13 @@ The Robinhood link names no hot wallet: the page uses the one it was built with.
   unless at least one chain is complete: `SQUADS_MULTISIG` with `SOLANA_HOT_WALLET_PUBKEY`, or
   `ROBINHOOD_SAFE_ADDRESS`, or both. Half a Solana pair is refused. Without `SIGN_PAGE_URL`, there are
   no buttons.
+
+## Weekly report
+
+With `REPORT_WEEKDAY` (0 is Sunday) and `REPORT_HOUR_UTC` both set, every owner gets the same report as
+`/report` once in that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
+at startup. If guard-core does not answer, the owners are told once to run `/report` later; the bot does
+not retry every tick. The sent marker is in memory, so a restart inside that hour sends it again.
 
 ## Notifications
 
@@ -201,7 +209,7 @@ fly apps create agentguard-bot --org <your-fly-org>
 
 # 3. Secrets: read from the bot's .env and piped straight in, never typed or printed.
 #    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
-cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
+cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS|REPORT_WEEKDAY|REPORT_HOUR_UTC)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
 
 # 4. Deploy one machine. The test refuses to run unless the root .dockerignore applies and excludes
 #    .env files. A Dockerfile.dockerignore next to the Dockerfile would replace it, not add to it.

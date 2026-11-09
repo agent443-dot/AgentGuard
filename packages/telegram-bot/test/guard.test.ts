@@ -99,6 +99,33 @@ describe('httpGuardClient', () => {
     await expect(guard.budget('a1')).rejects.toBeInstanceOf(GuardError)
   })
 
+  it('asks for the report with the admin token and the period, and treats no route as none', async () => {
+    const agents = [
+      {
+        agentId: 'a1',
+        spent: '12500000',
+        payments: 3,
+        refused: { DAILY_EXCEEDED: 2 },
+        domains: [{ domain: 'api.example.com', spent: '12500000' }],
+      },
+    ]
+    const { fetch, guard } = client(
+      json(200, { agents }),
+      json(404, { message: 'Route not found' }),
+      json(200, { agents: [{ ...agents[0], spent: '1.5' }] }),
+    )
+    const from = new Date('2026-11-02T12:00:00.000Z')
+    const to = new Date('2026-11-09T12:00:00.000Z')
+    expect(await guard.report(from, to)).toEqual(agents)
+    const { url, headers } = sentTo(fetch)
+    expect(url).toBe(
+      'http://guard/v1/admin/report?from=2026-11-02T12%3A00%3A00.000Z&to=2026-11-09T12%3A00%3A00.000Z',
+    )
+    expect(headers.get('authorization')).toBe(`Bearer ${ADMIN}`)
+    expect(await guard.report(from, to)).toBeUndefined()
+    await expect(guard.report(from, to)).rejects.toThrow()
+  })
+
   it('lists the chains, and treats a missing route as not reported', async () => {
     const chains = [{ chain: 'eip155:84532', allowance: null }]
     const { fetch, guard } = client(

@@ -7,6 +7,7 @@ import { vi } from 'vitest'
 import type { GuardClient } from '../src/adapters/guard.js'
 import { createBot } from '../src/bot/index.js'
 import type { PhantomKill } from '../src/domain/phantom.js'
+import type { ReportSchedule } from '../src/domain/report.js'
 
 export const OWNER = { id: 1001, is_bot: false, first_name: 'Ana', username: 'ana' }
 export const OTHER_OWNER = { id: 1002, is_bot: false, first_name: 'Bo' }
@@ -105,6 +106,7 @@ export function fakeGuard(overrides: Partial<GuardClient> = {}): GuardClient {
     kill: vi.fn(async () => ({ pausedAgents: 2, ownerTransactions: [] })),
     budget: vi.fn(async () => undefined),
     chains: vi.fn(async () => undefined),
+    report: vi.fn(async () => []),
     healthy: vi.fn(async () => true),
     ...overrides,
   }
@@ -116,6 +118,7 @@ export function setup(
     now?: () => Date
     fail?: (call: ApiCall) => boolean
     phantomKills?: PhantomKill[]
+    weekly?: ReportSchedule
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
@@ -128,6 +131,7 @@ export function setup(
     now: options.now ?? (() => NOW),
     botConfig: { botInfo: BOT_INFO },
     phantomKills: options.phantomKills,
+    weekly: options.weekly,
   })
   const calls = mockTelegram(bot, options.fail)
   return { bot, desk, commands, guard, calls }

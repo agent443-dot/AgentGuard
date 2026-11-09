@@ -1,5 +1,6 @@
 import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import type { ChainStatus } from '../domain/chains.js'
+import type { AgentReport } from '../domain/report.js'
 import { z } from 'zod'
 import { payIntent } from '../http/schemas.js'
 
@@ -16,6 +17,8 @@ export interface GuardClient {
   budget(agentId: string): Promise<Budget | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
+  /** Undefined while guard-core has no report route. */
+  report(from: Date, to: Date): Promise<AgentReport[] | undefined>
   healthy(): Promise<boolean>
 }
 
@@ -78,6 +81,22 @@ const budgetView = z.object({
   perTxMax: atomic,
   hotWalletBalances: z.record(z.string(), atomic),
   paused: z.boolean(),
+})
+
+const count = z.number().int().nonnegative()
+
+const report = z.object({
+  agents: z
+    .array(
+      z.object({
+        agentId: z.string().min(1).max(64),
+        spent: atomic,
+        payments: count,
+        refused: z.record(z.string().min(1).max(64), count),
+        domains: z.array(z.object({ domain: z.string().min(1).max(253), spent: atomic })).max(500),
+      }),
+    )
+    .max(1000),
 })
 
 export function httpGuardClient(options: GuardClientOptions): GuardClient {
@@ -153,6 +172,15 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return undefined
       }
       return chainList.parse(await ok(response)).chains
+    },
+
+    async report(from, to) {
+      const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })
+      const response = await admin('GET', `/v1/admin/report?${query}`)
+      if (response.status === 404) {
+        return undefined
+      }
+      return report.parse(await ok(response)).agents
     },
 
     async healthy() {

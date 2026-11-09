@@ -91,6 +91,23 @@ describe('loadConfig', () => {
     )
   })
 
+  it('takes the weekly report schedule as both values or neither', () => {
+    const config = loadConfig({ ...env, REPORT_WEEKDAY: '1', REPORT_HOUR_UTC: '9' })
+    expect([config.REPORT_WEEKDAY, config.REPORT_HOUR_UTC]).toEqual([1, 9])
+    expect(loadConfig({ ...env, REPORT_WEEKDAY: '', REPORT_HOUR_UTC: '' }).REPORT_WEEKDAY).toBe(
+      undefined,
+    )
+    expect(() => loadConfig({ ...env, REPORT_WEEKDAY: '1' })).toThrow(
+      /^invalid configuration: REPORT_HOUR_UTC$/,
+    )
+    expect(() => loadConfig({ ...env, REPORT_WEEKDAY: '7', REPORT_HOUR_UTC: '9' })).toThrow(
+      /^invalid configuration: REPORT_WEEKDAY$/,
+    )
+    expect(() => loadConfig({ ...env, REPORT_WEEKDAY: '1', REPORT_HOUR_UTC: '24' })).toThrow(
+      /^invalid configuration: REPORT_HOUR_UTC$/,
+    )
+  })
+
   it('needs at least one owner', () => {
     expect(() => loadConfig({ ...env, OWNER_TELEGRAM_IDS: '' })).toThrow('OWNER_TELEGRAM_IDS')
   })

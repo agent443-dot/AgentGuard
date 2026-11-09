@@ -21,12 +21,15 @@ import {
 } from '../domain/chains.js'
 import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
 import type { PhantomKill } from '../domain/phantom.js'
+import { REPORT_DAYS, type ReportSchedule, reportPages, weeklyDue } from '../domain/report.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
   guard: GuardClient
   desk: Desk
   log: Logger
+  /** When the weekly report goes to every owner; none without REPORT_WEEKDAY and REPORT_HOUR_UTC. */
+  weekly?: ReportSchedule
   /** The onchain kill of each chain on the signing page; none without SIGN_PAGE_URL. */
   phantomKills?: PhantomKill[]
   now?: () => Date
@@ -38,7 +41,7 @@ const AGENT_ID = /^\S{1,64}$/
 
 export function registerCommands(
   bot: Bot,
-  { guard, desk, log, phantomKills = [], now = () => new Date() }: CommandDeps,
+  { guard, desk, log, phantomKills = [], weekly, now = () => new Date() }: CommandDeps,
 ) {
   const phantom = phantomKills.length > 0
   const offers = new KillOffers()
@@ -85,6 +88,47 @@ export function registerCommands(
       await ctx.reply(up ? `${text}\n${chainsText(await chains())}` : text, HTML)
     }),
   )
+
+  /** The last REPORT_DAYS days as pages, or undefined when guard-core has no report route. */
+  async function lastWeek() {
+    const to = now()
+    const from = new Date(to.getTime() - REPORT_DAYS * 86_400_000)
+    const agents = await guard.report(from, to)
+    return agents === undefined ? undefined : reportPages(agents, from, to)
+  }
+
+  bot.command('report', (ctx) =>
+    guarded(ctx, async () => {
+      const pages = await lastWeek()
+      if (pages === undefined) {
+        await ctx.reply('This guard-core has no report yet.')
+        return
+      }
+      for (const page of pages) {
+        await ctx.reply(page, HTML)
+      }
+    }),
+  )
+
+  let weeklySent: string | undefined
+
+  /** Runs on the sweep timer. Marked sent before the call, so a guard-core that is down is not retried every tick. */
+  async function weeklyReport() {
+    const key = weekly === undefined ? undefined : weeklyDue(now(), weekly, weeklySent)
+    if (key === undefined) {
+      return
+    }
+    weeklySent = key
+    try {
+      const pages = await lastWeek()
+      for (const page of pages ?? ['This guard-core has no report yet.']) {
+        await desk.announce(page)
+      }
+    } catch (err) {
+      log.error({ err }, 'weekly report failed')
+      await desk.announce('The weekly report failed: guard-core did not answer. Try /report later.')
+    }
+  }
 
   bot.command('budget', (ctx) =>
     withAgent(ctx, 'budget', (agentId) =>
@@ -226,7 +270,7 @@ export function registerCommands(
   })
 
   /** Runs on the bot's sweep timer: a button nobody pressed in time stops working. */
-  return { expireKillOffers: () => retire(offers.expired(now())) }
+  return { expireKillOffers: () => retire(offers.expired(now())), weeklyReport }
 }
 
 async function withAgent(ctx: Context, command: string, run: (agentId: string) => Promise<void>) {

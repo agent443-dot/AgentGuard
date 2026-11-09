@@ -502,3 +502,65 @@ describe('/kill', () => {
     expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain('Kill failed')
   })
 })
+
+describe('/report', () => {
+  const agents = [{ agentId: 'a1', spent: '2500000', payments: 2, refused: {}, domains: [] }]
+
+  it('answers with the last 7 days from guard-core', async () => {
+    const report = vi.fn().mockResolvedValue(agents)
+    const { bot, calls } = setup({ guard: fakeGuard({ report }) })
+    await bot.handleUpdate(command(OWNER, '/report'))
+    expect(report).toHaveBeenCalledWith(new Date(NOW.getTime() - 7 * 86_400_000), NOW)
+    const reply = sent(calls, 'sendMessage')[0]
+    expect(reply?.payload['text']).toContain('<code>a1</code>: $2.50 in 2 payments')
+    expect(reply?.payload['parse_mode']).toBe('HTML')
+  })
+
+  it('says so when guard-core has no report, or did not answer', async () => {
+    const report = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('down'))
+    const { bot, calls } = setup({ guard: fakeGuard({ report }) })
+    await bot.handleUpdate(command(OWNER, '/report'))
+    await bot.handleUpdate(command(OWNER, '/report'))
+    expect(sent(calls, 'sendMessage').map((call) => call.payload['text'])).toEqual([
+      'This guard-core has no report yet.',
+      'guard-core did not answer. Nothing changed: try again.',
+    ])
+  })
+})
+
+describe('the weekly report', () => {
+  // NOW is Tuesday 2026-11-03 12:00 UTC.
+  const tuesdayNoon = { weekday: 2, hourUtc: 12 }
+
+  it('goes to every owner once in its hour', async () => {
+    const report = vi.fn().mockResolvedValue([])
+    const { commands, calls } = setup({ guard: fakeGuard({ report }), weekly: tuesdayNoon })
+    await commands.weeklyReport()
+    await commands.weeklyReport()
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toContain('No agent paid or was refused')
+    expect(report).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays quiet outside its hour, or without a schedule', async () => {
+    const report = vi.fn().mockResolvedValue([])
+    const off = setup({ guard: fakeGuard({ report }), weekly: { weekday: 1, hourUtc: 12 } })
+    await off.commands.weeklyReport()
+    const none = setup({ guard: fakeGuard({ report }) })
+    await none.commands.weeklyReport()
+    expect(report).not.toHaveBeenCalled()
+    expect([...off.calls, ...none.calls]).toHaveLength(0)
+  })
+
+  it('tells the owners once when guard-core does not answer', async () => {
+    const report = vi.fn().mockRejectedValue(new Error('down'))
+    const { commands, calls } = setup({ guard: fakeGuard({ report }), weekly: tuesdayNoon })
+    await commands.weeklyReport()
+    await commands.weeklyReport()
+    expect(sent(calls, 'sendMessage').map((call) => call.payload['text'])).toEqual([
+      'The weekly report failed: guard-core did not answer. Try /report later.',
+      'The weekly report failed: guard-core did not answer. Try /report later.',
+    ])
+  })
+})

@@ -134,6 +134,11 @@ export class Desk {
     return admission
   }
 
+  /** A message for every owner that needs no answer; resolves to how many it reached. */
+  async announce(text: string): Promise<number> {
+    return (await this.#broadcast(text)).length
+  }
+
   /** A tripped breaker has already paused the agent; the owner only needs to know and look. */
   async alert(event: { kind: 'breaker_tripped'; agentId: string; detail: string; sentAt: string }) {
     const key = `${event.kind}:${event.agentId}:${event.sentAt}`
