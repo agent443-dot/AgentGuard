@@ -3,6 +3,7 @@ import type { IntentStatus, PayIntent, Policy, RejectCode } from '@agentguard/sh
 import { x402Client } from '@x402/core/client'
 import { encodePaymentSignatureHeader } from '@x402/core/http'
 import type { PaymentPayload, PaymentRequired, PaymentRequirements } from '@x402/core/types'
+import { pin } from '../db/pins.js'
 import * as repo from '../db/repo.js'
 import { chooseAccept, refusedTerms, requirementsChanged } from '../domain/x402.js'
 import { call, decode402, settledTx, type Upstream } from '../adapters/upstream.js'
@@ -64,6 +65,7 @@ export async function paidFetch(
     agentId: request.agentId,
     kind: 'x402' as const,
     domain: url.hostname,
+    ...(request.mandateId === undefined ? {} : { mandateId: request.mandateId }),
     // The query string is left out: it often carries the API's own credentials, and this text goes
     // to the owner's Telegram.
     reason: `${request.method} ${url.origin}${url.pathname}`.slice(0, 500),
@@ -90,12 +92,13 @@ export async function paidFetch(
   )
   // Signing, the retry and the final status all happen under the lock: until the intent leaves
   // `approved`, a second request with the same terms could otherwise redeem it again.
-  return deps.serial(request.agentId, () => pay(deps, request, required, chosen, intent))
+  return deps.serial(request.agentId, () => pay(deps, request, first, required, chosen, intent))
 }
 
 async function pay(
   deps: X402Deps,
   request: X402FetchRequest,
+  quote: Upstream,
   required: PaymentRequired,
   chosen: PaymentRequirements,
   fresh: PayIntent,
@@ -104,7 +107,10 @@ async function pay(
   const approved = repo.findApprovedX402(deps.db, fresh, deps.now())
   const clearance = await clear(deps, approved ?? fresh, approved !== undefined)
   if (!clearance.cleared) {
-    return view(clearance.intent)
+    // Shadow mode pays nothing, so the agent gets the unpaid 402 it would have had to pay.
+    return clearance.intent.status === 'shadowed'
+      ? view(clearance.intent, quote)
+      : view(clearance.intent)
   }
   const { intent, adapter } = clearance
 
@@ -147,6 +153,7 @@ async function pay(
     return view(finish(deps, intent, { status: 'failed' }), retry)
   }
   const txId = settledTx(retry)
+  pin(deps.db, intent, deps.now())
   return view(finish(deps, intent, { status: 'executed', ...(txId ? { txId } : {}) }), retry)
 }
 

@@ -1,3 +1,4 @@
+import type { AgentSummary } from '@agentguard/shared'
 import { and, eq, isNull } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { hashToken } from '../domain/auth.js'
@@ -6,7 +7,8 @@ import { agents, policies } from './schema.js'
 
 /**
  * Creates an agent with a deny-all policy and returns its bearer token. The token exists only in
- * the return value: the table keeps its hash.
+ * the return value: the table keeps its hash. The agent starts in shadow mode, so even once the
+ * owner opens its policy it pays nothing until the owner has watched it and switched it live.
  */
 export function createAgent(db: Db, agentId: string, now = new Date()): string {
   const token = randomBytes(32).toString('hex')
@@ -26,6 +28,7 @@ export function createAgent(db: Db, agentId: string, now = new Date()): string {
         allowedRecipients: [],
         allowedDomains: [],
         paused: false,
+        mode: 'shadow',
         updatedAt: at,
       })
       .run()
@@ -50,4 +53,15 @@ export function revokeAgent(db: Db, agentId: string, now = new Date()): Revocati
   }
   const exists = db.select({ id: agents.id }).from(agents).where(eq(agents.id, agentId)).get()
   return exists ? 'already_revoked' : 'not_found'
+}
+
+/** Every agent still holding a working token, with what the owner most needs to see. */
+export function listAgents(db: Db): AgentSummary[] {
+  return db
+    .select({ agentId: agents.id, paused: policies.paused, mode: policies.mode })
+    .from(agents)
+    .innerJoin(policies, eq(policies.agentId, agents.id))
+    .where(isNull(agents.revokedAt))
+    .orderBy(agents.id)
+    .all()
 }

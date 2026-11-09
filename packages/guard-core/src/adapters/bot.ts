@@ -1,14 +1,24 @@
-import type { ApprovalRequest, IntentEvent } from '@agentguard/shared'
+import type {
+  AlertEvent,
+  ApprovalRequest,
+  IntentEvent,
+  MandateApprovalRequest,
+} from '@agentguard/shared'
 import type { Config } from '../config.js'
 import { signWebhook } from '../domain/auth.js'
 
 export interface BotNotifier {
-  requestApproval(request: ApprovalRequest): Promise<void>
+  /** A payment, or a mandate, for the owner to decide; both go to the same hook. */
+  requestApproval(request: ApprovalRequest | MandateApprovalRequest): Promise<void>
   intentEvent(event: IntentEvent): Promise<void>
+  alert(event: AlertEvent): Promise<void>
 }
 
 export function httpBotNotifier(config: Config, fetchImpl: typeof fetch = fetch): BotNotifier {
-  async function post(path: string, payload: ApprovalRequest | IntentEvent) {
+  async function post(
+    path: string,
+    payload: ApprovalRequest | MandateApprovalRequest | IntentEvent | AlertEvent,
+  ) {
     // Signed over the exact bytes sent: re-serialising on either side would change the signature.
     const body = JSON.stringify(payload)
     const response = await fetchImpl(`${config.BOT_URL}/hooks/${path}`, {
@@ -27,5 +37,6 @@ export function httpBotNotifier(config: Config, fetchImpl: typeof fetch = fetch)
   return {
     requestApproval: (request) => post('approval-request', request),
     intentEvent: (event) => post('intent-event', event),
+    alert: (event) => post('alert', event),
   }
 }

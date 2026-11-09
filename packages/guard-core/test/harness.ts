@@ -4,6 +4,7 @@ import { CHAINS } from '@agentguard/shared'
 import { encodePaymentRequiredHeader, encodePaymentResponseHeader } from '@x402/core/http'
 import type { PaymentRequirements } from '@x402/core/types'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import type { KeyObject } from 'node:crypto'
 import { vi } from 'vitest'
 import type { BotNotifier } from '../src/adapters/bot.js'
 import { StubChain } from '../src/adapters/stub.js'
@@ -19,6 +20,7 @@ export const ADMIN_TOKEN = 'a'.repeat(64)
 export const BOT_TOKEN = 'b'.repeat(64)
 export const AGENT_TOKEN = 'agent-token-which-is-long-enough'
 export const NOW = new Date('2026-11-03T12:00:00Z')
+export const PASSKEY_RP = { id: 'guard.example', origin: 'https://guard.example' }
 
 export const basePolicy: Omit<Policy, 'agentId'> = {
   chains: [CHAIN],
@@ -44,7 +46,14 @@ export interface Harness {
 }
 
 export async function harness(
-  options: { policy?: Partial<Policy>; balance?: bigint; sweepMs?: number } = {},
+  options: {
+    policy?: Partial<Policy>
+    balance?: bigint
+    sweepMs?: number
+    receiptKey?: KeyObject
+    /** Turns passkey approvals on at this amount, for the relying party in PASSKEY_RP. */
+    passkeyAbove?: string
+  } = {},
 ): Promise<Harness> {
   const db = openDb(':memory:')
   migrate(db, { migrationsFolder: 'migrations' })
@@ -69,6 +78,7 @@ export async function harness(
   const bot: BotNotifier = {
     requestApproval: vi.fn(async () => {}),
     intentEvent: vi.fn(async () => {}),
+    alert: vi.fn(async () => {}),
   }
   const fetchMock = vi.fn<typeof fetch>()
   const clock = { now: NOW }
@@ -81,12 +91,16 @@ export async function harness(
       BOT_URL: 'http://bot.local',
       BOT_WEBHOOK_SECRET: 'c'.repeat(64),
       LOG_LEVEL: 'fatal',
+      PASSKEY_RP_ID: PASSKEY_RP.id,
+      PASSKEY_ORIGIN: PASSKEY_RP.origin,
+      ...(options.passkeyAbove === undefined ? {} : { PASSKEY_ABOVE: options.passkeyAbove }),
     }),
     chains: new Map([[CHAIN, chain]]),
     bot,
     fetch: fetchMock,
     now: () => clock.now,
     ...(options.sweepMs === undefined ? {} : { sweepMs: options.sweepMs }),
+    ...(options.receiptKey === undefined ? {} : { receiptKey: options.receiptKey }),
   })
 
   return {

@@ -8,6 +8,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest,
 } from 'fastify'
+import type { KeyObject } from 'node:crypto'
 import { isIP } from 'node:net'
 import { z } from 'zod'
 import { httpBotNotifier, type BotNotifier } from '../adapters/bot.js'
@@ -16,12 +17,15 @@ import type { Db } from '../db/client.js'
 import { usdcFor } from '../chains.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
 import { serializeError } from '../domain/redact.js'
-import { sweep } from '../service/payments.js'
+import { sweep } from '../service/sweep.js'
+import type { PasskeySetup } from '../service/passkeys.js'
+import { publicKeyHex } from '../service/receipts.js'
 import { serial } from '../service/serial.js'
 import type { X402Deps } from '../service/x402.js'
 import { adminRoutes } from './admin.js'
 import { agentRoutes } from './agent.js'
 import { botRoutes } from './bot.js'
+import { ownerRoutes } from './owner.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -38,6 +42,8 @@ export interface ServerDeps {
   now?: () => Date
   /** Runs the expiry sweep on this interval. Off when unset, as in tests that drive it directly. */
   sweepMs?: number
+  /** Signs receipts. Receipts are off without it. */
+  receiptKey?: KeyObject
 }
 
 /**
@@ -90,6 +96,13 @@ export async function buildServers(
   return apps as [Server, ...Server[]]
 }
 
+function passkeySetup(config: Config): { passkey: PasskeySetup } | undefined {
+  const { PASSKEY_ABOVE: above, PASSKEY_RP_ID: rpId, PASSKEY_ORIGIN: origin } = config
+  return above === undefined || rpId === undefined || origin === undefined
+    ? undefined
+    : { passkey: { above, rpId, origin } }
+}
+
 function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
   const chains = options.chains ?? new Map<ChainId, ChainAdapter>()
   const usdc = new Map<ChainId, string>()
@@ -108,6 +121,8 @@ function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
     now: options.now ?? (() => new Date()),
     serial: serial(),
     log,
+    ...(options.receiptKey === undefined ? {} : { receiptKey: options.receiptKey }),
+    ...(passkeySetup(options.config) ?? {}),
   }
 }
 
@@ -155,6 +170,12 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
   }
 
   if (surface !== 'private') {
+    // The owner's passkey page faces the internet: it is opened from Telegram on any device.
+    const rp =
+      config.PASSKEY_RP_ID === undefined || config.PASSKEY_ORIGIN === undefined
+        ? undefined
+        : { rpId: config.PASSKEY_RP_ID, origin: config.PASSKEY_ORIGIN }
+    app.register(ownerRoutes(deps, rp))
     app.register(
       agentRoutes(deps, {
         perIp: config.RATE_LIMIT_PER_IP,
@@ -168,7 +189,16 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
     app.register(
       async (admin) => {
         admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
-        await admin.register(adminRoutes(deps))
+        await admin.register(
+          adminRoutes(deps, {
+            botUrl: config.BOT_URL,
+            databaseUrl: config.DATABASE_URL,
+            ...(config.PASSKEY_RP_ID === undefined ? {} : { passkeyRpId: config.PASSKEY_RP_ID }),
+            ...(config.PASSKEY_ORIGIN === undefined
+              ? {}
+              : { passkeyOrigin: config.PASSKEY_ORIGIN }),
+          }),
+        )
       },
       { prefix: '/v1/admin' },
     )
@@ -182,6 +212,13 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
   }
 
   app.get('/health', async () => ({ status: 'ok' }))
+
+  // Public on purpose: anyone holding a receipt can check it without trusting this server.
+  app.get('/v1/receipts/key', async (_request, reply) =>
+    deps.receiptKey === undefined
+      ? reply.code(404).send({ error: 'not_configured' })
+      : { publicKey: publicKeyHex(deps.receiptKey) },
+  )
 }
 
 function issuesOf(error: z.ZodError): { path: string; message: string }[] {
