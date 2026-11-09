@@ -108,6 +108,17 @@ describe('loadConfig', () => {
     )
   })
 
+  it("takes guard-core's public page only over https", () => {
+    const page = 'https://guard.agentguard.example'
+    expect(loadConfig({ ...env, GUARD_PUBLIC_URL: page }).GUARD_PUBLIC_URL).toBe(page)
+    expect(loadConfig({ ...env, GUARD_PUBLIC_URL: '' }).GUARD_PUBLIC_URL).toBeUndefined()
+    for (const bad of ['http://guard.agentguard.example', `${page}/?x=1`, 'guard']) {
+      expect(() => loadConfig({ ...env, GUARD_PUBLIC_URL: bad })).toThrow(
+        /^invalid configuration: GUARD_PUBLIC_URL$/,
+      )
+    }
+  })
+
   it('needs at least one owner', () => {
     expect(() => loadConfig({ ...env, OWNER_TELEGRAM_IDS: '' })).toThrow('OWNER_TELEGRAM_IDS')
   })

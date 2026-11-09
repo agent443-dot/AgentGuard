@@ -21,6 +21,8 @@ export interface DeskDeps {
   notifyAbove: bigint
   log: Logger
   now?: () => Date
+  /** Where owners open guard-core's passkey page; without it a passkey request has no approve link. */
+  guardPublicUrl?: string
 }
 
 export interface Owner {
@@ -41,10 +43,18 @@ const ANSWERS: Record<Outcome['kind'], string> = {
   not_found: 'guard-core does not know this intent.',
 }
 
-/** Callback data is capped at 64 bytes by Telegram; an action plus a uuid fits. */
-export function approvalKeyboard(intentId: string): InlineKeyboard {
-  return new InlineKeyboard()
-    .text('Approve', `approve:${intentId}`)
+/**
+ * Callback data is capped at 64 bytes by Telegram; an action plus a uuid fits. A passkey request has
+ * no Approve callback at all: only the passkey page can approve it, so the bot offers a link there.
+ */
+export function approvalKeyboard(intentId: string, passkeyPage?: string | null): InlineKeyboard {
+  const keyboard = new InlineKeyboard()
+  if (passkeyPage === undefined) {
+    keyboard.text('Approve', `approve:${intentId}`)
+  } else if (passkeyPage !== null) {
+    keyboard.url('Approve with passkey', passkeyPage)
+  }
+  return keyboard
     .text('Reject', `reject:${intentId}`)
     .row()
     .text('Show full recipient', `recipient:${intentId}`)
@@ -70,7 +80,11 @@ export class Desk {
       return admission
     }
     const id = request.intent.id
-    const sent = await this.#broadcast(approvalText(request), approvalKeyboard(id))
+    const keyboard = approvalKeyboard(
+      id,
+      request.passkey === true ? this.#passkeyPage(id) : undefined,
+    )
+    const sent = await this.#broadcast(approvalText(request), keyboard)
     if (sent.length === 0) {
       this.book.forget(id)
       return 'undelivered'
@@ -132,6 +146,14 @@ export class Desk {
       }
     }
     return admission
+  }
+
+  /** Null when the bot was not told where guard-core's public page is. */
+  #passkeyPage(intentId: string): string | null {
+    const base = this.#deps.guardPublicUrl
+    return base === undefined
+      ? null
+      : `${base.replace(/\/+$/, '')}/owner/approve/${encodeURIComponent(intentId)}`
   }
 
   /** A message for every owner that needs no answer; resolves to how many it reached. */

@@ -87,12 +87,20 @@ export function utcTime(at: Date | string): string {
 }
 
 /** A guard-core that predates the flags sends none. */
-export type FlaggedRequest = ApprovalRequest & { flags?: readonly ApprovalFlag[] }
+export type FlaggedRequest = ApprovalRequest & {
+  flags?: readonly ApprovalFlag[]
+  passkey?: boolean
+}
+
+const PASSKEY_LINE =
+  "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; " +
+  'a Telegram tap can only reject it.'
 
 /** A flag is why this payment is in front of the owner at all, so it comes first. */
 export function approvalText(request: FlaggedRequest): string {
   const flags = (request.flags ?? []).map((flag) => `⚠️ <b>${FLAG_DESCRIPTIONS[flag]}</b>`)
-  return [...flags, '<b>Approval needed</b>', ...details(request, false)].join('\n')
+  const passkey = request.passkey === true ? [PASSKEY_LINE] : []
+  return [...flags, '<b>Approval needed</b>', ...passkey, ...details(request, false)].join('\n')
 }
 
 export function breakerText(agentId: string, detail: string): string {

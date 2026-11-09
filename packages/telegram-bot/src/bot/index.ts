@@ -17,6 +17,8 @@ export interface BotDeps {
   botConfig?: BotConfig<Context>
   /** The onchain kill of each chain; no Phantom button without one. */
   phantomKills?: PhantomKill[]
+  /** guard-core's public origin, for the passkey approval link. */
+  guardPublicUrl?: string
   /** When the weekly report goes out; none without one. */
   weekly?: ReportSchedule
 }
@@ -34,9 +36,10 @@ export function createBot({
   botConfig,
   phantomKills,
   weekly,
+  guardPublicUrl,
 }: BotDeps) {
   const bot = new Bot(token, botConfig)
-  const desk = new Desk({ api: bot.api, owners, guard, notifyAbove, log, now })
+  const desk = new Desk({ api: bot.api, owners, guard, notifyAbove, log, now, guardPublicUrl })
 
   // Anyone who is not an owner gets no reply at all: even an error tells them the bot is listening.
   bot.use(async (ctx, next) => {

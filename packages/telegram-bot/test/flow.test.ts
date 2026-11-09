@@ -429,3 +429,40 @@ describe('approval flags', () => {
     expect(response.statusCode).toBe(400)
   })
 })
+
+describe('passkey approvals', () => {
+  const buttons = (call: { payload: Record<string, unknown> } | undefined) =>
+    (
+      call?.payload['reply_markup'] as {
+        inline_keyboard: { text: string; url?: string; callback_data?: string }[][]
+      }
+    ).inline_keyboard.flat()
+
+  it('links to the passkey page instead of an Approve button, and keeps Reject', async () => {
+    const { calls, deliver } = await harness({ guardPublicUrl: 'https://guard.example/' })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted)).toEqual([
+      { text: 'Approve with passkey', url: `https://guard.example/owner/approve/${INTENT_ID}` },
+      { text: 'Reject', callback_data: `reject:${INTENT_ID}` },
+      { text: 'Show full recipient', callback_data: `recipient:${INTENT_ID}` },
+    ])
+    expect(posted?.payload['text']).toContain('🔑 <b>Passkey required.</b>')
+    expect(posted?.payload['text']).toContain('a Telegram tap can only reject it')
+  })
+
+  it('offers no way to approve without the passkey page configured', async () => {
+    const { calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    const labels = buttons(sent(calls, 'sendMessage')[0]).map((button) => button.text)
+    expect(labels).toEqual(['Reject', 'Show full recipient'])
+  })
+
+  it('keeps the Approve button for a request that needs no passkey', async () => {
+    const { calls, deliver } = await harness({ guardPublicUrl: 'https://guard.example' })
+    await deliver('/hooks/approval-request', approval())
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted)[0]).toEqual({ text: 'Approve', callback_data: `approve:${INTENT_ID}` })
+    expect(posted?.payload['text']).not.toContain('Passkey')
+  })
+})

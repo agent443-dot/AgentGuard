@@ -40,6 +40,7 @@ const { bot, desk, commands } = createBot({
   notifyAbove: config.NOTIFY_ABOVE_AMOUNT,
   log,
   phantomKills,
+  guardPublicUrl: config.GUARD_PUBLIC_URL,
   weekly:
     config.REPORT_WEEKDAY === undefined || config.REPORT_HOUR_UTC === undefined
       ? undefined

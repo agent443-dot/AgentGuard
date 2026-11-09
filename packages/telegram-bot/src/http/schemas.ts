@@ -32,6 +32,8 @@ export const approvalRequest = z.object({
   intent: payIntent,
   // A guard-core older than the flags sends none, which reads as no flag.
   flags: z.array(z.enum(APPROVAL_FLAGS)).max(APPROVAL_FLAGS.length).default([]),
+  // Approved only on guard-core's passkey page, never by a Telegram tap.
+  passkey: z.boolean().default(false),
   simulation: z.object({
     summary: z.string().max(1000),
     balanceChanges: z

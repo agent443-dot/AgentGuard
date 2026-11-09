@@ -119,6 +119,7 @@ export function setup(
     fail?: (call: ApiCall) => boolean
     phantomKills?: PhantomKill[]
     weekly?: ReportSchedule
+    guardPublicUrl?: string
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
@@ -132,6 +133,7 @@ export function setup(
     botConfig: { botInfo: BOT_INFO },
     phantomKills: options.phantomKills,
     weekly: options.weekly,
+    guardPublicUrl: options.guardPublicUrl,
   })
   const calls = mockTelegram(bot, options.fail)
   return { bot, desk, commands, guard, calls }
