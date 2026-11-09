@@ -229,6 +229,10 @@ POST /v1/admin/passkeys/code -> { code, expiresAt }   one-time, 10 minutes, hash
   GET /owner/enrol#code=… on the public listener (in the fragment, so no request line or log holds it),
   which runs WebAuthn registration for this origin via POST /v1/owner/passkeys/options { code } and
   POST /v1/owner/passkeys { code, response }. The bot's /passkey enrol sends the link.
+  Code enrolment adds the FIRST passkey only. Once one exists, POST /v1/owner/passkeys also needs an
+  assertion from an enrolled passkey (step-up), so a stolen Telegram account cannot add its own key.
+  Every enrolment sends the bot an alert { kind: "passkey_enrolled" }. GET /v1/admin/passkeys lists them
+  (id, created, last used); removing one is a command on the machine, never an API call.
 GET  /v1/receipts/key -> { publicKey }   public: lets anyone check a receipt
 GET  /owner/approve/:intentId            public page: WebAuthn for this origin, then
 POST /v1/owner/approve { intentId, assertion } -> PayIntent
@@ -256,6 +260,7 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 
 POST {BOT_URL}/hooks/alert             (same X-Guard-Signature scheme; CR-010)
 { kind: "breaker_tripped", agentId: string, detail: string, sentAt: string }
+  | { kind: "passkey_enrolled", detail: string, sentAt: string }
 The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (empty when none),
 pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to

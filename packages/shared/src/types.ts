@@ -77,12 +77,9 @@ export interface Receipt {
 }
 
 /** Body of POST {BOT_URL}/hooks/alert (CR-010). */
-export interface AlertEvent {
-  kind: 'breaker_tripped'
-  agentId: string
-  detail: string
-  sentAt: string
-}
+export type AlertEvent =
+  | { kind: 'breaker_tripped'; agentId: string; detail: string; sentAt: string }
+  | { kind: 'passkey_enrolled'; detail: string; sentAt: string }
 
 export type IntentStatus =
   | 'approved'
