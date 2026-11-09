@@ -9,6 +9,14 @@ export function breakerText(agentId: string, detail: string): string {
   ].join('\n')
 }
 
+/** Sent on every enrolment, so an owner who did not add the passkey hears of it at once. */
+export function passkeyText(detail: string): string {
+  return [
+    '<b>A passkey was added</b> for approvals. If it was not you, run /kill and remove it on the machine.',
+    ...(detail === '' ? [] : [`guard-core says: <i>${escapeHtml(detail)}</i>`]),
+  ].join('\n')
+}
+
 // Telegram refuses a message over 4096 characters, and /status adds the chains after this.
 const PENDING_LIMIT = 2000
 
