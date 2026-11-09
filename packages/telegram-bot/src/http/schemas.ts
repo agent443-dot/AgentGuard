@@ -36,6 +36,8 @@ export const approvalRequest = z
     flags: z.array(z.string().min(1).max(64)).max(8).default([]),
     // The last executed payment to this domain, sent with any flag.
     pinned: z.object({ recipient: opaque, amount: atomic }).optional(),
+    // Approved only on guard-core's passkey page, never by a Telegram tap.
+    passkey: z.boolean().default(false),
     simulation: z.object({
       summary: z.string().max(1000),
       balanceChanges: z

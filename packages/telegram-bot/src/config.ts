@@ -24,9 +24,12 @@ function optional<T extends z.ZodType>(schema: T) {
   return z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
 }
 
-/** Its own origin goes to Phantom as the ref, and a query would be read as part of the kill link. */
+/**
+ * A page the bot links to by appending a path or a query: the signing page, whose origin also goes to
+ * Phantom as the ref, and guard-core's passkey page. A query or fragment of its own would corrupt it.
+ */
 // One check that cannot throw: zod runs a refine even on input an earlier check already refused.
-const signPage = z.string().refine((value) => {
+const httpsPage = z.string().refine((value) => {
   try {
     const url = new URL(value)
     return url.protocol === 'https:' && url.search === '' && url.hash === ''
@@ -61,13 +64,15 @@ export const configSchema = z
       .transform(BigInt),
 
     // The onchain kill on the signing page (ADR 003). Without SIGN_PAGE_URL there is no button.
-    SIGN_PAGE_URL: optional(signPage),
+    SIGN_PAGE_URL: optional(httpsPage),
     SOLANA_CHAIN: z.enum([CHAINS.solanaDevnet, CHAINS.solanaMainnet]).default(CHAINS.solanaDevnet),
     SQUADS_MULTISIG: optional(solanaKey),
     SOLANA_HOT_WALLET_PUBKEY: optional(solanaKey),
     ROBINHOOD_CHAIN: z
       .enum([CHAINS.robinhoodTestnet, CHAINS.robinhood])
       .default(CHAINS.robinhoodTestnet),
+    // guard-core's public page, where an owner approves with a passkey.
+    GUARD_PUBLIC_URL: optional(httpsPage),
     // The weekly report: both, or neither for no weekly report. 0 is Sunday.
     REPORT_WEEKDAY: optional(z.coerce.number().int().min(0).max(6)),
     REPORT_HOUR_UTC: optional(z.coerce.number().int().min(0).max(23)),
