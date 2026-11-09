@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Keypair, LAMPORTS_PER_SOL, TransactionMessage } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, TransactionMessage, type PublicKey } from '@solana/web3.js'
 import type { TransactionInstruction, VersionedTransaction } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import type { Browser, Page } from 'playwright'
@@ -23,10 +23,12 @@ export async function stage() {
   const owner = Keypair.generate()
   c.svm.airdrop(owner.publicKey, BigInt(10 * LAMPORTS_PER_SOL))
   const wallet = { connected: owner }
+  const scanned: PublicKey[] = []
   const server = await servePage(
     c.svm,
     await mkdtemp(join(tmpdir(), 'agentguard-sign-')),
     () => wallet.connected,
+    scanned,
   )
   // The server's port is only known once it listens, so the page is built for it afterwards.
   await buildPage(server.dist, {
@@ -48,7 +50,7 @@ export async function stage() {
     await page.goto(`${server.origin}/?${new URLSearchParams({ cluster: 'localnet', ...query })}`)
     return page
   }
-  return { c, owner, wallet, server, open }
+  return { c, owner, wallet, server, open, scanned }
 }
 
 export const heading = (page: Page) => page.locator('h1')

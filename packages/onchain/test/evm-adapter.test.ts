@@ -30,6 +30,25 @@ beforeEach(() => {
 })
 
 describe('reads', () => {
+  it("the hot wallet's ETH, and what four draws need at today's max fee per gas", async () => {
+    node.handlers['eth_getBalance'] = ([address]) => {
+      expect(address).toBe(hot)
+      return '0x2386f26fc10000'
+    }
+    node.handlers['eth_getBlockByNumber'] = () => ({
+      number: '0x10',
+      baseFeePerGas: '0x3b9aca00',
+      timestamp: '0x0',
+    })
+    node.handlers['eth_maxPriorityFeePerGas'] = () => '0x5f5e100'
+    // viem's max fee: 1.2 × the 1 gwei base fee plus the 0.1 gwei tip, so 1.3 gwei per gas.
+    expect(await adapter.getHotWalletGas!()).toEqual({
+      balance: '10000000000000000',
+      minimum: (1_300_000_000n * 250_000n * 4n).toString(),
+      symbol: 'ETH',
+    })
+  })
+
   it('the hot wallet USDC balance', async () => {
     node.handlers['eth_call'] = () => uint(7_000_000n)
     expect(await adapter.getHotWalletBalance(usdc)).toBe('7000000')

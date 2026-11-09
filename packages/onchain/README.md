@@ -98,6 +98,18 @@ Ledger as owner from the start.
 
 ## Reference
 
+### Hot wallet gas
+
+`getHotWalletGas()` returns the hot wallet's native coin and the `minimum` that a few draws and
+payments need. guard-core's doctor warns below it.
+
+- **Solana:** two token accounts' rent and ten 5,000-lamport fees, plus a quarter: about 0.0052
+  SOL. A top-up creates the hot wallet's USDC account if it is missing, and a direct payment
+  creates the recipient's, both paid by the hot wallet. On x402 payments the facilitator pays the
+  fees.
+- **EVM:** four calls at 250,000 gas each, at the current max fee per gas. On Robinhood Chain the
+  gas a transaction uses includes its L1 data cost, so this is well above an L1 draw's.
+
 ### Solana adapter
 
 `createSvmAdapter({ chain, rpcUrl, hotWalletSecretKey, multisig, mint })` returns a `ChainAdapter`
@@ -236,6 +248,30 @@ design is in [ADR 003](../../docs/adr/003-phantom-owner.md).
   members or destinations, with a warning shown.
 - **It shows the summary, then asks Phantom right away.** It uses `signAndSendTransaction`, then
   reads the chain until the change is there, and checks it is what was signed.
+- **Proof of cap, for anyone, with no wallet:** `/?action=proof&cluster=<cluster>&multisig=<pda>` on
+  Solana, or `&safe=<address>` on Robinhood. It only reads the chain, through the page's own RPCs.
+  It never loads a wallet, and nothing on the way asks for a signature.
+  - **The headline:** "The most this agent can draw in the next 24 hours: X". X is what is left
+    before the next reset plus the whole cap again after it, because the reset always falls within
+    a day. The vault's balance bounds X. Both numbers are shown, with the reset time. After a kill,
+    X is 0.
+  - **Below it:** the vault's owner, members and threshold (Squads), or its owners and threshold
+    (Safe), and the vault's balance.
+  - **"Verified" needs all of these.** Otherwise the headline is "Not verified", followed by what
+    the page found:
+    - Squads: the only member is the config authority, and that authority is not the hot wallet.
+      The only spending limit is the one the agent uses, for the hot wallet only, into itself, in
+      USDC, daily, on vault 0.
+    - Safe: the proxy runs the canonical SafeL2 1.4.1 (storage slot 0), and it has one owner at
+      threshold 1 who is not the hot wallet. No module other than the Allowance Module is enabled.
+      Its only delegate is the hot wallet, with allowances in USDG only, resetting every 1440
+      minutes.
+  - **Every spending right counts.** On Squads, the page lists every spending limit on the
+    multisig with `getProgramAccounts`. **Its RPC must serve that call** with memcmp filters on the
+    Squads program. If any read fails, the page says it could not verify, never a lower number.
+  - **Resets:** Squads refills a limit lazily and moves its reset forward by whole days. The
+    Allowance Module applies its reset when read.
+
 - **In a browser without Phantom,** it links to `https://phantom.app/ul/browse/<page>`, which opens it
   inside Phantom.
 - **The build fixes what a link must not choose:**
