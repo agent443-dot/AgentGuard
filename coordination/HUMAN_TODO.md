@@ -1175,12 +1175,14 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 **A. O que não depende da rede**
 
-1. Ensaio de recuperar a base de dados de uma cópia de segurança (o integrator já começou).
-2. O que falta da revisão de segurança: `fly ips list` do bot, um token revogado testado ao vivo, e
+1. ✅ Ensaio de recuperar a base de dados de uma cópia de segurança — passou: a cópia bateu com o
+   sistema vivo na política, nos gastos, nos pedidos e nos 15 eventos de auditoria.
+2. ✅ O que falta da revisão de segurança — passou (o bot não tem IP público, um token revogado deixa
+   de funcionar na hora, zero segredos nos logs): `fly ips list` do bot, um token revogado testado ao vivo, e
    procurar segredos nos logs.
-3. Cópias de segurança automáticas da base de dados.
-4. Confirmar que a página de assinatura publicada no Vercel é a do `main`.
-5. **Deploy automático no Fly** sempre que algo entra no `main` — acaba com o bot desatualizado.
+3. ⏳ Cópias de segurança automáticas da base de dados (14 dias de retenção) — falta a tua confirmação.
+4. ✅ A página de assinatura no Vercel só publica a partir do `main`.
+5. ✅ **Deploy automático no Fly** sempre que algo entra no `main` — acaba com o bot desatualizado.
    Depois de o integrator abrir o PR do workflow, crias um token de deploy por app e guardas cada um
    diretamente nos segredos do GitHub, sem ele aparecer no ecrã:
 
@@ -1206,11 +1208,24 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 10. Um RPC de mainnet para a Solana (o público tem limites), nos segredos do Fly.
 11. Um kill de teste, e repor o teto.
 
-**D. Antes de abrir**
+**D. Antes de abrir** — decisões D7 (código aberto, cada um aloja o seu) e D8 (licença Apache-2.0)
 
-12. A landing page, e decidir se o repositório fica público.
-13. O relatório final.
-14. **A tua autorização escrita para lançar** (`HUMAN-8`).
+12. **Branch principal**: no GitHub, **Settings → General → Default branch**, troca para `main`
+    (ainda é `claude/agentguard-setup-smlps6`).
+13. **Proteger o `main`**: **Settings → Rules → Rulesets → New branch ruleset**, alvo `main`, com
+    "Require a pull request before merging", "Require status checks to pass" (o CI) e
+    "Block force pushes".
+14. **Segurança**: em **Settings → Code security**, liga **Private vulnerability reporting**,
+    **Secret scanning** e **Push protection**.
+15. **Rever o que fica público.** A procura nos 494 commits não encontrou segredos, mas ao abrir o
+    repositório ficam visíveis os emails dos commits e a pasta `coordination/` (este ficheiro incluído,
+    com caminhos do teu computador e endereços das carteiras — públicos, mas teus). Diz-me se queres
+    tirar alguma coisa antes.
+16. A landing page, e o relatório final.
+17. **A tua autorização escrita para lançar** (`HUMAN-8`).
+18. **Por último, tornar o repositório público**: **Settings → General → Danger Zone → Change
+    visibility → Public**. Logo a seguir entra a mudança que troca os "coming soon" do site pelo link
+    do repositório.
 
 ---
 
