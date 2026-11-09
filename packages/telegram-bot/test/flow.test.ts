@@ -26,6 +26,7 @@ async function harness(options: Parameters<typeof setup>[0] & { perMinute?: numb
     handlers: {
       approvalRequest: (request) => parts.desk.post(request),
       intentEvent: (event) => parts.desk.event(event),
+      alert: (event) => parts.desk.alert(event),
     },
     logger: silent,
   })
@@ -327,5 +328,136 @@ describe('POST /hooks/intent-event', () => {
     const old = { ...event({ status: 'executed' }), sentAt: '2026-11-03T11:00:00.000Z' }
     expect((await deliver('/hooks/intent-event', old)).statusCode).toBe(410)
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('breaker alerts', () => {
+  const alert = (overrides: Record<string, unknown> = {}) => ({
+    kind: 'breaker_tripped',
+    agentId: 'research-agent',
+    detail: '11 payments in one minute <b>',
+    sentAt: NOW.toISOString(),
+    ...overrides,
+  })
+
+  it('tells every owner the agent is paused and how to resume it', async () => {
+    const { calls, deliver } = await harness()
+    const response = await deliver('/hooks/alert', alert())
+    expect(response.statusCode).toBe(200)
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toBe(
+      '<b>Circuit breaker tripped</b> for <code>research-agent</code>: paused. ' +
+        '/resume <code>research-agent</code> when you have looked.\n' +
+        'guard-core says: <i>11 payments in one minute &lt;b&gt;</i>',
+    )
+  })
+
+  it('checks the signature, the age and replays like the other hooks', async () => {
+    const { calls, deliver } = await harness()
+    expect((await deliver('/hooks/alert', alert(), 'sha256=' + '0'.repeat(64))).statusCode).toBe(
+      401,
+    )
+    const old = new Date(NOW.getTime() - 6 * 60_000).toISOString()
+    expect((await deliver('/hooks/alert', alert({ sentAt: old }))).statusCode).toBe(410)
+    expect((await deliver('/hooks/alert', alert())).statusCode).toBe(200)
+    expect((await deliver('/hooks/alert', alert())).statusCode).toBe(409)
+    expect((await deliver('/hooks/alert', alert({ kind: 'other' }))).statusCode).toBe(400)
+    expect(sent(calls, 'sendMessage')).toHaveLength(2)
+  })
+
+  it('has no alert route when the embedding gives no handler', async () => {
+    const { desk } = setup()
+    const app = await buildServer({
+      secret: SECRET,
+      handlers: {
+        approvalRequest: (request) => desk.post(request),
+        intentEvent: (event) => desk.event(event),
+      },
+      logger: silent,
+    })
+    const raw = JSON.stringify(alert())
+    const response = await app.inject({
+      method: 'POST',
+      url: '/hooks/alert',
+      headers: { 'content-type': 'application/json', 'x-guard-signature': sign(raw, SECRET) },
+      payload: raw,
+    })
+    expect(response.statusCode).toBe(404)
+  })
+
+  it('reports undelivered when no owner could be reached', async () => {
+    const { deliver } = await harness({ fail: () => true })
+    expect((await deliver('/hooks/alert', alert())).statusCode).toBe(502)
+  })
+})
+
+describe('shadow mode events', () => {
+  it('accepts a shadowed payment without messaging anyone', async () => {
+    const { calls, deliver } = await harness()
+    const event = {
+      intent: intent({ status: 'shadowed' as never, amount: '999000000' }),
+      sentAt: NOW.toISOString(),
+    }
+    expect((await deliver('/hooks/intent-event', event)).statusCode).toBe(200)
+    expect((await deliver('/hooks/intent-event', event)).statusCode).toBe(409)
+    expect(calls).toHaveLength(0)
+  })
+})
+
+describe('approval flags', () => {
+  const textOf = async (body: unknown) => {
+    const { calls, deliver } = await harness()
+    expect((await deliver('/hooks/approval-request', body)).statusCode).toBe(200)
+    return String(sent(calls, 'sendMessage')[0]?.payload['text'])
+  }
+  const lead = (text: string, n: number) => text.split('\n').slice(0, n)
+  const OLD = 'OldPayTo1111111111111111111111111111111111'
+
+  it('puts the reason a payment is here above the request', async () => {
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'] })
+    expect(lead(text, 3)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
+      '<b>Approval needed</b>',
+    ])
+  })
+
+  it('shows both recipients in full, and no price factor next to a recipient change', async () => {
+    const pinned = { recipient: OLD, amount: '5000000' }
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'], pinned })
+    expect(lead(text, 4)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
+      `Last recipient: <code>${OLD}</code>`,
+      `This recipient: <code>${RECIPIENT}</code>`,
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
+    ])
+  })
+
+  it('names the factor, exact or as "more than", against the pinned payment', async () => {
+    const at = (amount: string) => ({
+      ...approval(),
+      flags: ['PRICE_JUMP'],
+      pinned: { recipient: RECIPIENT, amount },
+    })
+    expect(lead(await textOf(at('5000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+    ])
+    // 12.5 / 3 = 4.1666…: rounded down, so it must not read as exact.
+    expect(lead(await textOf(at('3000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: more than 4.1× the last payment.</b>',
+    ])
+    expect(lead(await textOf(at('0')), 1)).toEqual([
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
+    ])
+  })
+
+  it('reads a request without flags as having none, and shows an unknown one generically', async () => {
+    expect(await textOf(approval())).toMatch(/^<b>Approval needed/)
+    const other = approval({ id: '5b8f6c0e-2a8e-4f7e-9a51-6f0c3d1a2b77' })
+    expect(lead(await textOf({ ...other, flags: ['ODD<b>'] }), 2)).toEqual([
+      '⚠️ <b>guard-core flagged this payment:</b> <code>ODD&lt;b&gt;</code>',
+      '<b>Approval needed</b>',
+    ])
   })
 })

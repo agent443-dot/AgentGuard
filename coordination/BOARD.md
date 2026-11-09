@@ -168,7 +168,7 @@ tells us what the second adapter has to satisfy.
 
 ## CR-010 gate
 
-SPEC v0.6 (PR #127). Nothing from CR-010 merges to main before Solana is live on mainnet (HUMAN-22 block C). Phase order: GC-30 → GC-31 → GC-32; the other sessions follow the phase they depend on.
+SPEC v0.6 (PR #127). The merge gate is open: Solana went live on mainnet on 2026-11-09 (HUMAN-22 block C, PR #139). Phase order: GC-30 → GC-31 → GC-32; the other sessions follow the phase they depend on.
 
 ## Interface drift watchlist (manager checks every round)
 
