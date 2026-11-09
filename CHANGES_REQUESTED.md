@@ -614,6 +614,7 @@ generic>` prints the exact command or config block for that client, with the gua
   6. **Run anywhere**: a `docker-compose.yml` for any server, and the same images on Railway, as a
      template documented in `docs/self-host.md`.
   7. **Docs for beginners**: `docs/troubleshooting.md` (every problem met at launch, with its fix),
-     and `docs/self-host.pt-BR.md`.
+     and `docs/self-host.pt-BR.md`. The Portuguese guide was removed on 2026-11-09 at the owner's
+     request: everything in the repository is English (ADR 004).
 - **Blast radius:** guard-core (agent routes, doctor, the shadow default), onchain
   (`getHotWalletGas`), bot (commands), mcp (`setup`), integrator (wizard, compose, docs, shared types).

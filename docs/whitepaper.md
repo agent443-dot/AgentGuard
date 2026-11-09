@@ -256,7 +256,7 @@ in the lockfile without being reachable at runtime.
 ## References
 
 - [`SPEC.md`](../SPEC.md): every interface, type and reject code.
-- [`docs/self-host.md`](./self-host.md): running your own copy ([português](./self-host.pt-BR.md)).
+- [`docs/self-host.md`](./self-host.md): running your own copy.
 - [`docs/adr/`](./adr): architecture decisions, including the Phantom signing page (ADR 003).
 - [`docs/security-review.md`](./security-review.md) and [`docs/final-report.md`](./final-report.md).
 - [`SECURITY.md`](../SECURITY.md): how to report a vulnerability privately.

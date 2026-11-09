@@ -46,8 +46,7 @@ in Phantom, and the wizard creates your first agent in shadow mode: it pays noth
 it live with `/mode <agent> live` in Telegram. Then connect the agent from the same checkout:
 `pnpm --filter @agentguard/mcp-server run setup claude-code`.
 
-- The same setup by hand: [`docs/self-host.md`](./docs/self-host.md) (em português:
-  [`docs/self-host.pt-BR.md`](./docs/self-host.pt-BR.md)).
+- The same setup by hand: [`docs/self-host.md`](./docs/self-host.md).
 - How it works and what it protects against: the technical whitepaper,
   [`docs/whitepaper.md`](./docs/whitepaper.md).
 - When something goes wrong: [`docs/troubleshooting.md`](./docs/troubleshooting.md).

@@ -1,22 +1,18 @@
-# ADR 004 — one Portuguese file in the product
+# ADR 004 — the repository is English only
 
-- **Status:** accepted, 2026-11-09. The owner approved it as part of CR-011 item 7.
-- **Context:** the product is English only (`CLAUDE.md`, Language). Many of the people we launch to
-  read Portuguese first, and the self-host guide is where a beginner gives up.
+- **Status:** accepted, 2026-11-09. It replaces this ADR's first version, which allowed one Portuguese
+  file, `docs/self-host.pt-BR.md`.
+- **Context:** CR-011 item 7 asked for a Portuguese self-host guide, and it was added as the one
+  exception to the English-only rule. Before the public beta, the owner decided that everything in the
+  repository must be in English.
 
 ## Decision
 
-`docs/self-host.pt-BR.md` is a Portuguese translation of `docs/self-host.md`. It is the only
-Portuguese file in the product.
-
-- The English guide is the source. The translation says so at the top, and where they differ, the
-  English one holds.
-- Commands, bot messages, UI text, error codes and file names stay in English in the translation,
-  exactly as the product shows them.
-- A change to `self-host.md` that alters a step updates the translation in the same PR.
-- Nothing else is translated: not code, comments, other docs, READMEs or the bot.
+- `docs/self-host.pt-BR.md` is removed. `docs/self-host.md` is the only setup guide.
+- No file in the repository is in Portuguese, `coordination/HUMAN_TODO.md` included.
+- Only the conversation with the owner, outside the repository, is in Portuguese.
 
 ## Consequences
 
-Two files to keep in step, so the translation stays short and links to the English READMEs for the
-exact commands. If it falls behind, the banner points readers to the English guide.
+One guide to keep current instead of two. Readers who prefer Portuguese use a translation tool on
+the English guide.
