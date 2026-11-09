@@ -2,6 +2,7 @@ import type { Policy } from '@agentguard/shared'
 import { type Bot, type Context, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { AdminClient } from '../adapters/admin.js'
+import type { GuardClient, ShadowTotal } from '../adapters/guard.js'
 import { formatUsd } from '../domain/money.js'
 import {
   hostname,
@@ -14,13 +15,13 @@ import {
   raises,
   raiseText,
 } from '../domain/policy.js'
-import type { ShadowTotal } from '../domain/shadow.js'
 import { utcTime } from '../domain/text.js'
 import type { Desk } from './desk.js'
 import { args, code, guarded, HTML, type Press, validAgent } from './owner-kit.js'
 
 export interface PolicyDeps {
   admin: AdminClient
+  guard: GuardClient
   desk: Desk
   log: Logger
   now: () => Date
@@ -32,8 +33,11 @@ type Change = Partial<Pick<Policy, Limit | 'mode' | 'allowedDomains'>>
 
 const MAX_DOMAINS = 256
 const OFFER_TTL_MS = 7 * 86_400_000
+/** How long an agent runs in shadow mode before the bot offers to take it live. */
+export const GRADUATION_MS = 3 * 86_400_000
+const GRADUATION_CHECK_MS = 5 * 60_000
 
-export function registerPolicies(bot: Bot, { admin, desk, log, now, button }: PolicyDeps) {
+export function registerPolicies(bot: Bot, { admin, guard, desk, log, now, button }: PolicyDeps) {
   /** The prompts waiting for the owner's reply, keyed by chat and prompt message. */
   const edits = new Map<string, { agentId: string; limit: Limit }>()
 
@@ -150,12 +154,14 @@ export function registerPolicies(bot: Bot, { admin, desk, log, now, button }: Po
     })
   }
 
-  function liveText(agentId: string, total: ShadowTotal | undefined): string {
+  const payments = (count: number) => `${count} ${count === 1 ? 'payment' : 'payments'}`
+
+  function liveText(agentId: string, shadow: ShadowTotal | undefined): string {
     const would =
-      total === undefined
-        ? 'No shadowed payment has reached the bot since it started.'
-        : `In shadow mode it would have spent ${formatUsd(total.spent.toString())} in ` +
-          `${total.payments} ${total.payments === 1 ? 'payment' : 'payments'} since ${utcTime(total.since)}.`
+      shadow === undefined || shadow.count === 0
+        ? 'guard-core reports no shadowed payment for it.'
+        : `In shadow mode it would have spent ${formatUsd(shadow.total)} in ` +
+          `${payments(shadow.count)} since ${utcTime(shadow.since)}.`
     return `<b>Go live</b> with ${code(agentId)}? It starts signing real payments.\n${would}`
   }
 
@@ -166,10 +172,8 @@ export function registerPolicies(bot: Bot, { admin, desk, log, now, button }: Po
         button((press) => change(press, agentId, { mode: 'live' })),
       )
       .text('Cancel', 'own:cancel')
-    await ctx.reply(liveText(agentId, desk.shadow.get(agentId)), {
-      ...HTML,
-      reply_markup: keyboard,
-    })
+    const shadow = (await guard.budget(agentId))?.shadow
+    await ctx.reply(liveText(agentId, shadow), { ...HTML, reply_markup: keyboard })
   }
 
   bot.command('mode', (ctx) => {
@@ -182,16 +186,33 @@ export function registerPolicies(bot: Bot, { admin, desk, log, now, button }: Po
     )
   })
 
-  /** Runs on the sweep timer: three days of shadow mode earn one offer to go live. */
+  // Only "already offered" is kept here: guard-core keeps the totals, so a bot restart repeats an
+  // offer at most once.
+  const offered = new Set<string>()
+  let checked = 0
+
+  /** Runs on the sweep timer, but asks guard-core at most every few minutes. */
   async function offerGraduation() {
-    for (const total of desk.shadow.due(now())) {
+    if (now().getTime() - checked < GRADUATION_CHECK_MS) {
+      return
+    }
+    checked = now().getTime()
+    for (const { agentId, mode } of await admin.listAgents()) {
+      if (mode !== 'shadow' || offered.has(agentId)) {
+        continue
+      }
+      const shadow = (await guard.budget(agentId))?.shadow
+      if (shadow === undefined || now().getTime() - Date.parse(shadow.since) < GRADUATION_MS) {
+        continue
+      }
+      offered.add(agentId)
       const text =
-        `Your agent ${code(total.agentId)} would have spent ${formatUsd(total.spent.toString())} ` +
-        `in ${total.payments} ${total.payments === 1 ? 'payment' : 'payments'}. Go live?`
+        `Your agent ${code(agentId)} would have spent ${formatUsd(shadow.total)} ` +
+        `in ${payments(shadow.count)}. Go live?`
       const keyboard = new InlineKeyboard().text(
         'Go live…',
         // An offer the owner may only read the next day: it stays usable longer than a confirm.
-        button((press) => offerLive(press, total.agentId), OFFER_TTL_MS),
+        button((press) => offerLive(press, agentId), OFFER_TTL_MS),
       )
       await desk.announce(text, keyboard)
     }

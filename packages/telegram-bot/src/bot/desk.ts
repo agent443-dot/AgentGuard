@@ -1,11 +1,9 @@
 import type { IntentEvent } from '@agentguard/shared'
-import { getAddress } from '@agentguard/shared'
 import type { Api, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { mandateSettledText, mandateText } from '../domain/mandate.js'
-import { ShadowLedger } from '../domain/shadow.js'
 import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
 import {
   type Admission,
@@ -67,7 +65,6 @@ interface Counter<R extends { approveBefore: string }> {
 /** Everything that puts a message in front of the owners or takes one away. */
 export class Desk {
   readonly book = intentBook()
-  readonly shadow = new ShadowLedger()
   readonly #mandates = new ApprovalBook<MandateRequest>((request) => request.mandate.id)
   readonly #events = new EventLog()
   readonly #alerts: Alerts
@@ -185,12 +182,8 @@ export class Desk {
 
   async event({ intent, sentAt }: IntentEvent | ShadowedEvent): Promise<Admission> {
     const admission = this.#events.admit(`${intent.id}:${intent.status}`, sentAt, this.#now())
-    // Shadow mode signs nothing: the chat stays quiet, and only the chain's dollar counts as spend.
-    if (admission === 'accepted' && intent.status === 'shadowed') {
-      if (getAddress(intent.chain, 'usd') === intent.token) {
-        this.shadow.record(intent.agentId, BigInt(intent.amount), this.#now())
-      }
-    } else if (admission === 'accepted') {
+    // Shadow mode signs nothing: guard-core sums what it would have spent, the chat stays quiet.
+    if (admission === 'accepted' && intent.status !== 'shadowed') {
       for (const alert of this.#alerts.for(intent, this.#now())) {
         await this.#broadcast(alert)
       }

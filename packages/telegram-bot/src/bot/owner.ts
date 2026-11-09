@@ -1,6 +1,7 @@
 import { type Bot, type Context, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { AdminClient } from '../adapters/admin.js'
+import type { GuardClient } from '../adapters/guard.js'
 import { Confirms } from '../domain/confirms.js'
 import { pages } from '../domain/pages.js'
 import { agentsText, doctorBlocks } from '../domain/policy.js'
@@ -10,6 +11,7 @@ import { registerPolicies } from './policies.js'
 
 export interface OwnerDeps {
   admin: AdminClient
+  guard: GuardClient
   desk: Desk
   log: Logger
   now: () => Date
@@ -24,7 +26,7 @@ const SETUP = 'npx @agentguard/mcp-server setup claude-code'
  * The owner's daily commands, so nobody needs a terminal: agents, policies, mode and the doctor.
  * Every button carries only a random id; what it does stays here, and works once.
  */
-export function registerOwner(bot: Bot, { admin, desk, log, now }: OwnerDeps) {
+export function registerOwner(bot: Bot, { admin, guard, desk, log, now }: OwnerDeps) {
   const confirms = new Confirms<Press>()
   const tokens: { chatId: number; messageId: number; at: number }[] = []
 
@@ -118,7 +120,7 @@ export function registerOwner(bot: Bot, { admin, desk, log, now }: OwnerDeps) {
     }),
   )
 
-  const policies = registerPolicies(bot, { admin, desk, log, now, button, cancel })
+  const policies = registerPolicies(bot, { admin, guard, desk, log, now, button, cancel })
 
   /** Runs on the sweep timer. */
   async function sweep() {

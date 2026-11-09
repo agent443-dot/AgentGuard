@@ -75,12 +75,26 @@ const chainList = z.object({
     .max(16),
 })
 
-/** What shadow mode would have spent today; a guard-core without shadow mode leaves it out. */
-export type Budget = BudgetView & { shadowSpentToday?: string }
+/** Since the agent's first shadowed payment: what shadow mode would have spent, and how often. */
+export interface ShadowTotal {
+  since: string
+  total: string
+  count: number
+}
+
+/** A guard-core without shadow mode leaves both out. */
+export type Budget = BudgetView & { shadowSpentToday?: string; shadow?: ShadowTotal }
 
 const budgetView = z.object({
   spentToday: atomic,
   shadowSpentToday: atomic.optional(),
+  shadow: z
+    .object({
+      since: z.iso.datetime({ offset: true }),
+      total: atomic,
+      count: z.number().int().nonnegative(),
+    })
+    .optional(),
   dailyMax: atomic,
   perTxMax: atomic,
   hotWalletBalances: z.record(z.string(), atomic),

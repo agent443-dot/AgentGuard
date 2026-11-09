@@ -5,7 +5,7 @@ import {
   buttonData,
   command,
   fakeAdmin,
-  intent,
+  fakeGuard,
   NOW,
   OTHER_OWNER,
   OWNER,
@@ -20,6 +20,13 @@ const text = (call: { payload: Record<string, unknown> } | undefined) =>
   String(call?.payload['text'])
 const last = (calls: Parameters<typeof sent>[0]) => sent(calls, 'sendMessage').at(-1)
 const TOKEN = 'agt_' + 'z'.repeat(40)
+const BUDGET = {
+  spentToday: '0',
+  dailyMax: '10000000',
+  perTxMax: '2000000',
+  hotWalletBalances: {},
+  paused: false,
+}
 
 describe('/agent', () => {
   it('creates an agent, sends the token alone and deletes it after a minute', async () => {
@@ -210,11 +217,11 @@ describe('/mode', () => {
   })
 
   it('goes live only from the confirm, showing what shadow would have spent', async () => {
-    const { bot, desk, admin, calls } = setup()
-    await desk.event({
-      intent: intent({ status: 'shadowed' as never, amount: '3500000' }),
-      sentAt: NOW.toISOString(),
-    })
+    const budget = vi.fn(async () => ({
+      ...BUDGET,
+      shadow: { since: NOW.toISOString(), total: '3500000', count: 1 },
+    }))
+    const { bot, admin, calls } = setup({ guard: fakeGuard({ budget }) })
     await bot.handleUpdate(command(OWNER, '/mode research-agent live'))
     const ask = last(calls)
     expect(text(ask)).toBe(
@@ -224,6 +231,12 @@ describe('/mode', () => {
     expect(admin.putPolicy).not.toHaveBeenCalled()
     await bot.handleUpdate(press(OWNER, buttonData(ask, 'Go live')))
     expect(admin.putPolicy).toHaveBeenCalledWith(policy({ mode: 'live' }))
+  })
+
+  it('says so when guard-core reports no shadowed payment', async () => {
+    const { bot, calls } = setup()
+    await bot.handleUpdate(command(OWNER, '/mode research-agent live'))
+    expect(text(last(calls))).toContain('guard-core reports no shadowed payment for it.')
   })
 })
 
@@ -262,24 +275,26 @@ describe('/doctor', () => {
 })
 
 describe('shadow graduation', () => {
+  const shadowSince = (since: Date) =>
+    vi.fn(async () => ({
+      ...BUDGET,
+      shadow: { since: since.toISOString(), total: '2500000', count: 2 },
+    }))
+
   it('offers once, three days after the first shadowed payment, and opens the live confirm', async () => {
-    let now = NOW
-    const { bot, desk, owner, admin, calls } = setup({ now: () => now })
-    for (const id of [
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222',
-    ]) {
-      await desk.event({
-        intent: intent({ id, status: 'shadowed' as never, amount: '1250000' }),
-        sentAt: now.toISOString(),
-      })
-    }
-    now = new Date(NOW.getTime() + 3 * 86_400_000 - 1)
+    let now = new Date(NOW.getTime() + 3 * 86_400_000 - 1)
+    const budget = shadowSince(NOW)
+    const { bot, owner, admin, calls } = setup({ now: () => now, guard: fakeGuard({ budget }) })
     await owner.sweep()
     expect(sent(calls, 'sendMessage')).toHaveLength(0)
 
+    // guard-core is asked at most every five minutes.
     now = new Date(NOW.getTime() + 3 * 86_400_000)
     await owner.sweep()
+    expect(sent(calls, 'sendMessage')).toHaveLength(0)
+    now = new Date(now.getTime() + 5 * 60_000)
+    await owner.sweep()
+    now = new Date(now.getTime() + 5 * 60_000)
     await owner.sweep()
     const offers = sent(calls, 'sendMessage')
     expect(offers.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
@@ -290,5 +305,23 @@ describe('shadow graduation', () => {
     await bot.handleUpdate(press(OWNER, buttonData(offers[0], 'Go live…')))
     expect(text(last(calls))).toMatch(/^<b>Go live<\/b> with <code>research-agent<\/code>/)
     expect(admin.putPolicy).not.toHaveBeenCalled()
+  })
+
+  it('skips an agent that is live or has no shadow total', async () => {
+    const listAgents = vi.fn(async () => [
+      { agentId: 'live-agent', paused: false, mode: 'live' as const },
+      { agentId: 'quiet-agent', paused: false, mode: 'shadow' as const },
+    ])
+    const budget = vi.fn(async () => BUDGET)
+    const later = new Date(NOW.getTime() + 30 * 86_400_000)
+    const { owner, calls } = setup({
+      now: () => later,
+      admin: fakeAdmin({ listAgents }),
+      guard: fakeGuard({ budget }),
+    })
+    await owner.sweep()
+    expect(budget).toHaveBeenCalledWith('quiet-agent')
+    expect(budget).not.toHaveBeenCalledWith('live-agent')
+    expect(calls).toHaveLength(0)
   })
 })

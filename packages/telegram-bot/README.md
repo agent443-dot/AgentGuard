@@ -187,9 +187,11 @@ API with `GUARD_ADMIN_TOKEN`, and only owners get an answer, as for every other 
   once, within 10 minutes. After a restart old buttons answer "expired".
 - **Amounts.** Owners type dollars (`2.50`, `$2.50`); the bot converts them to atomic units in bigint and
   refuses anything else, a negative or more than 6 decimals included.
-- **Graduation.** Three days after an agent's first shadowed payment, every owner gets one offer: "Your
-  agent would have spent $X in N payments. Go live?", which opens the `/mode` confirm. The count lives
-  in memory, so a restart starts the three days again.
+- **Graduation.** guard-core's budget reports `shadow: { since, total, count }` from an agent's first
+  shadowed payment. Three days after `since`, every owner gets one offer: "Your agent would have
+  spent $X in N payments. Go live?", which opens the `/mode` confirm. The bot asks guard-core at most
+  every 5 minutes, for agents in shadow mode only, and keeps only "already offered" in memory: a bot
+  restart repeats an offer at most once.
 
 ## Weekly report
 
