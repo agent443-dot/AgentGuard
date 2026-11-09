@@ -138,6 +138,11 @@ solana program dump -u m SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf \
   packages/onchain/test/fixtures/squads_v4.so
 ```
 
+`pnpm check:squads` reads Squads v4 on mainnet (or `SOLANA_RPC_URL`) and fails if the deployed
+program is no longer this binary. It also prints the program config the create page reads: the
+creation fee and the treasury it goes to. The tests plant a config with no fee by default, and one
+create test plants a mainnet-like fee and checks that the treasury receives it.
+
 #### The owner on a Ledger
 
 Every script the owner signs (`create-multisig`, `add-spending-limit`, `fund-vault`, `kill`) takes
