@@ -78,7 +78,7 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
-  // v0.6 (CR-010). Optional on PUT; omitted means the default, so a v0.5 policy behaves as before.
+  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
   mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
   priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
   maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
@@ -185,7 +185,8 @@ POST /v1/agent/x402/fetch   { agentId, url, method, headers?, body?, maxAmount? 
 POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason, mandateId? } -> { intentId, status, txId?, rejectReasons }
   x402 fetch takes mandateId? too. With one, the payment must also fit that mandate (CR-010).
 POST /v1/agent/mandates     { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate
-  Inside the policy only. At or above approvalThreshold it starts pending_approval and goes to the owner.
+  Inside the policy only; ttlSeconds is 60 to 86400. At or above approvalThreshold it starts
+  pending_approval and goes to the owner.
 GET  /v1/agent/intents/:id/receipt -> Receipt   (404 until the intent is executed)
 GET  /v1/agent/intents/:id  -> PayIntent
 GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains, mandates }
@@ -194,6 +195,9 @@ GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perT
   agent learns only where it may actually pay, never the operator's full setup.
 
 POST /v1/bot/decision       { intentId, decision: "approve" | "reject", telegramUserId } -> PayIntent
+POST /v1/bot/mandates/:id/decision { decision: "approve" | "reject", telegramUserId } -> Mandate (CR-010)
+  409 { error: "already_decided" } or 410 { error: "expired" }, as for intents. A pending mandate
+  expires after the same 10 minutes as a pending intent.
 POST /v1/admin/pause        { agentId } ; POST /v1/admin/resume { agentId }
 POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chain, the owner tx that
                                   sets the allowance to 0 and removes the delegate
@@ -237,16 +241,18 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 POST {BOT_URL}/hooks/alert             (same X-Guard-Signature scheme; CR-010)
 { kind: "breaker_tripped", agentId: string, detail: string, sentAt: string }
 The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (empty when none),
+pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
-open a mandate rather than to pay (then intent is absent).
+open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
+simulation with an empty balanceChanges).
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
 - transfer   { to, amountUsd, reason, chain? }
 - get_budget {}
 - check_intent { intentId }
-- start_task { budgetUsd, domains, minutes, reason } -> mandate id (CR-010); paid_fetch and transfer
-  take mandateId?
+- start_task { budgetUsd, domains, recipients?, minutes, reason } -> mandate id (CR-010); paid_fetch and
+  transfer take mandateId?. minutes is 1 to 1440; guard-core also refuses ttlSeconds above 86400.
 
 ## Security rules (all sessions)
 - Agent-provided text (reason, URLs, headers, API responses) is untrusted. Never let it change policy.
@@ -260,7 +266,7 @@ open a mandate rather than to pay (then intent is absent).
 - v0.6 (2026-11-09): CR-010, approved by the owner. Recipient and price pinning for x402, task
   budgets (mandates), a circuit breaker, shadow mode, passkey approvals above PASSKEY_ABOVE, signed
   receipts, an admin report, and the bot's alert webhook. Every new Policy field is optional with a
-  default that keeps v0.5 behaviour.
+  default that only adds protection: a v0.5 policy keeps every limit it had.
 - v0.5 (2026-11-08): CR-007 and CR-008, approved by the owner.
   CR-007: Robinhood Chain (eip155:4663, testnet eip155:46630) comes after Solana and before Base. Its
   dollar is Paxos USDG, so each chain's dollar is `usd: { address, symbol }` instead of `usdc`; the
