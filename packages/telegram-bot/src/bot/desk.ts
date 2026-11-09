@@ -4,6 +4,7 @@ import type { Logger } from 'pino'
 import type { Decision, GuardClient, Settled } from '../adapters/guard.js'
 import { Alerts } from '../domain/alerts.js'
 import { mandateSettledText, mandateText } from '../domain/mandate.js'
+import { breakerText } from '../domain/notices.js'
 import {
   type Admission,
   ApprovalBook,
@@ -18,7 +19,6 @@ import {
   settledFallback,
   settledText,
 } from '../domain/text.js'
-import { breakerText } from '../domain/notices.js'
 import type { MandateRequest, ShadowedEvent } from '../http/schemas.js'
 import { approvalKeyboard, mandateKeyboard } from './keyboards.js'
 
