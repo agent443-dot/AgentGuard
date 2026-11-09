@@ -1194,7 +1194,8 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 **B. Robinhood Chain** — na Safe que já tens (`0xB460…9d8a`)
 
-6. Subir o teto de 5 para **20 USDG por dia** na página de assinatura, e pôr no cofre o que quiseres
+6. Voltar a pôr o teto — o kill do piloto removeu-o — agora de **20 USDG por dia** (`amount=20000000`)
+   na página de assinatura, e pôr no cofre o que quiseres
    para as primeiras semanas.
 7. A política do agente com os valores da D2, e um pagamento de teste.
 
