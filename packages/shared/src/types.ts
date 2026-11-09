@@ -206,6 +206,8 @@ export interface BudgetView {
   shadowSpentToday?: Amount
   /** CR-010: the agent's active mandates. Absent from a v0.5 guard-core. */
   mandates?: Mandate[]
+  /** CR-011: shadow mode since its first shadowed payment, so the bot can offer to go live. */
+  shadow?: { since: string; total: Amount; count: number }
 }
 
 /** One entry of GET /v1/admin/chains (CR-006). */
@@ -241,4 +243,28 @@ export interface X402FetchResponse {
   status?: IntentStatus
   response?: { status: number; headers: Record<string, string>; body: string }
   rejectReasons: RejectCode[]
+}
+
+/** One line of GET /v1/admin/doctor (CR-011). Plain English, never a secret. */
+export interface DoctorCheck {
+  id: string
+  status: 'ok' | 'warn' | 'fail'
+  message: string
+  /** What the owner can do about it. */
+  fix?: string
+}
+
+/** The hot wallet's native coin, which pays the gas of each draw (CR-011). */
+export interface HotWalletGas {
+  balance: Amount
+  /** Enough for a few draws; below it the doctor warns. */
+  minimum: Amount
+  symbol: string
+}
+
+/** One entry of GET /v1/admin/agents (CR-011). */
+export interface AgentSummary {
+  agentId: string
+  paused: boolean
+  mode: 'live' | 'shadow'
 }

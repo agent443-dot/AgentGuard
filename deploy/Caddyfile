@@ -1,0 +1,14 @@
+# HTTPS for the agent routes only. Caddy gets the certificate for {$DOMAIN} by itself.
+{$DOMAIN} {
+	@agent path /v1/agent/* /health
+	handle @agent {
+		reverse_proxy guard-core:8080 {
+			# guard-core's per-IP limit reads this header: set it to the real client, never pass the
+			# client's own.
+			header_up Fly-Client-IP {remote_host}
+		}
+	}
+	handle {
+		respond 404
+	}
+}
