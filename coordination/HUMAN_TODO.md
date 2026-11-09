@@ -51,7 +51,7 @@ Criados em 2026-11-03. Tudo público.
 | ------------------------- | ---------------------------------------------- |
 | Multisig Squads (Phantom) | `DrBCoaRm3XAfdwzdHrcqVepVLdRw5xudqwwe5y7TGvsL` |
 | Cofre do multisig         | `GDXdjdE1gfKexfQevgebkpe13VKdmyAe9nm3QdFtCXna` |
-| Hot wallet                | `DRtN…Voq1`                                    |
+| Hot wallet                | `DRtNJEgHdq7NqzVbdAu1LfqC6NQjPK2EgJku5XUfVoq1` |
 | Teto                      | 20 USDC por dia                                |
 
 **Robinhood Chain mainnet (4663) — lançada em 2026-11-09 (piloto na HUMAN-21)**
@@ -1245,18 +1245,40 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 ## ⏳ HUMAN-25 — Pedir à Phantom que reveja o domínio da página de assinatura
 
-Quando criaste o multisig na Solana mainnet, a Phantom marcou a transação como suspeita. Isso acontece
-com domínios novos que ela ainda não conhece, e o aviso vai aparecer a quem usar a página. Pedes uma
-revisão do domínio `agentguard-onchain.vercel.app` à Phantom:
+Quando criaste o multisig na Solana mainnet, a Phantom mostrou "Esta dApp pode ser maliciosa" e
+bloqueou o pedido até carregares em "Sim, confirmar (não seguro)". Só a criação do multisig foi
+marcada; o add-limit e o kill passaram sem aviso. Isto acontece com domínios novos que a Phantom ainda
+não conhece, e o aviso vai aparecer a quem usar a página.
 
-1. Abre o formulário de revisão de domínios da Phantom. Não consegui confirmar o link daqui; pedi-o ao
-   integrator e ponho-o aqui logo que o tiver.
-2. Domínio: `agentguard-onchain.vercel.app`.
-3. Descrição (em inglês, cola tal como está):
-   "Open-source signing page for AgentGuard (github.com/agent443-dot/AgentGuard). It builds Squads v4
-   multisig and spending-limit transactions for the owner's own wallet. No funds are sent to third
-   parties; every address is public and checked onchain before signing."
-4. Envia, e diz-me quando a Phantom responder.
+**Não há formulário oficial que eu ou o integrator tenhamos conseguido confirmar.** Há dois caminhos,
+nenhum garantido:
+
+1. **Um pedido público no repositório da lista de bloqueio da Phantom**,
+   [github.com/phantom/blocklist](https://github.com/phantom/blocklist): abres uma issue a pedir a
+   revisão manual do domínio. Já houve pedidos assim para outros domínios; não se sabe se resultam.
+   **É público**: fica visível para toda a gente, com o teu utilizador do GitHub. Cola isto (em
+   inglês, tal como está):
+
+   Título: `Manual review request: agentguard-onchain.vercel.app ("This dApp could be malicious")`
+
+   ```text
+   Phantom shows "This dApp could be malicious" on agentguard-onchain.vercel.app when it asks to sign
+   a Squads v4 multisigCreateV2 transaction, partly signed by a one-time create key. Adding a
+   spending limit and the kill (removing it) on the same page are not flagged.
+
+   The page is open source: https://github.com/agent443-dot/AgentGuard/tree/main/packages/onchain/web
+   It builds each transaction from public addresses only, checks them onchain before asking the
+   wallet to sign, and sends no funds to third parties. We would be grateful for a manual review.
+   ```
+
+2. **O suporte da Phantom**: em [help.phantom.com](https://help.phantom.com), "contact us", com o
+   mesmo texto.
+
+Faz o 1, e se em uma semana não houver resposta, faz o 2. Diz-me quando a Phantom responder.
+
+**A outra metade da solução**, para mais tarde: um domínio próprio para a página (por exemplo
+`sign.agentguard.xyz`) em vez de um subdomínio do Vercel. Se quiseres seguir por aí, diz-me e eu
+preparo os passos.
 
 ---
 
