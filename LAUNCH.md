@@ -140,20 +140,24 @@ Each line can be checked by someone other than its author.
 
 ### Open
 
-- [ ] **Launch conditions for a Phantom owner (D4)**, all three mandatory:
+- [x] **Launch conditions for a Phantom owner (D4)**, all three mandatory. The owner confirmed all
+      three for the "mAINNET" Phantom account on 2026-11-09:
   - a **fresh recovery phrase** dedicated to the owner account, created for it. Not a new account
     added to an existing Phantom, which would share that wallet's phrase;
   - that account is **used for nothing else**: no dapps, no other tokens, no signing anything but
     AgentGuard's owner operations;
   - the **vault is kept low**: it holds only what the agents need for the coming days, since a
     stolen owner key reaches all of it, not just the daily cap.
-- [ ] **Launch blocker, tied to D4: the owner's operations from Phantom, without exporting the key.**
+- [x] **Launch blocker, tied to D4: the owner's operations from Phantom, without exporting the key.**
       The repo's scripts sign with a key file or a Ledger, and neither fits D4. On devnet, with a
       **new** Phantom account used for nothing else, prove the owner can create the multisig and
       the spending limit, and, above all, remove the spending limit (the kill) by signing in Phantom,
       for example through the Squads app. Pass criteria: the kill lands on devnet signed from
       Phantom, `pnpm status` then prints `spending limit:   none at <address>`, and no Phantom key
       ever sits in a file. Until this passes, the kill switch's last step has no tested path.
+      **Passed:** on Solana devnet through the signing page (HUMAN-15, ADR 003), where the kill left
+      `spending limit: none`, and on Robinhood Chain mainnet in the pilot (HUMAN-21), where the
+      Phantom kill removed the delegate.
 - [ ] **The Phantom signing page is a trust root (D4, [ADR 003](docs/adr/003-phantom-owner.md)).**
       Whoever can change the deployed page can ask the owner to sign a harmful config change behind
       a harmless summary. Before launch: it is its own project on its own subdomain, separate from
