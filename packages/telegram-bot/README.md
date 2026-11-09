@@ -49,6 +49,17 @@ intent id is a duplicate. Intent events and alerts are refused when `sentAt` is 
 old. Intent events are deduplicated on intent id plus status, alerts on kind, agent and `sentAt`. Both memories are in-process: a replay right after a restart
 can post a message again, but its buttons cannot decide anything twice because guard-core answers 409.
 
+## Task budget approval
+
+An approval request with `mandate` and no `intent` is an agent asking for a task budget (CR-010).
+Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes
+(`ttlSeconds`, counted from approval; left out when guard-core does not send it, never taken from the
+pending mandate's `expiresAt`, which is only the approval deadline), the domains and any recipients it
+may pay (in full, at most ten of each with "and N more"), the expiry, and the agent's reason labelled
+`agent says:`.
+**Approve** and **Reject** call `POST /v1/bot/mandates/:id/decision`; the messages settle and expire
+exactly like a payment's, with the same replay window from `approveBefore`.
+
 ## Circuit breaker alert
 
 `kind: "breaker_tripped"` means guard-core has already paused the agent (CR-010). Every owner gets
@@ -103,13 +114,14 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 ## Commands
 
-| Command             | Does                                                                                                                                                                                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/status`           | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")              |
-| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                             |
-| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                           |
-| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |
-| `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
+| Command             | Does                                                                                                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/status`           | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), the pending task budgets, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported") |
+| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                                          |
+| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                                        |
+| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                                       |
+| `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live              |
+| `/report`           | The last 7 days from `GET /v1/admin/report` (CR-010): per agent, spend and payment count, refusals by code, and the top 5 domains by spend. Paged to fit Telegram's 4096 characters; an agent is never split across two messages                                              |
 
 ## Onchain kill in Phantom
 
@@ -159,6 +171,14 @@ row carry the same `issued` and expire and retire together.
   unless at least one chain is complete: `SQUADS_MULTISIG` with `SOLANA_HOT_WALLET_PUBKEY`, or
   `ROBINHOOD_SAFE_ADDRESS`, or both. Half a Solana pair is refused. Without `SIGN_PAGE_URL`, there are
   no buttons.
+
+## Weekly report
+
+With `REPORT_WEEKDAY` (0 is Sunday) and `REPORT_HOUR_UTC` both set, every owner gets the same report as
+`/report` in the first minute of that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
+at startup. If guard-core does not answer, the owners are told once to run `/report` later; the bot does
+not retry every tick. The sent marker is in memory, but a bot restarted after that first minute does
+not send it again.
 
 ## Notifications
 
@@ -211,7 +231,7 @@ fly apps create agentguard-bot --org <your-fly-org>
 
 # 3. Secrets: read from the bot's .env and piped straight in, never typed or printed.
 #    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
-cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
+cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS|REPORT_WEEKDAY|REPORT_HOUR_UTC)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
 
 # 4. Deploy one machine. The test refuses to run unless the root .dockerignore applies and excludes
 #    .env files. A Dockerfile.dockerignore next to the Dockerfile would replace it, not add to it.

@@ -50,6 +50,29 @@ export const approvalRequest = z
     unknownFlags: flags.filter((flag) => !isKnownFlag(flag)),
   }))
 
+export const mandate = z.object({
+  id: z.uuid(),
+  agentId: z.string().min(1).max(64),
+  budget: atomic,
+  spent: atomic,
+  domains: z.array(z.string().min(1).max(253)).max(64),
+  recipients: z.array(opaque).max(64),
+  reason: z.string().max(500),
+  status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
+  createdAt: isoTime,
+  expiresAt: isoTime,
+})
+
+/** An agent asks the owner for a task budget: the same body as a payment's, with a mandate instead. */
+export const mandateRequest = z.object({
+  mandate,
+  /** How long the budget lasts once approved; a guard-core that predates it leaves it out. */
+  ttlSeconds: z.number().int().min(1).max(86_400).optional(),
+  simulation: z.object({ summary: z.string().max(1000) }),
+  approveBefore: isoTime,
+})
+export type MandateRequest = z.infer<typeof mandateRequest>
+
 /**
  * An x402 offer guard-core refused is reported with whatever the 402 server sent: an empty chain,
  * an amount that is not atomic units, a payTo that is not even a string. Refusing the event would

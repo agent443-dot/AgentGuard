@@ -40,6 +40,10 @@ const { bot, desk, commands } = createBot({
   notifyAbove: config.NOTIFY_ABOVE_AMOUNT,
   log,
   phantomKills,
+  weekly:
+    config.REPORT_WEEKDAY === undefined || config.REPORT_HOUR_UTC === undefined
+      ? undefined
+      : { weekday: config.REPORT_WEEKDAY, hourUtc: config.REPORT_HOUR_UTC },
 })
 
 const server = await buildServer({
@@ -54,9 +58,12 @@ const server = await buildServer({
 })
 
 const sweep = setInterval(() => {
-  Promise.all([desk.expire(), desk.flushAlerts(), commands.expireKillOffers()]).catch(
-    (err: unknown) => log.error({ err }, 'sweep failed'),
-  )
+  Promise.all([
+    desk.expire(),
+    desk.flushAlerts(),
+    commands.expireKillOffers(),
+    commands.weeklyReport(),
+  ]).catch((err: unknown) => log.error({ err }, 'sweep failed'))
 }, EXPIRY_SWEEP_MS)
 
 await server.listen({ port: config.PORT, host: config.HOST })

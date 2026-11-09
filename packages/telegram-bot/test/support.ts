@@ -7,6 +7,7 @@ import { vi } from 'vitest'
 import type { GuardClient } from '../src/adapters/guard.js'
 import { createBot } from '../src/bot/index.js'
 import type { PhantomKill } from '../src/domain/phantom.js'
+import type { ReportSchedule } from '../src/domain/report.js'
 
 export const OWNER = { id: 1001, is_bot: false, first_name: 'Ana', username: 'ana' }
 export const OTHER_OWNER = { id: 1002, is_bot: false, first_name: 'Bo' }
@@ -63,6 +64,30 @@ export function approval(overrides: Partial<PayIntent> = {}): ApprovalRequest {
   }
 }
 
+export const MANDATE_ID = '7c1e2d3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f'
+
+export function mandateRequest(overrides: Record<string, unknown> = {}) {
+  return {
+    mandate: {
+      id: MANDATE_ID,
+      agentId: 'research-agent',
+      budget: '25000000',
+      spent: '0',
+      domains: ['api.example.com', 'data.example.org'],
+      recipients: [],
+      reason: 'Compile the <b>Q3</b> report',
+      status: 'pending_approval',
+      createdAt: NOW.toISOString(),
+      // Pending: this is the approval deadline, not the end of the budget.
+      expiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
+      ...overrides,
+    },
+    ttlSeconds: 5400,
+    simulation: { summary: 'Opens a task budget', balanceChanges: [] },
+    approveBefore: new Date(NOW.getTime() + 600_000).toISOString(),
+  }
+}
+
 export interface ApiCall {
   method: string
   payload: Record<string, unknown>
@@ -101,10 +126,12 @@ export function fakeGuard(overrides: Partial<GuardClient> = {}): GuardClient {
         status: decision === 'approve' ? 'approved' : 'rejected',
       }),
     })),
+    decideMandate: vi.fn(async () => ({ ok: true as const })),
     setPaused: vi.fn(async () => 'ok' as const),
     kill: vi.fn(async () => ({ pausedAgents: 2, ownerTransactions: [] })),
     budget: vi.fn(async () => undefined),
     chains: vi.fn(async () => undefined),
+    report: vi.fn(async () => []),
     healthy: vi.fn(async () => true),
     ...overrides,
   }
@@ -116,6 +143,7 @@ export function setup(
     now?: () => Date
     fail?: (call: ApiCall) => boolean
     phantomKills?: PhantomKill[]
+    weekly?: ReportSchedule
   } = {},
 ) {
   const guard = options.guard ?? fakeGuard()
@@ -128,6 +156,7 @@ export function setup(
     now: options.now ?? (() => NOW),
     botConfig: { botInfo: BOT_INFO },
     phantomKills: options.phantomKills,
+    weekly: options.weekly,
   })
   const calls = mockTelegram(bot, options.fail)
   return { bot, desk, commands, guard, calls }
