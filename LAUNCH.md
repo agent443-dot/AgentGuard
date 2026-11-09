@@ -51,7 +51,8 @@ the chain:
 
 Details and two findings are in docs/security-review.md. The pilot found that the bot on Fly was
 older than `main`. **Before any live run, redeploy every app whose package changed and check the
-image in `fly status`.** If a chain's Phantom kill button is missing, use the manual kill link:
+image in `fly status`.** Since then, `.github/workflows/deploy.yml` deploys guard-core and the bot
+after CI passes on `main`, once the owner has added their deploy tokens (HUMAN-22). If a chain's Phantom kill button is missing, use the manual kill link:
 `https://agentguard-onchain.vercel.app/?action=kill&cluster=robinhood&safe=<Safe>&issued=$(date +%s)`,
 opened within 15 minutes, from `/kill` → Confirm first.
 
@@ -199,7 +200,8 @@ Each line can be checked by someone other than its author.
       in a temp directory, and `pnpm db:backup` takes a consistent copy while it runs. Done on Fly:
       the encrypted `guard_data` volume with daily snapshots, and `spentToday` survived a restart
       (INT-7). **Left:** a backup schedule.
-- [ ] **Launch blocker: one backup restore rehearsed.** The drill:
+- [x] **Launch blocker: one backup restore rehearsed** (passed 2026-11-09, results in
+      docs/security-review.md). The drill:
   1. `db:backup` on the Fly machine, into `/data/backups/`;
   2. `fly ssh sftp get` the file to the owner's machine. That copy is the one that survives a lost
      volume;

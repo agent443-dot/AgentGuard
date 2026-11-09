@@ -130,8 +130,8 @@ the session record. Both images were built from `main` as pulled at 19:00 UTC on
 - ✅ The bot has no public service. It answers Telegram by long polling, and guard-core reaches its
   hooks only over 6PN. `/status` in Telegram reached guard-core at
   `agentguard-guard-core.internal:8787`.
-- Open: `fly ips list` for the bot app was not checked. It has no `[http_service]`, so no
-  traffic is routed to it even if Fly allocated an address.
+- ✅ `fly ips list --app agentguard-bot` is empty (2026-11-09): the bot has no IP at all, public or
+  private, beyond its 6PN address.
 
 **The public agent surface (GC-22)**
 
@@ -145,7 +145,8 @@ the session record. Both images were built from `main` as pulled at 19:00 UTC on
   real client address.
 - ✅ Error bodies are Fastify's 404 and the API's `{"error":"unauthorized"}`. No stack, file path or
   config value was seen.
-- Open: a revoked token was not tested live. It is covered by the tests.
+- ✅ A revoked token, live (2026-11-09): a new agent `drill-revoke` was created on the machine. Its
+  token read its budget with 200, and after `revoke-agent` the same token got 401.
 
 **Secrets (D5)**
 
@@ -160,8 +161,13 @@ the session record. Both images were built from `main` as pulled at 19:00 UTC on
   keeps keys out, and CI's decoy check covers it.
 - ✅ The three shared tokens are Fly secrets, identical between the two apps (same digests), and
   not in `fly.toml`.
-- Open: a full grep of `fly logs` for secrets across a payment, an approval and a kill. The log
-  lines read during the run showed none, but no systematic grep was done.
+- ✅ Log grep (2026-11-09) over both apps' `fly logs` buffer (152 lines):
+  - every secret, compared by value, was found 0 times. The secrets checked were the three shared
+    tokens, the agent token, the Telegram bot token, the Robinhood hot key and the paywall key;
+  - no `Bearer` or `Authorization`, and no 32-byte hex.
+
+  The buffer only reached back a few hours, so this grep is repeated after the launch test
+  payment and kill.
 
 **Data**
 
@@ -169,7 +175,13 @@ the session record. Both images were built from `main` as pulled at 19:00 UTC on
   `node`, with daily Fly snapshots kept for 5 days.
 - ✅ After a 0.5 USDC payment, `spentToday` was `500000` before and after `fly machine restart`.
   The machine came back healthy, which also shows the entrypoint rewrites the key on each boot.
-- Open: `pnpm db:backup` against the volume, and one restore rehearsal.
+- ✅ Restore drill (2026-11-09, launch blocker):
+  - `db:backup` ran on the Fly machine, and `fly ssh sftp get` copied the 72 KB file to the
+    owner's machine (mode 0600);
+  - `restore-drill` opened a copy with the current code and migrations;
+  - fly-agent's policy came back (Robinhood, USDG, 1/5, paused), as did today's spend (500000),
+    both executed intents, both days' spend and all 15 audit events up to the two kills. All of it
+    matched the live guard.
 
 **Operations**
 

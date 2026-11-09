@@ -1,0 +1,79 @@
+name: Deploy
+
+# Deploys guard-core and the bot to Fly.io after CI passes on main, so the hosted apps never lag
+# behind main (the Robinhood pilot found a bot older than main, HUMAN-21). Each app deploys only when
+# the commit touched what goes into its image. Each app has its own deploy token, scoped to that
+# app; without a token its job says so and deploys nothing.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    name: deploy ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - app: agentguard-guard-core
+            package: guard-core
+            paths: packages/guard-core packages/onchain/src packages/onchain/package.json packages/shared pnpm-lock.yaml .dockerignore
+            token: FLY_API_TOKEN_GUARD
+          - app: agentguard-bot
+            package: telegram-bot
+            paths: packages/telegram-bot packages/shared pnpm-lock.yaml .dockerignore
+            token: FLY_API_TOKEN_BOT
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+      - name: Changed for this app?
+        id: changed
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- ${{ matrix.paths }}; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing in ${{ matrix.paths }} changed; ${{ matrix.app }} stays as it is."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Token present?
+        id: token
+        if: steps.changed.outputs.deploy == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets[matrix.token] }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No ${{ matrix.token }} secret: ${{ matrix.app }} was not deployed. Deploy it by hand (LAUNCH.md)."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      # Pinned to the commit of superfly/flyctl-actions 1.6.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        if: steps.token.outputs.present == 'true'
+      - name: Deploy
+        if: steps.token.outputs.present == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets[matrix.token] }}
+        run: |
+          # Same guard as the owner's manual deploy: no .env may reach Fly's builder.
+          grep -qx '\*\*/.env' .dockerignore
+          flyctl deploy . --app ${{ matrix.app }} \
+            --config packages/${{ matrix.package }}/fly.toml \
+            --dockerfile packages/${{ matrix.package }}/Dockerfile \
+            --ha=false
+          flyctl status --app ${{ matrix.app }}
