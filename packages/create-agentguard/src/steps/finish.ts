@@ -46,7 +46,9 @@ export async function finish(ctx: Ctx, setup: Setup, state: State): Promise<void
   })
   ctx.say()
   const tokenFile = agentTokenFile(setup.paths, setup.answers.prefix, setup.answers.agentId)
-  ctx.say('Done. In this checkout, connect your agent with one line. It asks for the agent token, in')
+  ctx.say(
+    'Done. In this checkout, connect your agent with one line. It asks for the agent token, in',
+  )
   ctx.say(`${tilde(tokenFile, ctx.home)}:`)
   ctx.say('  pnpm --filter @agentguard/mcp-server run setup claude-code')
   ctx.say('Later, `pnpm --filter create-agentguard start doctor` checks everything again.')

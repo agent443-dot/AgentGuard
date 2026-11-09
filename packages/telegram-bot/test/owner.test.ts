@@ -36,7 +36,9 @@ describe('/agent', () => {
     expect(admin.createAgent).toHaveBeenCalledWith('research-agent')
     const [info, token] = sent(calls, 'sendMessage')
     expect(text(info)).toContain('in <b>shadow mode</b> with a deny-all policy')
-    expect(text(info)).toContain('<code>pnpm --filter @agentguard/mcp-server run setup claude-code</code>')
+    expect(text(info)).toContain(
+      '<code>pnpm --filter @agentguard/mcp-server run setup claude-code</code>',
+    )
     expect(text(info)).not.toContain(TOKEN)
     expect(text(token)).toBe(
       `<code>${TOKEN}</code>\nCopy it now: this message deletes itself in about a minute.`,
