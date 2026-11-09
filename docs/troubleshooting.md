@@ -1,8 +1,7 @@
 # Troubleshooting
 
 Problems people hit while setting up and running AgentGuard, each with its fix. Most were met during
-our own launch. If yours is not here, `create-agentguard doctor` or `/doctor` in Telegram checks the
-running setup, and you can open an issue. Report security problems privately, as `SECURITY.md` says.
+our own launch. If yours is not here, open an issue. Report security problems privately, as `SECURITY.md` says.
 
 ## Signing page
 
@@ -47,8 +46,8 @@ vault, not the multisig.
 `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`. Other tokens on that chain use the same name.
 
 **Payments fail on an EVM chain with the cap set and the Safe funded.** The hot wallet pays the gas
-to draw from the Safe, so it needs a little of the chain's native coin. `/doctor` warns when it runs
-low.
+to draw from the Safe, so it needs a little of the chain's native coin. Send it a little; 0.0005 ETH
+covers many draws on Robinhood Chain.
 
 **You gave a devnet address for mainnet.** Never reuse a devnet or testnet key or account on mainnet.
 Make new ones, as `docs/self-host.md` step 2 says.
