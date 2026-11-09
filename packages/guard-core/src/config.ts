@@ -58,6 +58,9 @@ export const configSchema = z.object({
   /** Path to a file holding the hot wallet's private key, 0x and 64 hex digits. */
   ROBINHOOD_HOT_WALLET_KEY_FILE: optional(z.string().min(1)),
 
+  /** An Ed25519 private key in PEM that signs a receipt for every executed payment. Off unset. */
+  RECEIPT_SIGNING_KEY_FILE: optional(z.string().min(1)),
+
   /** Offline chains that move no money. For local development only. */
   GUARD_STUB_CHAINS: z.enum(['true', 'false']).default('false'),
   EXPIRY_SWEEP_MS: z.coerce.number().int().positive().default(30_000),

@@ -8,6 +8,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest,
 } from 'fastify'
+import type { KeyObject } from 'node:crypto'
 import { isIP } from 'node:net'
 import { z } from 'zod'
 import { httpBotNotifier, type BotNotifier } from '../adapters/bot.js'
@@ -17,6 +18,7 @@ import { usdcFor } from '../chains.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
 import { serializeError } from '../domain/redact.js'
 import { sweep } from '../service/payments.js'
+import { publicKeyHex } from '../service/receipts.js'
 import { serial } from '../service/serial.js'
 import type { X402Deps } from '../service/x402.js'
 import { adminRoutes } from './admin.js'
@@ -38,6 +40,8 @@ export interface ServerDeps {
   now?: () => Date
   /** Runs the expiry sweep on this interval. Off when unset, as in tests that drive it directly. */
   sweepMs?: number
+  /** Signs receipts. Receipts are off without it. */
+  receiptKey?: KeyObject
 }
 
 /**
@@ -108,6 +112,7 @@ function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
     now: options.now ?? (() => new Date()),
     serial: serial(),
     log,
+    ...(options.receiptKey === undefined ? {} : { receiptKey: options.receiptKey }),
   }
 }
 
@@ -184,6 +189,13 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
   }
 
   app.get('/health', async () => ({ status: 'ok' }))
+
+  // Public on purpose: anyone holding a receipt can check it without trusting this server.
+  app.get('/v1/receipts/key', async (_request, reply) =>
+    deps.receiptKey === undefined
+      ? reply.code(404).send({ error: 'not_configured' })
+      : { publicKey: publicKeyHex(deps.receiptKey) },
+  )
 }
 
 function issuesOf(error: z.ZodError): { path: string; message: string }[] {

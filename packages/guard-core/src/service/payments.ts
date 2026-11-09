@@ -1,18 +1,20 @@
 import type { ChainAdapter } from '@agentguard/onchain'
 import type { ApprovalFlag, ChainId, PayIntent, RejectCode } from '@agentguard/shared'
 import type { FastifyBaseLogger } from 'fastify'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, type KeyObject } from 'node:crypto'
 import type { BotNotifier } from '../adapters/bot.js'
 import type { Db } from '../db/client.js'
 import { admit } from '../db/breaker.js'
 import { addMandateSpend, expireMandates, getMandate } from '../db/mandates.js'
 import { getPin } from '../db/pins.js'
+import { ownerApprovalMethod, saveClearance } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
 import { mandateReasons } from '../domain/mandate.js'
 import { pinFlags } from '../domain/pinning.js'
 import { evaluate } from '../domain/policy.js'
 import { askOwner, expirePending, expiresAt } from './approvals.js'
+import { issueReceipt, policyHash } from './receipts.js'
 import { simulate } from './simulate.js'
 import { alert, notify } from './events.js'
 import type { Serial } from './serial.js'
@@ -26,6 +28,8 @@ export interface PaymentDeps {
   now: () => Date
   serial: Serial
   log: Pick<FastifyBaseLogger, 'warn' | 'error'>
+  /** Signs a receipt for every executed payment. Receipts are off without it. */
+  receiptKey?: KeyObject
 }
 
 export type Terms = Pick<
@@ -151,6 +155,12 @@ export async function clear(
 
   const approved: PayIntent = { ...intent, status: 'approved', rejectReasons: [] }
   repo.saveIntent(db, approved)
+  saveClearance(db, {
+    intentId: intent.id,
+    policyHash: policyHash(policy),
+    simulation: simulation.summary,
+    approvedBy: ownerApproved ? (ownerApprovalMethod(db, intent.id) ?? 'owner') : 'policy',
+  })
   return { cleared: true, intent: approved, adapter }
 }
 
@@ -267,6 +277,14 @@ export function finish(
     },
     deps.now(),
   )
+  if (done.status === 'executed' && deps.receiptKey !== undefined) {
+    // A receipt that cannot be issued must not undo a payment that already happened.
+    try {
+      issueReceipt(deps.db, deps.receiptKey, done, deps.now())
+    } catch (error) {
+      deps.log.error({ err: error, intentId: intent.id }, 'receipt not issued')
+    }
+  }
   notify(deps, done)
   return done
 }

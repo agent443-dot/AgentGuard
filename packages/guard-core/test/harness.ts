@@ -4,6 +4,7 @@ import { CHAINS } from '@agentguard/shared'
 import { encodePaymentRequiredHeader, encodePaymentResponseHeader } from '@x402/core/http'
 import type { PaymentRequirements } from '@x402/core/types'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import type { KeyObject } from 'node:crypto'
 import { vi } from 'vitest'
 import type { BotNotifier } from '../src/adapters/bot.js'
 import { StubChain } from '../src/adapters/stub.js'
@@ -44,7 +45,12 @@ export interface Harness {
 }
 
 export async function harness(
-  options: { policy?: Partial<Policy>; balance?: bigint; sweepMs?: number } = {},
+  options: {
+    policy?: Partial<Policy>
+    balance?: bigint
+    sweepMs?: number
+    receiptKey?: KeyObject
+  } = {},
 ): Promise<Harness> {
   const db = openDb(':memory:')
   migrate(db, { migrationsFolder: 'migrations' })
@@ -88,6 +94,7 @@ export async function harness(
     fetch: fetchMock,
     now: () => clock.now,
     ...(options.sweepMs === undefined ? {} : { sweepMs: options.sweepMs }),
+    ...(options.receiptKey === undefined ? {} : { receiptKey: options.receiptKey }),
   })
 
   return {

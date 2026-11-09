@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { getReceipt } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { hashToken, parseBearer } from '../domain/auth.js'
 import { UpstreamError } from '../adapters/upstream.js'
@@ -94,6 +95,14 @@ export function agentRoutes(
         throw new HttpError(403, 'forbidden')
       }
       return mandateReply(reply, await openMandate(deps, body, false))
+    })
+
+    // Same rule as the intent itself: another agent's receipt is reported as missing.
+    app.get('/intents/:id/receipt', async (request, reply) => {
+      const { id } = intentIdParam.parse(request.params)
+      const intent = repo.getIntent(db, id)
+      const receipt = intent?.agentId === request.agentId ? getReceipt(db, id) : undefined
+      return receipt ?? reply.code(404).send({ error: 'not_found' })
     })
 
     app.get('/intents/:id', async (request, reply) => {

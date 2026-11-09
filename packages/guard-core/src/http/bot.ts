@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { decideMandate } from '../db/mandates.js'
 import { pin } from '../db/pins.js'
+import { recordOwnerApproval } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { decide } from '../service/approvals.js'
 import { notify } from '../service/events.js'
@@ -63,12 +64,14 @@ export function botRoutes(deps: PaymentDeps) {
       // old pin, so the same request stays flagged.
       if (decision === 'reject') {
         notify(deps, result.intent)
-      } else if (result.intent.kind === 'x402') {
-        pin(db, result.intent, now())
-      } else {
-        return (await sendApproved(deps, intentId)) ?? result.intent
+        return result.intent
       }
-      return result.intent
+      recordOwnerApproval(db, intentId, 'owner')
+      if (result.intent.kind === 'x402') {
+        pin(db, result.intent, now())
+        return result.intent
+      }
+      return (await sendApproved(deps, intentId)) ?? result.intent
     })
   }
 }

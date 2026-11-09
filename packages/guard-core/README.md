@@ -186,6 +186,24 @@ every agent, a quiet one included, with what its executed payments spent (the su
 each chain's dollar, USDC or USDG, all with 6 decimals), how many there were,
 every refusal counted by code, and the spend per x402 domain, biggest first.
 
+### Receipts
+
+With `RECEIPT_SIGNING_KEY_FILE` set, an Ed25519 private key in PEM that is separate from every hot
+wallet key, each executed payment gets a signed receipt: the intent, the SHA-256 of the canonical
+JSON of the policy it cleared under, the simulation summary, who approved it (`policy`, `owner` or
+`passkey`) and the time. The signature covers the canonical JSON of all of that: keys sorted at
+every depth, no whitespace. The policy, simulation and approver are recorded when the payment
+clears, because the policy may change before it executes.
+
+- `GET /v1/agent/intents/:id/receipt`: 404 until the intent has executed, and for another agent's.
+- `GET /v1/admin/receipts?from&to`: the same period rules as the report.
+- `GET /v1/receipts/key` on both listeners, without a token: `{ publicKey }`, the raw 32-byte key in
+  hex, so anyone holding a receipt can check it without trusting this server.
+
+Without the key, receipts are off and nothing else changes. Generate one with
+`openssl genpkey -algorithm ed25519 -out receipt.pem`. On Fly it is the `RECEIPT_SIGNING_KEY`
+secret, which the entrypoint moves to tmpfs like the hot keys.
+
 ### Events to the bot
 
 A flagged approval request also carries `pinned: { recipient, amount }`, the domain's last executed

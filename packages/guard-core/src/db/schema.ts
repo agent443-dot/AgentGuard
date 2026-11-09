@@ -1,6 +1,7 @@
 import type {
   Address,
   Mandate,
+  Receipt,
   Amount,
   ChainId,
   IntentStatus,
@@ -184,4 +185,39 @@ export const mandates = sqliteTable(
     index('mandates_agent_status').on(t.agentId, t.status),
     index('mandates_expires_at').on(t.expiresAt),
   ],
+)
+
+/**
+ * What cleared a payment, kept for its receipt: a hash of the policy in force, the simulation's
+ * summary, and who approved it. Written at clearance, because by the time the payment executes the
+ * policy may have changed.
+ */
+export const clearances = sqliteTable('clearances', {
+  intentId: text('intent_id')
+    .primaryKey()
+    .references(() => intents.id),
+  policyHash: text('policy_hash').notNull(),
+  simulation: text('simulation').notNull(),
+  approvedBy: text('approved_by').$type<Receipt['approvedBy']>().notNull(),
+})
+
+/** How the owner approved an intent: by a Telegram tap, or with a passkey. */
+export const ownerApprovals = sqliteTable('owner_approvals', {
+  intentId: text('intent_id')
+    .primaryKey()
+    .references(() => intents.id),
+  method: text('method').$type<'owner' | 'passkey'>().notNull(),
+})
+
+/** One signed receipt per executed intent. */
+export const receipts = sqliteTable(
+  'receipts',
+  {
+    intentId: text('intent_id')
+      .primaryKey()
+      .references(() => intents.id),
+    issuedAt: text('issued_at').notNull(),
+    body: text('body', { mode: 'json' }).$type<Receipt>().notNull(),
+  },
+  (t) => [index('receipts_issued_at').on(t.issuedAt)],
 )

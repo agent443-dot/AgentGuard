@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { createAgent, listAgents, revokeAgent } from '../db/agents.js'
 import { clearWindow } from '../db/breaker.js'
 import { revokeMandate } from '../db/mandates.js'
+import { receiptsBetween } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
@@ -22,6 +23,23 @@ import {
   REPORT_MAX_SPAN_MS,
   reportQuery,
 } from './schemas.js'
+
+/**
+ * A report or receipt period: the last seven days by default, a year at most. Checked once both
+ * ends are known, so a lone `from` cannot ask for ten years.
+ */
+function period(query: unknown, now: () => Date) {
+  const parsed = reportQuery.parse(query)
+  const to = parsed.to === undefined ? now() : new Date(parsed.to)
+  const from =
+    parsed.from === undefined
+      ? new Date(to.getTime() - REPORT_DEFAULT_SPAN_MS)
+      : new Date(parsed.from)
+  if (from >= to || to.getTime() - from.getTime() > REPORT_MAX_SPAN_MS) {
+    throw new HttpError(400, 'invalid_request')
+  }
+  return { from, to }
+}
 
 export function adminRoutes(
   deps: PaymentDeps & { fetch: typeof fetch },
@@ -111,17 +129,13 @@ export function adminRoutes(
     })
 
     app.get('/report', async (request) => {
-      const query = reportQuery.parse(request.query)
-      const to = query.to === undefined ? now() : new Date(query.to)
-      const from =
-        query.from === undefined
-          ? new Date(to.getTime() - REPORT_DEFAULT_SPAN_MS)
-          : new Date(query.from)
-      // Checked once both ends are known, so a lone `from` cannot ask for ten years.
-      if (from >= to || to.getTime() - from.getTime() > REPORT_MAX_SPAN_MS) {
-        throw new HttpError(400, 'invalid_request')
-      }
+      const { from, to } = period(request.query, now)
       return { agents: summarise(repo.agentIds(db), repo.intentsBetween(db, from, to)) }
+    })
+
+    app.get('/receipts', async (request) => {
+      const { from, to } = period(request.query, now)
+      return { receipts: receiptsBetween(db, from, to) }
     })
 
     app.put('/policy/:agentId', async (request) => {

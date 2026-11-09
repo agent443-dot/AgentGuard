@@ -1,3 +1,4 @@
+import { readReceiptKeyFile } from './adapters/keypair.js'
 import { buildChains } from './chains.js'
 import { loadConfig } from './config.js'
 import { migrateDb, openDb } from './db/client.js'
@@ -12,10 +13,20 @@ const db = openDb(config.DATABASE_URL)
 migrateDb(db)
 
 const chains = await buildChains(config)
+const receiptKey =
+  config.RECEIPT_SIGNING_KEY_FILE === undefined
+    ? undefined
+    : await readReceiptKeyFile(config.RECEIPT_SIGNING_KEY_FILE)
 
 const split = config.PUBLIC_PORT !== undefined
 const [app, publicApp] = await buildServers(
-  { db, config, chains, sweepMs: config.EXPIRY_SWEEP_MS },
+  {
+    db,
+    config,
+    chains,
+    sweepMs: config.EXPIRY_SWEEP_MS,
+    ...(receiptKey === undefined ? {} : { receiptKey }),
+  },
   split ? (['private', 'public'] as const) : (['all'] as const),
 )
 
