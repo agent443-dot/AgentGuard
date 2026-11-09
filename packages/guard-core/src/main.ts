@@ -2,6 +2,7 @@ import { readReceiptKeyFile } from './adapters/keypair.js'
 import { buildChains } from './chains.js'
 import { loadConfig } from './config.js'
 import { migrateDb, openDb } from './db/client.js'
+import { countPasskeys } from './db/passkeys.js'
 import { requirePersistentDb } from './db/placement.js'
 import { buildServers } from './http/server.js'
 
@@ -11,6 +12,12 @@ requirePersistentDb(config)
 
 const db = openDb(config.DATABASE_URL)
 migrateDb(db)
+
+// Approvals above PASSKEY_ABOVE need a passkey; with none enrolled, nothing above it could ever be
+// approved, and the owner would find out only when one was needed.
+if (config.PASSKEY_ABOVE !== undefined && countPasskeys(db) === 0) {
+  throw new Error('invalid configuration: PASSKEY_ABOVE is set but no passkey is enrolled')
+}
 
 const chains = await buildChains(config)
 const receiptKey =

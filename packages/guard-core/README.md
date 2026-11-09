@@ -204,6 +204,30 @@ Without the key, receipts are off and nothing else changes. Generate one with
 `openssl genpkey -algorithm ed25519 -out receipt.pem`. On Fly it is the `RECEIPT_SIGNING_KEY`
 secret, which the entrypoint moves to tmpfs like the hot keys.
 
+### Passkey approvals
+
+With `PASSKEY_ABOVE` set (an amount), an intent at or above it can be approved only with a passkey
+the owner enrolled, never by a Telegram tap alone. A stolen Telegram account can still reject it,
+never approve it. `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` name guard-core's public address, which the
+passkey is bound to, so a look-alike site cannot use it.
+
+- Enrolment, through the admin routes only: `POST /v1/admin/passkeys/options` returns the WebAuthn
+  registration options, and `POST /v1/admin/passkeys { response }` verifies and stores the
+  passkey's public key. It requires user verification, and the challenge is single-use and lasts
+  five minutes.
+- The approval request for such an intent carries `passkey: true`, and `/v1/bot/decision` answers
+  `approve` with 403 `passkey_required` (a rejection still works).
+- `GET /owner/approve/:intentId`, on the public listener, is a small page that runs WebAuthn for
+  this origin. Its challenge is bound to that one intent, single-use, and expires with it.
+  `POST /v1/owner/approve { intentId, assertion }` verifies the assertion and approves; a transfer
+  is then sent, and an x402 payment waits for the agent's repeat, as after a Telegram approval. The
+  receipt says `approvedBy: "passkey"`.
+- The page's CSP allows only its own script (no inline code) and its own API, and the agent's text
+  is shown as text. The public listener's rate limit applies.
+
+Enrol a passkey before setting `PASSKEY_ABOVE`: with it set and none enrolled, guard-core refuses to
+start, because nothing above the amount could ever be approved.
+
 ### Events to the bot
 
 A flagged approval request also carries `pinned: { recipient, amount }`, the domain's last executed

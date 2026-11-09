@@ -57,7 +57,7 @@ beforeEach(() => {
 
 describe('requestApproval', () => {
   it('persists the intent before asking, so a silent bot still leaves something to expire', async () => {
-    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
+    await requestApproval(db, notifier, intent(), simulation, { flags: [], passkey: false })
     const [row] = db.select().from(schema.intents).all()
     expect(row?.status).toBe('pending_approval')
     expect(notifier.requestApproval).toHaveBeenCalledOnce()
@@ -70,7 +70,7 @@ describe('requestApproval', () => {
 
 describe('decide', () => {
   beforeEach(async () => {
-    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
+    await requestApproval(db, notifier, intent(), simulation, { flags: [], passkey: false })
   })
 
   it('approves while the window is open', () => {
@@ -109,7 +109,7 @@ describe('decide', () => {
 
 describe('expirePending', () => {
   it('closes only what is pending and past its window', async () => {
-    await requestApproval(db, notifier, intent(), simulation, { flags: [] })
+    await requestApproval(db, notifier, intent(), simulation, { flags: [], passkey: false })
     db.insert(schema.intents)
       .values({
         ...intent({ id: '11111111-1111-4111-8111-111111111111', status: 'executed' }),

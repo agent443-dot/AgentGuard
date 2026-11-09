@@ -43,6 +43,13 @@
       "when": 1794251128874,
       "tag": "0005_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794251355401,
+      "tag": "0006_passkeys",
+      "breakpoints": true
     }
   ]
 }

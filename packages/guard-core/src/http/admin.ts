@@ -1,4 +1,5 @@
 import type { ChainStatus } from '@agentguard/shared'
+import type { RegistrationResponseJSON } from '@simplewebauthn/server'
 import type { FastifyInstance } from 'fastify'
 import { createAgent, listAgents, revokeAgent } from '../db/agents.js'
 import { clearWindow } from '../db/breaker.js'
@@ -8,6 +9,7 @@ import * as repo from '../db/repo.js'
 import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
 import { doctor } from '../service/doctor.js'
+import { enrol, enrolmentOptions } from '../service/passkeys.js'
 import { openMandate } from '../service/mandates.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
@@ -18,6 +20,7 @@ import {
   idParam,
   mandateRequest,
   newAgentRequest,
+  passkeyEnrolment,
   policyBody,
   REPORT_DEFAULT_SPAN_MS,
   REPORT_MAX_SPAN_MS,
@@ -43,9 +46,16 @@ function period(query: unknown, now: () => Date) {
 
 export function adminRoutes(
   deps: PaymentDeps & { fetch: typeof fetch },
-  setup: { botUrl: string; databaseUrl: string },
+  setup: { botUrl: string; databaseUrl: string; passkeyRpId?: string; passkeyOrigin?: string },
 ) {
   const { db, now } = deps
+
+  function passkeyAddress() {
+    if (setup.passkeyRpId === undefined || setup.passkeyOrigin === undefined) {
+      throw new HttpError(409, 'passkeys_not_configured')
+    }
+    return { rpId: setup.passkeyRpId, origin: setup.passkeyOrigin }
+  }
 
   return async (app: FastifyInstance) => {
     // A new agent pays nothing: its policy denies everything and it starts in shadow mode.
@@ -71,6 +81,23 @@ export function adminRoutes(
         repo.audit(db, { event: 'agent_revoked', agentId: id }, now())
       }
       return { agentId: id, revoked: true }
+    })
+
+    // The passkey is bound to guard-core's public address, so enrolment needs it configured.
+    app.post('/passkeys/options', async () => {
+      const setup = passkeyAddress()
+      return enrolmentOptions(db, setup, now())
+    })
+
+    app.post('/passkeys', async (request, reply) => {
+      const { response } = passkeyEnrolment.parse(request.body)
+      // The library checks the whole response; the schema only bounded its size and outer shape.
+      const registration = response as unknown as RegistrationResponseJSON
+      if (!(await enrol(db, passkeyAddress(), registration, now()))) {
+        return reply.code(400).send({ error: 'passkey_not_verified' })
+      }
+      repo.audit(db, { event: 'passkey_enrolled' }, now())
+      return { enrolled: true }
     })
 
     app.get('/doctor', async () => ({ checks: await doctor({ ...deps, ...setup }) }))

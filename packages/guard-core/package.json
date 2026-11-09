@@ -25,6 +25,7 @@
     "@agentguard/onchain": "workspace:*",
     "@agentguard/shared": "workspace:*",
     "@fastify/rate-limit": "^11.2.2",
+    "@simplewebauthn/server": "^13.3.3",
     "@x402/core": "^2.29.0",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.4",

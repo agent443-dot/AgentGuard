@@ -221,3 +221,26 @@ export const receipts = sqliteTable(
   },
   (t) => [index('receipts_issued_at').on(t.issuedAt)],
 )
+
+/** The owner's passkeys. Only the public key is kept; the private one never leaves the device. */
+export const passkeys = sqliteTable('passkeys', {
+  /** The credential id, base64url. */
+  id: text('id').primaryKey(),
+  /** COSE public key, base64url. */
+  publicKey: text('public_key').notNull(),
+  /** The authenticator's signature counter; a step backwards hints at a cloned key. */
+  counter: integer('counter').notNull(),
+  transports: text('transports', { mode: 'json' }).$type<string[]>().notNull(),
+  createdAt: text('created_at').notNull(),
+})
+
+/**
+ * Outstanding WebAuthn challenges, each for one purpose: enrolling a passkey, or approving one
+ * intent. Taken once and deleted, so an assertion cannot be replayed.
+ */
+export const passkeyChallenges = sqliteTable('passkey_challenges', {
+  /** `registration`, or the intent id the approval is for. */
+  purpose: text('purpose').primaryKey(),
+  challenge: text('challenge').notNull(),
+  expiresAt: text('expires_at').notNull(),
+})

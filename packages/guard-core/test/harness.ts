@@ -20,6 +20,7 @@ export const ADMIN_TOKEN = 'a'.repeat(64)
 export const BOT_TOKEN = 'b'.repeat(64)
 export const AGENT_TOKEN = 'agent-token-which-is-long-enough'
 export const NOW = new Date('2026-11-03T12:00:00Z')
+export const PASSKEY_RP = { id: 'guard.example', origin: 'https://guard.example' }
 
 export const basePolicy: Omit<Policy, 'agentId'> = {
   chains: [CHAIN],
@@ -50,6 +51,8 @@ export async function harness(
     balance?: bigint
     sweepMs?: number
     receiptKey?: KeyObject
+    /** Turns passkey approvals on at this amount, for the relying party in PASSKEY_RP. */
+    passkeyAbove?: string
   } = {},
 ): Promise<Harness> {
   const db = openDb(':memory:')
@@ -88,6 +91,9 @@ export async function harness(
       BOT_URL: 'http://bot.local',
       BOT_WEBHOOK_SECRET: 'c'.repeat(64),
       LOG_LEVEL: 'fatal',
+      PASSKEY_RP_ID: PASSKEY_RP.id,
+      PASSKEY_ORIGIN: PASSKEY_RP.origin,
+      ...(options.passkeyAbove === undefined ? {} : { PASSKEY_ABOVE: options.passkeyAbove }),
     }),
     chains: new Map([[CHAIN, chain]]),
     bot,

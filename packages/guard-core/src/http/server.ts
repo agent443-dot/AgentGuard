@@ -18,12 +18,14 @@ import { usdcFor } from '../chains.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
 import { serializeError } from '../domain/redact.js'
 import { sweep } from '../service/payments.js'
+import type { PasskeySetup } from '../service/passkeys.js'
 import { publicKeyHex } from '../service/receipts.js'
 import { serial } from '../service/serial.js'
 import type { X402Deps } from '../service/x402.js'
 import { adminRoutes } from './admin.js'
 import { agentRoutes } from './agent.js'
 import { botRoutes } from './bot.js'
+import { ownerRoutes } from './owner.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -94,6 +96,13 @@ export async function buildServers(
   return apps as [Server, ...Server[]]
 }
 
+function passkeySetup(config: Config): { passkey: PasskeySetup } | undefined {
+  const { PASSKEY_ABOVE: above, PASSKEY_RP_ID: rpId, PASSKEY_ORIGIN: origin } = config
+  return above === undefined || rpId === undefined || origin === undefined
+    ? undefined
+    : { passkey: { above, rpId, origin } }
+}
+
 function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
   const chains = options.chains ?? new Map<ChainId, ChainAdapter>()
   const usdc = new Map<ChainId, string>()
@@ -113,6 +122,7 @@ function paymentDeps(options: ServerDeps, log: FastifyBaseLogger): X402Deps {
     serial: serial(),
     log,
     ...(options.receiptKey === undefined ? {} : { receiptKey: options.receiptKey }),
+    ...(passkeySetup(options.config) ?? {}),
   }
 }
 
@@ -160,6 +170,8 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
   }
 
   if (surface !== 'private') {
+    // The owner's passkey page faces the internet: it is opened from Telegram on any device.
+    app.register(ownerRoutes(deps))
     app.register(
       agentRoutes(deps, {
         perIp: config.RATE_LIMIT_PER_IP,
@@ -174,7 +186,14 @@ async function serve(app: FastifyInstance, surface: Surface, deps: X402Deps, con
       async (admin) => {
         admin.addHook('preHandler', requireToken(config.ADMIN_TOKEN))
         await admin.register(
-          adminRoutes(deps, { botUrl: config.BOT_URL, databaseUrl: config.DATABASE_URL }),
+          adminRoutes(deps, {
+            botUrl: config.BOT_URL,
+            databaseUrl: config.DATABASE_URL,
+            ...(config.PASSKEY_RP_ID === undefined ? {} : { passkeyRpId: config.PASSKEY_RP_ID }),
+            ...(config.PASSKEY_ORIGIN === undefined
+              ? {}
+              : { passkeyOrigin: config.PASSKEY_ORIGIN }),
+          }),
         )
       },
       { prefix: '/v1/admin' },

@@ -14,6 +14,7 @@ import { mandateReasons } from '../domain/mandate.js'
 import { pinFlags } from '../domain/pinning.js'
 import { evaluate } from '../domain/policy.js'
 import { askOwner, expirePending, expiresAt } from './approvals.js'
+import { needsPasskey, type PasskeySetup } from './passkeys.js'
 import { issueReceipt, policyHash } from './receipts.js'
 import { simulate } from './simulate.js'
 import { alert, notify } from './events.js'
@@ -30,6 +31,8 @@ export interface PaymentDeps {
   log: Pick<FastifyBaseLogger, 'warn' | 'error'>
   /** Signs a receipt for every executed payment. Receipts are off without it. */
   receiptKey?: KeyObject
+  /** Set when approvals at or above an amount need the owner's passkey. */
+  passkey?: PasskeySetup
 }
 
 export type Terms = Pick<
@@ -143,7 +146,9 @@ export async function clear(
   }
 
   if ((verdict.decision === 'needs_approval' || flags.length > 0) && !ownerApproved) {
-    const ask = flags.length > 0 && pinned !== undefined ? { flags, pinned } : { flags }
+    const passkey = needsPasskey(deps.passkey, intent)
+    const ask =
+      flags.length > 0 && pinned !== undefined ? { flags, pinned, passkey } : { flags, passkey }
     return { cleared: false, intent: await askOwner(deps, intent, simulation, ask) }
   }
 

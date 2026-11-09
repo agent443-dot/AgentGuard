@@ -1,12 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { decideMandate } from '../db/mandates.js'
-import { pin } from '../db/pins.js'
-import { recordOwnerApproval } from '../db/receipts.js'
 import * as repo from '../db/repo.js'
 import { decide } from '../service/approvals.js'
+import { afterApproval } from '../service/approved.js'
+import { needsPasskey } from '../service/passkeys.js'
 import { notify } from '../service/events.js'
 import type { PaymentDeps } from '../service/payments.js'
-import { sendApproved } from '../service/transfer.js'
 import { HttpError } from './errors.js'
 import { botDecisionRequest, idParam, mandateDecision } from './schemas.js'
 
@@ -36,6 +35,12 @@ export function botRoutes(deps: PaymentDeps) {
 
     app.post('/decision', async (request) => {
       const { intentId, decision, telegramUserId } = botDecisionRequest.parse(request.body)
+      // Above PASSKEY_ABOVE a Telegram tap can still say no, never yes: a stolen Telegram account
+      // must not be enough to move that much.
+      const asked = repo.getIntent(db, intentId)
+      if (decision === 'approve' && asked !== undefined && needsPasskey(deps.passkey, asked)) {
+        throw new HttpError(403, 'passkey_required')
+      }
       const result = decide(db, intentId, decision, now())
       if (!result.ok) {
         const late = result.reason === 'expired' ? repo.getIntent(db, intentId) : undefined
@@ -57,21 +62,12 @@ export function botRoutes(deps: PaymentDeps) {
         },
         now(),
       )
-      // A transfer carries everything needed to send it, so it goes now. An x402 payment waits for
-      // the agent to repeat the request, because only that request can receive the response.
-      // An approval also tells guard-core what this domain now charges and who it pays, so the
-      // agent's repeat and the payments after it are not asked about again. A rejection keeps the
-      // old pin, so the same request stays flagged.
+      // A rejection keeps the old pin, so the same request stays flagged.
       if (decision === 'reject') {
         notify(deps, result.intent)
         return result.intent
       }
-      recordOwnerApproval(db, intentId, 'owner')
-      if (result.intent.kind === 'x402') {
-        pin(db, result.intent, now())
-        return result.intent
-      }
-      return (await sendApproved(deps, intentId)) ?? result.intent
+      return afterApproval(deps, result.intent, 'owner')
     })
   }
 }

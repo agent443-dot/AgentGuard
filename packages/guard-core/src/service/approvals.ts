@@ -23,7 +23,7 @@ export async function requestApproval(
   bot: BotNotifier,
   intent: PayIntent,
   simulation: SimulationResult,
-  ask: { flags: ApprovalFlag[]; pinned?: Pin },
+  ask: { flags: ApprovalFlag[]; pinned?: Pin; passkey: boolean },
 ): Promise<void> {
   saveIntent(db, { ...intent, status: 'pending_approval' })
   await bot.requestApproval({
@@ -31,7 +31,7 @@ export async function requestApproval(
     simulation,
     approveBefore: intent.expiresAt,
     flags: ask.flags,
-    passkey: false,
+    passkey: ask.passkey,
     ...(ask.pinned === undefined
       ? {}
       : { pinned: { recipient: ask.pinned.recipient, amount: ask.pinned.amount } }),
@@ -43,7 +43,7 @@ export async function askOwner(
   deps: Pick<PaymentDeps, 'db' | 'bot' | 'now' | 'log'>,
   intent: PayIntent,
   simulation: SimulationResult,
-  ask: { flags: ApprovalFlag[]; pinned?: Pin },
+  ask: { flags: ApprovalFlag[]; pinned?: Pin; passkey: boolean },
 ): Promise<PayIntent> {
   const pending: PayIntent = { ...intent, status: 'pending_approval', rejectReasons: [] }
   try {
