@@ -1,21 +1,7 @@
-import type { Policy } from '@agentguard/shared'
+import type { AgentSummary, DoctorCheck, Policy } from '@agentguard/shared'
 import { USDC_DECIMALS } from '@agentguard/shared'
 import { formatUsd } from './money.js'
 import { chainName, escapeHtml } from './text.js'
-
-// The shapes of GET /v1/admin/agents and /v1/admin/doctor, kept here until shared exports them.
-export interface AgentSummary {
-  agentId: string
-  paused: boolean
-  mode: 'live' | 'shadow'
-}
-
-export interface DoctorCheck {
-  id: string
-  status: 'ok' | 'warn' | 'fail'
-  message: string
-  fix?: string
-}
 
 /** The three amounts an owner edits from Telegram. A raise of any of them asks for a confirm. */
 export const LIMITS = ['perTxMax', 'dailyMax', 'approvalThreshold'] as const

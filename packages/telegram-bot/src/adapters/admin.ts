@@ -1,5 +1,4 @@
-import type { Policy } from '@agentguard/shared'
-import type { AgentSummary, DoctorCheck } from '../domain/policy.js'
+import type { AgentSummary, DoctorCheck, Policy } from '@agentguard/shared'
 import { z } from 'zod'
 import { type GuardClientOptions, requester } from './guard.js'
 

@@ -244,10 +244,7 @@ export function heldBackText(
   ].join('\n')
 }
 
-export function budgetText(
-  agentId: string,
-  budget: BudgetView & { shadowSpentToday?: string },
-): string {
+export function budgetText(agentId: string, budget: BudgetView): string {
   const wallets = Object.entries(budget.hotWalletBalances).map(
     ([chain, balance]) => `  ${chainName(chain)}: ${formatUsd(balance)}`,
   )

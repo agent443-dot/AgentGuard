@@ -18,7 +18,7 @@ export interface GuardClient {
   decideMandate(mandateId: string, decision: Decision, telegramUserId: number): Promise<Settled>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
-  budget(agentId: string): Promise<Budget | undefined>
+  budget(agentId: string): Promise<BudgetView | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
   /** Undefined while guard-core has no report route. */
@@ -76,14 +76,7 @@ const chainList = z.object({
 })
 
 /** Since the agent's first shadowed payment: what shadow mode would have spent, and how often. */
-export interface ShadowTotal {
-  since: string
-  total: string
-  count: number
-}
-
-/** A guard-core without shadow mode leaves both out. */
-export type Budget = BudgetView & { shadowSpentToday?: string; shadow?: ShadowTotal }
+export type ShadowTotal = NonNullable<BudgetView['shadow']>
 
 const budgetView = z.object({
   spentToday: atomic,
