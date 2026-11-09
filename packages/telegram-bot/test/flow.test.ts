@@ -409,55 +409,59 @@ describe('shadow mode events', () => {
 })
 
 describe('approval flags', () => {
-  it('puts the reason a payment is here above the request', async () => {
+  const textOf = async (body: unknown) => {
     const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', {
-      ...approval(),
-      flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'],
-    })
-    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text.split('\n').slice(0, 3)).toEqual([
-      '⚠️ <b>This API asks to pay a different address than last time.</b>',
+    expect((await deliver('/hooks/approval-request', body)).statusCode).toBe(200)
+    return String(sent(calls, 'sendMessage')[0]?.payload['text'])
+  }
+  const lead = (text: string, n: number) => text.split('\n').slice(0, n)
+  const OLD = 'OldPayTo1111111111111111111111111111111111'
+
+  it('puts the reason a payment is here above the request', async () => {
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'] })
+    expect(lead(text, 3)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
       '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
       '<b>Approval needed</b>',
     ])
   })
 
-  it('names the factor and both addresses when guard-core sends the pinned payment', async () => {
-    const { calls, deliver } = await harness()
-    const pinned = { recipient: 'OldPayTo1111111111111111111111111111111111', amount: '5000000' }
-    await deliver('/hooks/approval-request', {
-      ...approval(),
-      flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'],
-      pinned,
-    })
-    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text.split('\n').slice(0, 2)).toEqual([
-      '⚠️ <b>This API asks to pay a different address than last time: ' +
-        '<code>OldPay…1111</code> → <code>9xQeWv…VFin</code>.</b>',
-      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+  it('shows both recipients in full, and no price factor next to a recipient change', async () => {
+    const pinned = { recipient: OLD, amount: '5000000' }
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'], pinned })
+    expect(lead(text, 4)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
+      `Last recipient: <code>${OLD}</code>`,
+      `This recipient: <code>${RECIPIENT}</code>`,
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
     ])
   })
 
-  it('keeps the plain wording when the pinned amount gives no factor', async () => {
-    const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', {
+  it('names the factor, exact or as "more than", against the pinned payment', async () => {
+    const at = (amount: string) => ({
       ...approval(),
       flags: ['PRICE_JUMP'],
-      pinned: { recipient: RECIPIENT, amount: '0' },
+      pinned: { recipient: RECIPIENT, amount },
     })
-    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toMatch(
-      /^⚠️ <b>Price jump: this API asks for much more than its last payment\.<\/b>/,
-    )
+    expect(lead(await textOf(at('5000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+    ])
+    // 12.5 / 3 = 4.1666…: rounded down, so it must not read as exact.
+    expect(lead(await textOf(at('3000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: more than 4.1× the last payment.</b>',
+    ])
+    expect(lead(await textOf(at('0')), 1)).toEqual([
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
+    ])
   })
 
-  it('reads a request without flags as having none, and refuses an unknown one', async () => {
-    const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', approval())
-    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toMatch(/^<b>Approval needed/)
+  it('reads a request without flags as having none, and shows an unknown one generically', async () => {
+    expect(await textOf(approval())).toMatch(/^<b>Approval needed/)
     const other = approval({ id: '5b8f6c0e-2a8e-4f7e-9a51-6f0c3d1a2b77' })
-    const response = await deliver('/hooks/approval-request', { ...other, flags: ['ODD'] })
-    expect(response.statusCode).toBe(400)
+    expect(lead(await textOf({ ...other, flags: ['ODD<b>'] }), 2)).toEqual([
+      '⚠️ <b>guard-core flagged this payment:</b> <code>ODD&lt;b&gt;</code>',
+      '<b>Approval needed</b>',
+    ])
   })
 })
 
