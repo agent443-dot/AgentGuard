@@ -6,7 +6,12 @@ import type {
   PayIntent,
 } from '@agentguard/shared'
 import { CHAINS, getAddress, usdSymbol } from '@agentguard/shared'
-import { ATTACK_DESCRIPTIONS, type AttackCode } from './codes.js'
+import {
+  type ApprovalFlag,
+  ATTACK_DESCRIPTIONS,
+  type AttackCode,
+  FLAG_DESCRIPTIONS,
+} from './codes.js'
 import { type ExplorerTarget, explorerUrl } from './explorer.js'
 import { formatUsd } from './money.js'
 
@@ -81,8 +86,68 @@ export function utcTime(at: Date | string): string {
   return `${new Date(at).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 }
 
-export function approvalText(request: ApprovalRequest): string {
-  return ['<b>Approval needed</b>', ...details(request, false)].join('\n')
+/** A guard-core that predates the flags sends none. */
+export type FlaggedRequest = ApprovalRequest & { unknownFlags?: readonly string[] }
+
+/**
+ * How many times the pinned amount, in bigint to one decimal. Rounded down, so anything not exact
+ * says "more than": a factor that reads exact but is not would understate the jump.
+ */
+function times(amount: string, pinned: string): string | undefined {
+  const base = BigInt(pinned)
+  if (base === 0n) {
+    return undefined
+  }
+  const scaled = BigInt(amount) * 10n
+  const tenths = scaled / base
+  const factor = `${tenths / 10n}.${tenths % 10n}×`
+  return scaled % base === 0n ? factor : `more than ${factor}`
+}
+
+/** The lines for one flag: the first is the warning, the rest its detail. */
+function flagLines(flag: ApprovalFlag, { intent, pinned, flags = [] }: FlaggedRequest): string[] {
+  if (
+    flag === 'RECIPIENT_CHANGED' &&
+    pinned !== undefined &&
+    pinned.recipient !== intent.recipient
+  ) {
+    // In full: a shortened address is what address poisoning imitates.
+    return [
+      FLAG_DESCRIPTIONS[flag],
+      `Last recipient: <code>${escapeHtml(pinned.recipient)}</code>`,
+      `This recipient: <code>${escapeHtml(intent.recipient)}</code>`,
+    ]
+  }
+  // A price against another recipient, chain or token compares nothing alike.
+  const factor =
+    pinned === undefined || flags.includes('RECIPIENT_CHANGED')
+      ? undefined
+      : times(intent.amount, pinned.amount)
+  if (flag === 'PRICE_JUMP' && factor !== undefined) {
+    return [`Price jump: ${factor} the last payment.`]
+  }
+  return [FLAG_DESCRIPTIONS[flag]]
+}
+
+/** A flag is why this payment is in front of the owner at all, so it comes first. */
+export function approvalText(request: FlaggedRequest): string {
+  const flags = (request.flags ?? []).flatMap((flag) => {
+    const [warning, ...detail] = flagLines(flag, request)
+    return [`⚠️ <b>${warning}</b>`, ...detail]
+  })
+  const unknown = (request.unknownFlags ?? []).map(
+    (flag) => `⚠️ <b>guard-core flagged this payment:</b> <code>${escapeHtml(flag)}</code>`,
+  )
+  flags.push(...unknown)
+  return [...flags, '<b>Approval needed</b>', ...details(request, false)].join('\n')
+}
+
+export function breakerText(agentId: string, detail: string): string {
+  const id = `<code>${escapeHtml(agentId)}</code>`
+  return [
+    `<b>Circuit breaker tripped</b> for ${id}: paused. /resume ${id} when you have looked.`,
+    ...(detail === '' ? [] : [`guard-core says: <i>${escapeHtml(detail)}</i>`]),
+  ].join('\n')
 }
 
 export function settledText(request: ApprovalRequest, outcome: Outcome): string {
@@ -177,13 +242,19 @@ export function heldBackText(
   ].join('\n')
 }
 
-export function budgetText(agentId: string, budget: BudgetView): string {
+export function budgetText(
+  agentId: string,
+  budget: BudgetView & { shadowSpentToday?: string },
+): string {
   const wallets = Object.entries(budget.hotWalletBalances).map(
     ([chain, balance]) => `  ${chainName(chain)}: ${formatUsd(balance)}`,
   )
   return [
     `<b>Budget</b> for <code>${escapeHtml(agentId)}</code>`,
     `Spent today: ${formatUsd(budget.spentToday)} of ${formatUsd(budget.dailyMax)}`,
+    ...(budget.shadowSpentToday === undefined || budget.shadowSpentToday === '0'
+      ? []
+      : [`Would have spent today (shadow mode): ${formatUsd(budget.shadowSpentToday)}`]),
     `Per payment: up to ${formatUsd(budget.perTxMax)}`,
     'Hot wallets:',
     ...(wallets.length > 0 ? wallets : ['  (none reported)']),
@@ -191,12 +262,23 @@ export function budgetText(agentId: string, budget: BudgetView): string {
   ].join('\n')
 }
 
+// Telegram refuses a message over 4096 characters, and /status adds the chains after this.
+const PENDING_LIMIT = 2000
+
 export function statusText(guardUp: boolean, pending: ApprovalRequest[]): string {
-  const lines = pending.map(
-    ({ intent, approveBefore }) =>
+  const lines: string[] = []
+  let length = 0
+  for (const { intent, approveBefore } of pending) {
+    const line =
       `• <code>${escapeHtml(intent.agentId)}</code> ${amountText(intent)} on ` +
-      `${chainName(intent.chain)}, expires ${utcTime(approveBefore)}`,
-  )
+      `${chainName(intent.chain)}, expires ${utcTime(approveBefore)}`
+    if (length + line.length > PENDING_LIMIT) {
+      lines.push(`…and ${pending.length - lines.length} more. Each one is in the chat above.`)
+      break
+    }
+    lines.push(line)
+    length += line.length + 1
+  }
   return [
     `guard-core: ${guardUp ? 'reachable' : '<b>unreachable</b>'}`,
     `Pending approvals: ${pending.length}`,
