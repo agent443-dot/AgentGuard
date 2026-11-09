@@ -8,14 +8,14 @@ planned. Anything proven only on a stub chain is marked as such.
 
 Made by the owner on 2026-11-05, in the integrator session. None of these can be made by a session.
 
-| #   | Decision                                                                                 | Answer                                                                                                                                                                                                                                                                                                                                                             | Status                     |
-| --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| D1  | **Mainnet daily cap** (`DAILY_CAP`, USDC atomic units)                                   | **50 USDC a day** (`DAILY_CAP=50000000`), with the hot wallet holding at most 20 USDC. Max daily loss: about 70 USDC. Raised only after some weeks without incidents.                                                                                                                                                                                              | **decided**                |
-| D2  | **Per-agent policy for launch**: `perTxMax`, `dailyMax`, `approvalThreshold`, allowlists | Each new agent: **5 USDC per payment, 25 a day, Telegram approval above 1 USDC**, deny-all to start, and only domains the owner adds.                                                                                                                                                                                                                              | **decided**                |
-| D3  | **Deploy host** (HUMAN-7)                                                                | **Fly.io**, region `gru`, a persistent volume for the database. guard-core's agent routes are public behind TLS at `https://agentguard-guard-core.fly.dev`, and its admin and bot routes stay on Fly's private network. The bot has no public URL (long polling).                                                                                                  | **decided**                |
-| D4  | **Owner key custody**                                                                    | **Phantom**, a software wallet: the owner's choice, against the recommendation of a hardware wallet. The owner key can move the whole vault, so it stays in Phantom and is **never exported to a file**. The owner signs its operations through Phantom, not through this repo's scripts. See the D4 blocker in §2.                                                | **decided, risk accepted** |
-| D5  | **Hot wallet key storage**                                                               | **Fly.io secrets**, written to an in-memory file at startup, delivered as `SOLANA_HOT_WALLET_KEYPAIR`. KMS later, when the cap rises.                                                                                                                                                                                                                              | **decided**                |
-| D6  | **Chain order**                                                                          | **Solana first, then Robinhood Chain, then Base.** Changed by the owner on 2026-11-07, Robinhood Chain ahead of Base (CR-007). Robinhood Chain's dollar is USDG, not USDC, and its Safe support is unconfirmed. Base ran live on Sepolia (HUMAN-13), and its any-recipient allowance (below) also applies to Robinhood Chain if it uses the same Allowance Module. | **decided**                |
+| #   | Decision                                                                                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                           | Status                     |
+| --- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| D1  | **Mainnet daily cap**, per chain                                                         | **20 a day on each launch chain** (20 USDC on Solana, `DAILY_CAP=20000000`; 20 USDG on Robinhood Chain, allowance `amount=20000000`), with each hot wallet holding at most 10. Max daily loss across both chains: about 60. Raised to 50 a day per chain only after 2 to 3 weeks without incidents. Changed by the owner on 2026-11-09, from 50 USDC on one chain, when he chose two launch chains.              | **decided**                |
+| D2  | **Per-agent policy for launch**: `perTxMax`, `dailyMax`, `approvalThreshold`, allowlists | Each new agent: **5 per payment, 20 a day, Telegram approval above 1**, deny-all to start, and only domains the owner adds. The daily max went from 25 to 20 on 2026-11-09, to match the onchain cap (D1).                                                                                                                                                                                                       | **decided**                |
+| D3  | **Deploy host** (HUMAN-7)                                                                | **Fly.io**, region `gru`, a persistent volume for the database. guard-core's agent routes are public behind TLS at `https://agentguard-guard-core.fly.dev`, and its admin and bot routes stay on Fly's private network. The bot has no public URL (long polling).                                                                                                                                                | **decided**                |
+| D4  | **Owner key custody**                                                                    | **Phantom**, a software wallet: the owner's choice, against the recommendation of a hardware wallet. The owner key can move the whole vault, so it stays in Phantom and is **never exported to a file**. The owner signs its operations through Phantom, not through this repo's scripts. See the D4 blocker in §2.                                                                                              | **decided, risk accepted** |
+| D5  | **Hot wallet key storage**                                                               | **Fly.io secrets**, written to an in-memory file at startup, delivered as `SOLANA_HOT_WALLET_KEYPAIR`. KMS later, when the cap rises.                                                                                                                                                                                                                                                                            | **decided**                |
+| D6  | **Chain order**                                                                          | **Solana and Robinhood Chain together at launch, then Base.** Changed by the owner on 2026-11-09 after the Robinhood Chain mainnet pilot (HUMAN-21) proved its path with real money: Safe, allowance, x402 payment, kill. Before that: Solana first, then Robinhood Chain (2026-11-07, CR-007), then Base. Robinhood Chain's dollar is USDG. Its Allowance Module lets the delegate send to any address (below). | **decided**                |
 
 **Base differs from Solana in where the daily allowance can go.** On Solana, the spending limit's
 only destination is the hot wallet: a stolen hot-wallet key can only draw the day's cap into the hot
@@ -54,6 +54,11 @@ older than `main`. **Before any live run, redeploy every app whose package chang
 image in `fly status`.** If a chain's Phantom kill button is missing, use the manual kill link:
 `https://agentguard-onchain.vercel.app/?action=kill&cluster=robinhood&safe=<Safe>&issued=$(date +%s)`,
 opened within 15 minutes, from `/kill` → Confirm first.
+
+**One owner wallet for both chains (owner decision, 2026-11-09).** The same new Phantom wallet, with
+one recovery phrase, owns the Robinhood Chain Safe and will own the Solana multisig. That phrase
+therefore reaches both vaults. This is accepted on the D4 conditions: the wallet is used for nothing
+else, and each vault holds only what its agents need for the coming days.
 
 **Key rule, not a decision:** mainnet uses **new keys only**, owner and hot wallet both, generated for
 mainnet and never used on devnet. A devnet seed phrase has been exposed, so no devnet key, and nothing
@@ -194,10 +199,17 @@ Each line can be checked by someone other than its author.
       in a temp directory, and `pnpm db:backup` takes a consistent copy while it runs. Done on Fly:
       the encrypted `guard_data` volume with daily snapshots, and `spentToday` survived a restart
       (INT-7). **Left:** a backup schedule.
-- [ ] **Launch blocker: one backup restore rehearsed.** `pnpm db:backup` against the Fly volume,
-      then a restore into a fresh machine, checking that agents, policies, the audit log and the
-      day's spend come back. Until then, a lost volume means a guard with no history and a reset
-      daily spend.
+- [ ] **Launch blocker: one backup restore rehearsed.** The drill:
+  1. `db:backup` on the Fly machine, into `/data/backups/`;
+  2. `fly ssh sftp get` the file to the owner's machine. That copy is the one that survives a lost
+     volume;
+  3. `pnpm --filter @agentguard/e2e restore-drill <file>` opens a copy of it with this repo's code
+     and migrations, then prints each agent's policy and today's spend as the admin routes serve
+     them, plus the audit trail.
+
+  Pass when what it prints matches `/status` and the budget route on the live guard. Until then, a
+  lost volume means a guard with no history and a reset daily spend.
+
 - [ ] **Security review repeated**: on the devnet stack, and on the deployed configuration (TLS, what
       fronts each service, secrets in the manager). Done live on Fly for devnet (INT-7,
       `docs/security-review.md`). **Left:** the bot app's `fly ips list`, a revoked token tested
