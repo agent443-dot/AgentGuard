@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GuardError, httpGuardClient } from '../src/adapters/guard.js'
-import { INTENT_ID, intent } from './support.js'
+import { INTENT_ID, intent, MANDATE_ID, mandateRequest } from './support.js'
 
 const BOT = 'b'.repeat(32)
 const ADMIN = 'c'.repeat(32)
@@ -35,6 +35,36 @@ describe('httpGuardClient', () => {
     expect(init?.body).toBe(
       JSON.stringify({ intentId: INTENT_ID, decision: 'approve', telegramUserId: '1001' }),
     )
+  })
+
+  it('decides a task budget on its own route, mapping 404, 409 and 410', async () => {
+    const mandate = mandateRequest().mandate
+    const { fetch, guard } = client(
+      json(200, { ...mandate, status: 'active' }),
+      json(404, { error: 'not_found' }),
+      json(409, { error: 'already_decided' }),
+      json(410, { error: 'expired' }),
+    )
+    expect(await guard.decideMandate(MANDATE_ID, 'approve', 1001)).toEqual({ ok: true })
+    // Decided is decided: a body the bot cannot read does not undo that.
+    const odd = client(new Response('not json', { status: 200 }))
+    expect(await odd.guard.decideMandate(MANDATE_ID, 'approve', 1001)).toEqual({ ok: true })
+    const { url, init, headers } = sentTo(fetch)
+    expect(url).toBe(`http://guard/v1/bot/mandates/${MANDATE_ID}/decision`)
+    expect(headers.get('authorization')).toBe(`Bearer ${BOT}`)
+    expect(init?.body).toBe(JSON.stringify({ decision: 'approve', telegramUserId: '1001' }))
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'not_found',
+    })
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'already_decided',
+    })
+    expect(await guard.decideMandate(MANDATE_ID, 'reject', 1001)).toEqual({
+      ok: false,
+      reason: 'expired',
+    })
   })
 
   it('maps 404 and both kinds of 409', async () => {
@@ -97,6 +127,33 @@ describe('httpGuardClient', () => {
     expect(sentTo(fetch).url).toBe('http://guard/v1/admin/budget/a%2F1')
     expect(await guard.budget('a1')).toBeUndefined()
     await expect(guard.budget('a1')).rejects.toBeInstanceOf(GuardError)
+  })
+
+  it('asks for the report with the admin token and the period, and treats no route as none', async () => {
+    const agents = [
+      {
+        agentId: 'a1',
+        spent: '12500000',
+        payments: 3,
+        refused: { DAILY_EXCEEDED: 2 },
+        domains: [{ domain: 'api.example.com', spent: '12500000' }],
+      },
+    ]
+    const { fetch, guard } = client(
+      json(200, { agents }),
+      json(404, { message: 'Route not found' }),
+      json(200, { agents: [{ ...agents[0], spent: '1.5' }] }),
+    )
+    const from = new Date('2026-11-02T12:00:00.000Z')
+    const to = new Date('2026-11-09T12:00:00.000Z')
+    expect(await guard.report(from, to)).toEqual(agents)
+    const { url, headers } = sentTo(fetch)
+    expect(url).toBe(
+      'http://guard/v1/admin/report?from=2026-11-02T12%3A00%3A00.000Z&to=2026-11-09T12%3A00%3A00.000Z',
+    )
+    expect(headers.get('authorization')).toBe(`Bearer ${ADMIN}`)
+    expect(await guard.report(from, to)).toBeUndefined()
+    await expect(guard.report(from, to)).rejects.toThrow()
   })
 
   it('lists the chains, and treats a missing route as not reported', async () => {

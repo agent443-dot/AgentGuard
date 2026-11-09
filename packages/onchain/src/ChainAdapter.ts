@@ -3,6 +3,7 @@ import type {
   AllowanceState,
   Amount,
   ChainId,
+  HotWalletGas,
   PayIntent,
   RejectCode,
   SimulationResult,
@@ -33,6 +34,8 @@ export interface ChainAdapter {
 
   getAllowanceState(): Promise<AllowanceState>
   getHotWalletBalance(token: Address): Promise<Amount>
+  /** The chain's native coin in the hot wallet, and what a few draws and payments need. */
+  getHotWalletGas(): Promise<HotWalletGas>
 
   /** Pulls from the owner's multisig into the hot wallet, under the onchain cap. */
   topUpHotWallet(amount: Amount): Promise<TxId>

@@ -119,13 +119,27 @@ describe('owner commands', () => {
 
 const PHANTOM = (issued: Date) => `https://phantom.app/ul/browse/kill?issued=${issued.getTime()}`
 const ROBINHOOD = (issued: Date) => `https://phantom.app/ul/browse/rh?issued=${issued.getTime()}`
-const KILLS = [{ chain: CHAINS.solanaDevnet, link: PHANTOM }]
-const BOTH = [...KILLS, { chain: CHAINS.robinhoodTestnet, link: ROBINHOOD }]
+const page = (name: string) => (issued: Date) =>
+  `https://sign.example/?cluster=${name}&issued=${issued.getTime()}`
+const KILLS = [{ chain: CHAINS.solanaDevnet, link: PHANTOM, page: page('devnet') }]
+const BOTH = [
+  ...KILLS,
+  { chain: CHAINS.robinhoodTestnet, link: ROBINHOOD, page: page('robinhood-testnet') },
+]
+const DESKTOP = 'Open in browser (desktop)'
 
-function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
+function keyboard(call: { payload: Record<string, unknown> } | undefined) {
   const markup = call?.payload['reply_markup'] as
     { inline_keyboard: { url?: string; text: string }[][] } | undefined
-  return (markup?.inline_keyboard ?? []).flat().filter((button) => button.url !== undefined)
+  return markup?.inline_keyboard ?? []
+}
+
+/** The Phantom app buttons; each row also holds a desktop one, tested on its own. */
+
+function phantomButtons(call: { payload: Record<string, unknown> } | undefined): unknown[] {
+  return keyboard(call)
+    .flat()
+    .filter((button) => button.url !== undefined && button.text !== DESKTOP)
 }
 
 describe('/kill with the signing page configured', () => {
@@ -358,6 +372,26 @@ describe('/kill with the signing page configured', () => {
     })
   })
 
+  it('puts a desktop browser button next to each Phantom one, on the same row and expiry', async () => {
+    let now = NOW
+    const { bot, commands, calls } = setup({ phantomKills: BOTH, now: () => now })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm', 11))
+    const done = sent(calls, 'editMessageText')[0]
+    expect(keyboard(done)).toEqual([
+      [
+        { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+        { text: DESKTOP, url: page('devnet')(NOW) },
+      ],
+      [
+        { text: 'Open Robinhood Chain testnet kill in Phantom', url: ROBINHOOD(NOW) },
+        { text: DESKTOP, url: page('robinhood-testnet')(NOW) },
+      ],
+    ])
+    now = new Date(NOW.getTime() + 15 * 60_000)
+    await commands.expireKillOffers()
+    expect(keyboard(sent(calls, 'editMessageText')[1])).toEqual([])
+  })
+
   it('retires a button after 15 minutes, and not before', async () => {
     let now = NOW
     const { bot, commands, calls } = setup({ phantomKills: KILLS, now: () => now })
@@ -500,5 +534,67 @@ describe('/kill', () => {
     const { bot, calls } = setup({ guard: fakeGuard({ kill }) })
     await bot.handleUpdate(press(OWNER, 'kill:confirm'))
     expect(sent(calls, 'editMessageText')[0]?.payload['text']).toContain('Kill failed')
+  })
+})
+
+describe('/report', () => {
+  const agents = [{ agentId: 'a1', spent: '2500000', payments: 2, refused: {}, domains: [] }]
+
+  it('answers with the last 7 days from guard-core', async () => {
+    const report = vi.fn().mockResolvedValue(agents)
+    const { bot, calls } = setup({ guard: fakeGuard({ report }) })
+    await bot.handleUpdate(command(OWNER, '/report'))
+    expect(report).toHaveBeenCalledWith(new Date(NOW.getTime() - 7 * 86_400_000), NOW)
+    const reply = sent(calls, 'sendMessage')[0]
+    expect(reply?.payload['text']).toContain('<code>a1</code>: $2.50 in 2 payments')
+    expect(reply?.payload['parse_mode']).toBe('HTML')
+  })
+
+  it('says so when guard-core has no report, or did not answer', async () => {
+    const report = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('down'))
+    const { bot, calls } = setup({ guard: fakeGuard({ report }) })
+    await bot.handleUpdate(command(OWNER, '/report'))
+    await bot.handleUpdate(command(OWNER, '/report'))
+    expect(sent(calls, 'sendMessage').map((call) => call.payload['text'])).toEqual([
+      'This guard-core has no report yet.',
+      'guard-core did not answer. Nothing changed: try again.',
+    ])
+  })
+})
+
+describe('the weekly report', () => {
+  // NOW is Tuesday 2026-11-03 12:00 UTC.
+  const tuesdayNoon = { weekday: 2, hourUtc: 12 }
+
+  it('goes to every owner once in its hour', async () => {
+    const report = vi.fn().mockResolvedValue([])
+    const { commands, calls } = setup({ guard: fakeGuard({ report }), weekly: tuesdayNoon })
+    await commands.weeklyReport()
+    await commands.weeklyReport()
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toContain('No agent paid or was refused')
+    expect(report).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays quiet outside its hour, or without a schedule', async () => {
+    const report = vi.fn().mockResolvedValue([])
+    const off = setup({ guard: fakeGuard({ report }), weekly: { weekday: 1, hourUtc: 12 } })
+    await off.commands.weeklyReport()
+    const none = setup({ guard: fakeGuard({ report }) })
+    await none.commands.weeklyReport()
+    expect(report).not.toHaveBeenCalled()
+    expect([...off.calls, ...none.calls]).toHaveLength(0)
+  })
+
+  it('tells the owners once when guard-core does not answer', async () => {
+    const report = vi.fn().mockRejectedValue(new Error('down'))
+    const { commands, calls } = setup({ guard: fakeGuard({ report }), weekly: tuesdayNoon })
+    await commands.weeklyReport()
+    await commands.weeklyReport()
+    expect(sent(calls, 'sendMessage').map((call) => call.payload['text'])).toEqual([
+      'The weekly report failed: guard-core did not answer. Try /report later.',
+      'The weekly report failed: guard-core did not answer. Try /report later.',
+    ])
   })
 })

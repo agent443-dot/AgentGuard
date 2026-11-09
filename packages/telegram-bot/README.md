@@ -33,6 +33,7 @@ Both are signed: `X-Guard-Signature` is the hex HMAC-SHA256 of the exact request
 | ------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `POST /hooks/approval-request` | `{ intent, simulation, approveBefore }` | 200 posted, 401 bad signature, 400 bad body, 409 duplicate, 410 stale, 502 no owner reachable |
 | `POST /hooks/intent-event`     | `{ intent, sentAt }` (CR-004)           | same                                                                                          |
+| `POST /hooks/alert`            | `{ kind, agentId, detail, sentAt }`     | same                                                                                          |
 
 **Before the body is read.** A request to `/hooks/*` whose `X-Guard-Signature` is missing or is not
 64 hex characters is answered 401 in Fastify's `onRequest` hook, so its body is never read. A
@@ -44,9 +45,34 @@ request and an intent event). The hooks still bind to `127.0.0.1` by default.
 **Replay.** A valid signature proves guard-core wrote a body, not that it is sending it now. An
 approval request is refused once `approveBefore` has passed, or if it claims a window longer than
 guard-core's 10 minutes (plus 1 minute of clock skew); while it is open, a second copy of the same
-intent id is a duplicate. Intent events are refused when `sentAt` is more than 5 minutes old, and
-deduplicated on intent id plus status. Both memories are in-process: a replay right after a restart
+intent id is a duplicate. Intent events and alerts are refused when `sentAt` is more than 5 minutes
+old. Intent events are deduplicated on intent id plus status, alerts on kind, agent and `sentAt`. Both memories are in-process: a replay right after a restart
 can post a message again, but its buttons cannot decide anything twice because guard-core answers 409.
+
+## Task budget approval
+
+An approval request with `mandate` and no `intent` is an agent asking for a task budget (CR-010).
+Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes
+(`ttlSeconds`, counted from approval; left out when guard-core does not send it, never taken from the
+pending mandate's `expiresAt`, which is only the approval deadline), the domains and any recipients it
+may pay (in full, at most ten of each with "and N more"), the expiry, and the agent's reason labelled
+`agent says:`.
+**Approve** and **Reject** call `POST /v1/bot/mandates/:id/decision`; the messages settle and expire
+exactly like a payment's, with the same replay window from `approveBefore`.
+
+## Circuit breaker alert
+
+`kind: "breaker_tripped"` means guard-core has already paused the agent (CR-010). Every owner gets
+"Circuit breaker tripped for `<agent>`: paused. /resume `<agent>` when you have looked.", followed by
+guard-core's detail, escaped. Nothing is throttled: a tripped breaker stays tripped until someone
+resumes the agent.
+
+## Shadow mode
+
+An intent event with status `shadowed` is a payment shadow mode evaluated and would have sent. It is
+accepted and deduplicated like any other event, but it is never a chat message: nothing moved.
+`/budget` shows the day's total as "Would have spent today (shadow mode)" when guard-core reports
+`shadowSpentToday` above zero.
 
 ## Approval message
 
@@ -54,6 +80,25 @@ Sent to every owner: agent, amount in USD, chain, recipient (shortened; **Show f
 shows all of it), domain (or "direct transfer"), the simulation summary, the expiry in UTC, and the
 agent's reason labelled `agent says:`. Everything that came from the agent is HTML-escaped, so it
 cannot pose as the bot's own text.
+
+**Flags.** When guard-core sends a payment to the owner because of a flag (CR-010), the flag comes
+first, above **Approval needed**. `RECIPIENT_CHANGED` reads "This API asks to pay a different
+recipient, chain or token than last time."; with `pinned` (the last executed payment to that domain)
+and a new recipient, both recipients follow in full, since a shortened address is what address
+poisoning imitates. `PRICE_JUMP` reads "Price jump: 2.5× the last payment." from `pinned` (bigint, one
+decimal, "more than" when not exact), and the plain "much more than its last payment" without
+`pinned` or next to a recipient change, where the two prices compare nothing alike. A request
+without `flags` reads as having none; a flag the bot does not know is shown as "guard-core flagged
+this payment".
+
+**Passkey.** A request with `passkey: true` can only be approved on guard-core's passkey page
+(CR-010), so it has no **Approve** button. With `GUARD_PUBLIC_URL` set, an **Approve with passkey**
+button opens `<GUARD_PUBLIC_URL>/owner/approve/<intentId>`; without it, there is no way to approve
+from the chat, the message says so, and the bot warns at startup. **Reject** stays a normal button: a
+stolen Telegram account can still stop a payment, never send one. An old or forged **Approve** for such
+a payment is answered in the bot without asking guard-core. When the payment is then approved on the
+passkey page (or guard-core settles it any other way), the intent event closes the request and every
+owner's message shows the real outcome instead of later reading "Expired".
 
 **Chains.** The chain is named (Solana, Solana devnet, Base, Base Sepolia). The recipient, and the
 transaction of an executed payment, link to that chain's explorer: Solscan with `?cluster=devnet` on
@@ -78,13 +123,22 @@ Only ids in `OWNER_TELEGRAM_IDS` reach any handler. Everyone else gets no reply 
 
 ## Commands
 
-| Command             | Does                                                                                                                                                                                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/status`           | Whether guard-core is reachable, the approvals waiting, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")                                                                  |
-| `/budget <agentId>` | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                             |
-| `/pause <agentId>`  | `POST /v1/admin/pause`                                                                                                                                                                                                                                           |
-| `/resume <agentId>` | `POST /v1/admin/resume`                                                                                                                                                                                                                                          |
-| `/kill`             | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live |
+| Command                                       | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/status`                                     | Whether guard-core is reachable, the approvals waiting (as many as fit in one message, then "…and N more"), the pending task budgets, and each chain guard-core runs with its onchain spend against the cap (needs `GET /v1/admin/chains`, CR-006; until then "not reported")                                                                                                                                                                                                                                                                                        |
+| `/budget <agentId>`                           | Spent today, daily and per-payment max, hot wallet per chain, paused. Needs `GET /v1/admin/budget/:agentId` (CR-004)                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `/pause <agentId>`                            | `POST /v1/admin/pause`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `/resume <agentId>`                           | `POST /v1/admin/resume`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `/kill`                                       | Asks to confirm, naming the chains when guard-core reports them (CR-006), then `POST /v1/admin/kill`: says how many agents were paused and sends one message per chain with the owner transaction to sign. If there are none, says the allowances are still live                                                                                                                                                                                                                                                                                                     |
+| `/report`                                     | The last 7 days from `GET /v1/admin/report` (CR-010): per agent, spend and payment count, refusals by code, and the top 5 domains by spend. Paged to fit Telegram's 4096 characters; an agent is never split across two messages                                                                                                                                                                                                                                                                                                                                     |
+| `/agent new <id>`                             | Creates the agent (`POST /v1/admin/agents`, CR-011) in shadow mode with a deny-all policy. The token comes in its own message, which the bot deletes after about a minute, with the setup line `pnpm --filter @agentguard/mcp-server run setup claude-code`                                                                                                                                                                                                                                                                                                          |
+| `/agent list`                                 | Every agent with its mode and whether it is paused                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `/agent revoke <id>`                          | Asks to confirm, then revokes: the agent's token stops working at its next request                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `/policy <id>`                                | The policy in dollars, with **Careful** ($1 per payment, $5 a day, approval at $0.50) and **Standard** ($5, $20, $1) presets and an edit button per limit, answered by reply in dollars. Any raise of a limit asks to confirm first                                                                                                                                                                                                                                                                                                                                  |
+| `/allow <id> <domain>`, `/deny <id> <domain>` | Adds or removes an x402 domain. The domain must be a plain hostname such as `api.example.com`; it is lowercased                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `/mode <id> live\|shadow`                     | Shadow at once. Live asks to confirm and shows what shadow mode would have spent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `/doctor`                                     | `GET /v1/admin/doctor`: one line per check with ✅ ⚠️ ❌, and the fix under each warning or failure                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `/passkey enrol`                              | A one-time link to guard-core's enrol page, `<GUARD_PUBLIC_URL>/owner/enrol#code=…` (in the fragment, so no request line or log holds it) from `POST /v1/admin/passkeys/code`. A code adds only the first passkey: guard-core asks for an enrolled passkey before it adds another, so a stolen Telegram account cannot add its own key, and the message says so. The message deletes itself after 10 minutes, or when the code expires if sooner; neither the code nor the link is logged. Without `GUARD_PUBLIC_URL` it says enrolment cannot be done from Telegram |
 
 ## Onchain kill in Phantom
 
@@ -103,6 +157,11 @@ Robinhood: link = <SIGN_PAGE_URL>/?action=kill&cluster=<robinhood-testnet|robinh
 ```
 
 The Robinhood link names no hot wallet: the page uses the one it was built with.
+
+Each chain's row also has **Open in browser (desktop)**, which opens `link` itself. On a desktop
+browser with the Phantom extension, the universal link only shows phantom.com's "open this in the
+Phantom app" page with a QR code; the plain page connects to the extension directly. Both buttons of a
+row carry the same `issued` and expire and retire together.
 
 - **The onchain half is never offered as if it were the kill.** No button appears before **Kill
   everything**. On a kill guard-core confirmed, they read **Open … kill in Phantom**. If guard-core
@@ -129,6 +188,32 @@ The Robinhood link names no hot wallet: the page uses the one it was built with.
   unless at least one chain is complete: `SQUADS_MULTISIG` with `SOLANA_HOT_WALLET_PUBKEY`, or
   `ROBINHOOD_SAFE_ADDRESS`, or both. Half a Solana pair is refused. Without `SIGN_PAGE_URL`, there are
   no buttons.
+
+## Owner commands
+
+The owner runs the deployment from Telegram (CR-011): every command above talks to guard-core's admin
+API with `GUARD_ADMIN_TOKEN`, and only owners get an answer, as for every other command.
+
+- **Tokens.** An agent's token is shown once, in a message of its own that the bot deletes after about
+  a minute. It is never logged; if that message cannot be sent, the log says so without the error,
+  which would carry the text, and the owner is told to revoke the agent and create it again.
+- **Buttons.** A confirm button carries only a random id; what it does stays in the bot and works
+  once, within 10 minutes. After a restart old buttons answer "expired".
+- **Amounts.** Owners type dollars (`2.50`, `$2.50`); the bot converts them to atomic units in bigint and
+  refuses anything else, a negative or more than 6 decimals included.
+- **Graduation.** guard-core's budget reports `shadow: { since, total, count }` from an agent's first
+  shadowed payment. Three days after `since`, every owner gets one offer: "Your agent would have
+  spent $X in N payments. Go live?", which opens the `/mode` confirm. The bot asks guard-core at most
+  every 5 minutes, for agents in shadow mode only, and keeps only "already offered" in memory: a bot
+  restart repeats an offer at most once.
+
+## Weekly report
+
+With `REPORT_WEEKDAY` (0 is Sunday) and `REPORT_HOUR_UTC` both set, every owner gets the same report as
+`/report` in the first minute of that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
+at startup. If guard-core does not answer, the owners are told once to run `/report` later; the bot does
+not retry every tick. The sent marker is in memory, but a bot restarted after that first minute does
+not send it again.
 
 ## Notifications
 
@@ -181,10 +266,11 @@ fly apps create agentguard-bot --org <your-fly-org>
 
 # 3. Secrets: read from the bot's .env and piped straight in, never typed or printed.
 #    Fill packages/telegram-bot/.env first (see Run above). HOST, PORT and GUARD_URL come from fly.toml.
-cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
+cd ~/AgentGuard && grep -E '^(TELEGRAM_BOT_TOKEN|OWNER_TELEGRAM_IDS|GUARD_BOT_TOKEN|GUARD_ADMIN_TOKEN|BOT_WEBHOOK_SECRET|NOTIFY_ABOVE_AMOUNT|SOLANA_CHAIN|SIGN_PAGE_URL|SQUADS_MULTISIG|SOLANA_HOT_WALLET_PUBKEY|ROBINHOOD_CHAIN|ROBINHOOD_SAFE_ADDRESS|REPORT_WEEKDAY|REPORT_HOUR_UTC|GUARD_PUBLIC_URL)=.' packages/telegram-bot/.env | fly secrets import --app agentguard-bot --stage
 
-# 4. Deploy one machine. The first test refuses to run if a .env would reach Fly's builder.
-cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the root .dockerignore must exclude **/.env'; fi
+# 4. Deploy one machine. The test refuses to run unless the root .dockerignore applies and excludes
+#    .env files. A Dockerfile.dockerignore next to the Dockerfile would replace it, not add to it.
+cd ~/AgentGuard && if grep -qx '\*\*/.env' .dockerignore && [ ! -e packages/telegram-bot/Dockerfile.dockerignore ]; then fly deploy . --config packages/telegram-bot/fly.toml --dockerfile packages/telegram-bot/Dockerfile --ha=false; else echo 'STOP: the build context must use the root .dockerignore, and it must exclude **/.env'; fi
 
 # 5. Check: one machine started, and the log shows the hooks listening with no config error.
 fly status --app agentguard-bot && fly logs --app agentguard-bot --no-tail

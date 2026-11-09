@@ -13,11 +13,12 @@ const REASONS: Record<RejectCode, string> = {
   OWNER_REJECTED: 'the owner rejected it',
   APPROVAL_TIMEOUT: 'the owner did not answer within the approval window',
   INVALID_402: "the website's payment request was malformed or unsafe",
-  MANDATE_REQUIRED: 'the owner requires a task budget for every payment: open one with start_task',
-  MANDATE_EXCEEDED: 'the payment does not fit what is left of the task budget, or its sites',
-  MANDATE_EXPIRED: 'the task budget has expired or was closed',
+  MANDATE_REQUIRED: 'the owner requires every payment to belong to a task budget',
+  MANDATE_EXCEEDED:
+    'the payment does not fit the task budget: too little is left, or it does not cover this website or recipient',
+  MANDATE_EXPIRED: 'the task budget has expired, or the owner closed it',
   BREAKER_TRIPPED:
-    'too many payments in a minute, so the agent was paused until the owner resumes it',
+    'more payments in one minute than the owner allows, so AgentGuard paused this agent until the owner resumes it',
   APPROVAL_DETECTED: 'the transaction would grant a token approval',
   PERMIT_DETECTED: 'the payment asked for a token permit signature',
   DELEGATION_DETECTED: 'the transaction would delegate control of the wallet',
@@ -26,6 +27,18 @@ const REASONS: Record<RejectCode, string> = {
   ACCOUNT_CLOSE_DETECTED: 'the transaction would close an account',
   UNKNOWN_PROGRAM_DETECTED: 'the transaction calls a program that is not on the allowlist',
   HIDDEN_ACCOUNTS_DETECTED: 'the transaction hides the accounts it touches behind lookup tables',
+}
+
+/** Codes where the right next step is not the generic "do not retry". */
+const ADVICE: Partial<Record<RejectCode, string>> = {
+  MANDATE_REQUIRED:
+    'Open a task budget for this task with start_task, then repeat the payment with its mandateId.',
+  MANDATE_EXCEEDED:
+    'Stop paying for this task and tell the user. Open another task budget only if the user agrees to spend more.',
+  MANDATE_EXPIRED:
+    'Stop paying for this task and tell the user. Open a new task budget only if the user still wants it done.',
+  BREAKER_TRIPPED:
+    'Stop making payments and tell the user: every payment is refused until the owner resumes the agent.',
 }
 
 export function explainReject(code: string): string {
@@ -43,13 +56,14 @@ const NEXT_STEP: Record<IntentStatus, string> = {
   failed: 'The payment was approved but sending it failed. No further action was taken.',
   expired: 'The owner did not approve the payment in time, so it expired. No money moved.',
   shadowed:
-    'Shadow mode: nothing was paid. This is what the payment would have cost; the owner is ' +
-    'watching before giving the agent money.',
+    'Shadow mode: nothing was paid and no money moved. This shows what the payment would have ' +
+    'cost; the owner is trying the agent out before giving it money. Carry on as if the payment ' +
+    'had been declined, and tell the user if the task needed it.',
 }
 
 /**
  * An x402 payment can only deliver its response to the agent's own request, so an approval is not
- * the end of it: the agent has to repeat the call to redeem it (CR-003).
+ * the end of it: the agent has to repeat the call to redeem it.
  */
 const X402_NEXT_STEP: Partial<Record<IntentStatus, string>> = {
   pending_approval:
@@ -57,6 +71,10 @@ const X402_NEXT_STEP: Partial<Record<IntentStatus, string>> = {
     'approval, then call check_intent with this intent id every 15 to 30 seconds. Do not repeat the ' +
     'request while it is pending. Once check_intent reports approved, call paid_fetch again with ' +
     'exactly the same url, method, headers and body to receive the response.',
+  shadowed:
+    'Shadow mode: nothing was paid and no money moved. The response below, if any, is the ' +
+    "website's unpaid answer, not the paid content. The owner is trying the agent out before " +
+    'giving it money; tell the user if the task needed the paid content.',
   approved:
     'The owner approved the payment. Call paid_fetch again with exactly the same url, method, ' +
     'headers and body to receive the response. The approval pays for that one request only and ' +
@@ -71,6 +89,20 @@ export function explainStatus(
   const lines = [(kind === 'x402' ? X402_NEXT_STEP[status] : undefined) ?? NEXT_STEP[status]]
   if (rejectReasons.length > 0) {
     lines.push('Reasons:', ...rejectReasons.map((code) => `- ${explainReject(code)}`))
+    const advice = rejectReasons.flatMap((code) => ADVICE[code as RejectCode] ?? [])
+    lines.push(...new Set(advice))
   }
   return lines.join('\n')
+}
+
+/** guard-core refuses a task budget outright, before any intent, when it leaves the policy. */
+export function explainRefusedTask(rejectReasons: readonly string[]): string {
+  return [
+    "AgentGuard refused this task budget: it does not fit the owner's policy. Nothing was opened.",
+    'Reasons:',
+    ...rejectReasons.map((code) => `- ${explainReject(code)}`),
+    'Ask only for websites and recipients the policy allows, and for no more than is left of the ' +
+      'daily limit; get_budget shows what is left. If the user needs more, tell them the owner has ' +
+      'to change the policy. Do not open the same budget again.',
+  ].join('\n')
 }

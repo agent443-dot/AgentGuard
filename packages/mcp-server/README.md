@@ -8,6 +8,42 @@ Source of truth: [`/SPEC.md`](../../SPEC.md).
 
 ## For agent builders
 
+### Quick setup
+
+One command prints what to paste into your MCP client:
+
+```bash
+pnpm --filter @agentguard/mcp-server run setup claude-code   # or claude-desktop, cursor, generic
+```
+
+Run it from a checkout with dependencies installed; the config it prints starts the server from that
+checkout.
+
+It asks for the AgentGuard URL and the agent id (or takes `--guard-url` and `--agent-id`), then for
+the agent token at a hidden prompt. The token is never an argument and is never printed. It is saved
+to `~/.agentguard/mcp/<agent id>.token`, readable by you only, and the output names that file in
+`AGENT_TOKEN_FILE`:
+
+- `claude-code`: the `claude mcp add … --scope user` command to run;
+- `claude-desktop` and `cursor`: the JSON block for the config file, and where that file is;
+- `generic`: the variables and the command, for any client that starts a stdio server.
+
+Options:
+
+- `--check` calls `get_budget` with these values first and saves nothing if AgentGuard does not
+  accept them.
+- `--chain` sets `DEFAULT_CHAIN` in the printed config (default Solana devnet).
+- `--name` changes the server's name in the client (default `agentguard`).
+- If a token is already saved for that agent, setup asks before replacing it; `--replace` skips the
+  question.
+- To pipe the token in from a password manager, pass `--guard-url` and `--agent-id` too: the first
+  line of stdin is then the token and nothing else is asked.
+
+Setup refuses an `~/.agentguard` or `~/.agentguard/mcp` folder that other users can open, and the
+server refuses a token file they can read.
+
+The rest of this section does the same by hand.
+
 ### What your agent can and cannot do
 
 The agent **can**:
@@ -16,6 +52,7 @@ The agent **can**:
 - send dollars to an address (`transfer`) on Solana, Base or Robinhood Chain: USDC, or USDG on
   Robinhood Chain, which has no Circle USDC;
 - see what it has spent today and its limits (`get_budget`);
+- open a budget for one task, with its own limit, websites and expiry (`start_task`);
 - follow a payment through owner approval (`check_intent`).
 
 The agent **cannot**:
@@ -138,7 +175,8 @@ routes, `/v1/agent/*`, over HTTPS. The MCP server still runs on the agent's mach
 - **The token goes in the environment only:** `AGENT_TOKEN` in the client config's `env` block, or
   a variable your shell or secret manager sets. Never put it in the URL; a `GUARD_URL` with
   credentials in it (`https://user:token@…`) is refused. Never put it in `args` either, where any
-  process listing shows it. The server reads it only from `AGENT_TOKEN`.
+  process listing shows it. The server reads it only from `AGENT_TOKEN`, or from the file
+  `AGENT_TOKEN_FILE` names, which it refuses if others can read it.
 
 **Claude Desktop.** The token is stored in this file, so keep it readable by your user only:
 
@@ -187,12 +225,13 @@ leaves the token in your shell history.
 
 ### The tools
 
-| Tool           | Input                                              | What it does                                   |
-| -------------- | -------------------------------------------------- | ---------------------------------------------- |
-| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd? }` | Fetches the URL, paying an x402 request if any |
-| `transfer`     | `{ to, amountUsd, reason, chain? }`                | Sends the chain's dollar to an address         |
-| `get_budget`   | `{}`                                               | Spend today, limits, chains, pause, balances   |
-| `check_intent` | `{ intentId }`                                     | The current status of one payment              |
+| Tool           | Input                                                          | What it does                                               |
+| -------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `paid_fetch`   | `{ url, method?, headers?, body?, maxAmountUsd?, mandateId? }` | Fetches the URL, paying an x402 request if any             |
+| `transfer`     | `{ to, amountUsd, reason, chain?, mandateId? }`                | Sends the chain's dollar to an address                     |
+| `get_budget`   | `{}`                                                           | Spend today, limits, chains, task budgets, pause, balances |
+| `start_task`   | `{ budgetUsd, domains, recipients?, minutes, reason }`         | Opens a task budget and returns its `mandateId`            |
+| `check_intent` | `{ intentId }`                                                 | The current status of one payment                          |
 
 - **Amounts are decimal strings** such as `"0.25"`, never JSON numbers: a number has already been
   through a float by the time it arrives. A sign, an exponent, `NaN`, `Infinity` and more than 6
@@ -200,12 +239,30 @@ leaves the token in your shell history.
 - **Chains** are CAIP-2 ids: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet),
   `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (Solana devnet), `eip155:8453` (Base mainnet),
   `eip155:84532` (Base Sepolia), `eip155:4663` (Robinhood Chain) and `eip155:46630` (Robinhood Chain
-  testnet). `transfer` without `chain` uses `DEFAULT_CHAIN`.
+  testnet). `transfer` without `chain` uses `DEFAULT_CHAIN`. `paid_fetch` takes no chain: the
+  website's payment request names one, and the policy decides whether it is allowed.
 - **The dollar** is USDC on Solana and Base, and USDG (Paxos) on Robinhood Chain. Both have 6
-  decimals, so `amountUsd` means the same on every chain; results name the token they moved. `paid_fetch` takes
-  no chain: the website's payment request names one, and the policy decides whether it is allowed.
+  decimals, so `amountUsd` means the same on every chain; results name the token they moved.
 - **`maxAmountUsd`** caps one `paid_fetch`. The tighter of it and the policy's per-payment limit
   applies.
+
+### Task budgets
+
+For a task that will pay more than once, the agent opens one budget for the whole task with
+`start_task`: the most it may spend, the websites and transfer recipients it may pay, and how long it stays open (at most a
+day). It then passes the returned `mandateId` to each `paid_fetch` and `transfer` for that task.
+
+- A budget lives inside the policy and never raises it: a payment must fit both.
+- A budget that does not fit the policy (a website or recipient it does not allow, more than is
+  left of the daily limit, or payments paused) is refused before anything opens. The result lists
+  the reject codes, explained, and tells the agent not to ask for the same budget again.
+- One budget per task, not one per payment. The tool descriptions tell the model so.
+- A budget at or above the approval threshold waits for the owner, like a payment. The result says
+  `pending_approval`; the agent tells the user and calls `get_budget` until the budget is listed as
+  open, and stops after 10 minutes.
+- `get_budget` lists the open budgets with what each has spent. When the owner runs the agent in
+  shadow mode, it also says what the agent would have spent today; nothing of that is paid.
+- An owner can require a budget for every payment. Then a payment without `mandateId` is refused.
 
 ### Handling `pending_approval`
 
@@ -217,13 +274,14 @@ owner has 10 minutes to answer on Telegram.
 3. Do **not** repeat the payment while it is pending.
 4. Act on the outcome:
 
-| Status     | `transfer`                              | `paid_fetch`                                                                                                                             |
-| ---------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `approved` | Being sent; keep polling                | Call `paid_fetch` again with **exactly** the same url, method, headers and body. That redeems the approval once and returns the response |
-| `executed` | Done; the result has the transaction id | Done                                                                                                                                     |
-| `rejected` | The owner said no; do not retry         | The owner said no; do not retry                                                                                                          |
-| `expired`  | No answer in time; nothing moved        | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
-| `failed`   | Approved, but sending failed            | Approved, but paying failed                                                                                                              |
+| Status     | `transfer`                                                                          | `paid_fetch`                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `approved` | Being sent; keep polling                                                            | Call `paid_fetch` again with **exactly** the same url, method, headers and body. That redeems the approval once and returns the response |
+| `executed` | Done; the result has the transaction id, and notes a signed receipt if there is one | Done                                                                                                                                     |
+| `rejected` | The owner said no; do not retry                                                     | The owner said no; do not retry                                                                                                          |
+| `expired`  | No answer in time; nothing moved                                                    | No answer in time, or the approval was not redeemed before it expired; nothing moved                                                     |
+| `failed`   | Approved, but sending failed                                                        | Approved, but paying failed                                                                                                              |
+| `shadowed` | Shadow mode: nothing was paid; this is what it would have cost                      | Shadow mode: nothing was paid; the body shown is the site's unpaid answer                                                                |
 
 The tool results already tell the model this. A client that drives the tools without a model should
 follow the same steps; [`examples/demo-agent`](./examples/demo-agent/index.ts) does.
@@ -234,22 +292,26 @@ Every result starts with the outcome. A tool error (`isError: true`) means the c
 decision. A rejection is a decision, not an error.
 
 **Reject codes.** A `rejected` payment lists one or more codes, each explained in the result. None is
-worth retrying unchanged.
+a reason to retry the same payment; only `MANDATE_REQUIRED` asks for it again, with a `mandateId`.
 
-| Code                                                                                                                               | Meaning                                                     | What the agent should do                |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
-| `PAUSED`                                                                                                                           | The owner paused payments                                   | Tell the user; wait for the owner       |
-| `PER_TX_EXCEEDED`                                                                                                                  | Above the per-payment limit, or above `maxAmountUsd`        | Pay less, or ask the owner              |
-| `DAILY_EXCEEDED`                                                                                                                   | Would pass today's limit                                    | Wait until 00:00 UTC, or ask the owner  |
-| `RECIPIENT_NOT_ALLOWED`                                                                                                            | The recipient is not on the allowlist                       | Ask the owner to allow it               |
-| `DOMAIN_NOT_ALLOWED`                                                                                                               | The website is not on the allowlist                         | Ask the owner to allow it               |
-| `CHAIN_NOT_ALLOWED`, `TOKEN_NOT_ALLOWED`                                                                                           | The policy does not allow this chain or token               | Use an allowed chain, or ask the owner  |
-| `OWNER_REJECTED`                                                                                                                   | The owner pressed Reject                                    | Do not retry                            |
-| `APPROVAL_TIMEOUT`                                                                                                                 | The owner did not answer, or the approval was not redeemed  | Ask the user before trying again        |
-| `INVALID_402`                                                                                                                      | The website's payment request was malformed or unsafe       | Do not pay this site; tell the user     |
-| `SIM_FAILED`, `SIM_UNEXPECTED_EFFECT`                                                                                              | In simulation the transaction failed, or did more than pay  | Do not retry; tell the user             |
-| `APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`                                                                      | Base: the payment would grant standing authority over funds | Do not pay this site; it may be hostile |
-| `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`, `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED` | Solana: the transaction would do more than transfer         | Do not pay this site; it may be hostile |
+| Code                                                                                                                               | Meaning                                                                                                | What the agent should do                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `PAUSED`                                                                                                                           | The owner paused payments                                                                              | Tell the user; wait for the owner                                        |
+| `PER_TX_EXCEEDED`                                                                                                                  | Above the per-payment limit, or above `maxAmountUsd`                                                   | Pay less, or ask the owner                                               |
+| `DAILY_EXCEEDED`                                                                                                                   | Would pass today's limit                                                                               | Wait until 00:00 UTC, or ask the owner                                   |
+| `RECIPIENT_NOT_ALLOWED`                                                                                                            | The recipient is not on the allowlist                                                                  | Ask the owner to allow it                                                |
+| `DOMAIN_NOT_ALLOWED`                                                                                                               | The website is not on the allowlist                                                                    | Ask the owner to allow it                                                |
+| `CHAIN_NOT_ALLOWED`, `TOKEN_NOT_ALLOWED`                                                                                           | The policy does not allow this chain or token                                                          | Use an allowed chain, or ask the owner                                   |
+| `OWNER_REJECTED`                                                                                                                   | The owner pressed Reject                                                                               | Do not retry                                                             |
+| `MANDATE_REQUIRED`                                                                                                                 | The owner requires every payment to belong to a task budget                                            | Open one with `start_task`, then repeat the payment with its `mandateId` |
+| `MANDATE_EXCEEDED`                                                                                                                 | The payment does not fit the task budget: too little left, or a website or recipient it does not cover | Stop and tell the user; open another budget only if they agree           |
+| `MANDATE_EXPIRED`                                                                                                                  | The task budget expired, or the owner closed it                                                        | Stop and tell the user; open a new budget only if they still want it     |
+| `BREAKER_TRIPPED`                                                                                                                  | Too many payments in one minute, so AgentGuard paused the agent                                        | Stop paying and tell the user; the owner must resume the agent           |
+| `APPROVAL_TIMEOUT`                                                                                                                 | The owner did not answer, or the approval was not redeemed                                             | Ask the user before trying again                                         |
+| `INVALID_402`                                                                                                                      | The website's payment request was malformed or unsafe                                                  | Do not pay this site; tell the user                                      |
+| `SIM_FAILED`, `SIM_UNEXPECTED_EFFECT`                                                                                              | In simulation the transaction failed, or did more than pay                                             | Do not retry; tell the user                                              |
+| `APPROVAL_DETECTED`, `PERMIT_DETECTED`, `DELEGATION_DETECTED`                                                                      | Base: the payment would grant standing authority over funds                                            | Do not pay this site; it may be hostile                                  |
+| `DELEGATE_DETECTED`, `AUTHORITY_CHANGE_DETECTED`, `ACCOUNT_CLOSE_DETECTED`, `UNKNOWN_PROGRAM_DETECTED`, `HIDDEN_ACCOUNTS_DETECTED` | Solana: the transaction would do more than transfer                                                    | Do not pay this site; it may be hostile                                  |
 
 **Tool errors.**
 
@@ -277,7 +339,8 @@ worth retrying unchanged.
 | ----------------------- | ----------- | ---------------------- | --------------------------------------------------------------------------------------------- |
 | `GUARD_URL`             | yes         |                        | guard-core base URL: `https://`, or `http://` to localhost only                               |
 | `AGENT_ID`              | yes         |                        | The agent this server pays as                                                                 |
-| `AGENT_TOKEN`           | yes         |                        | That agent's guard-core bearer token                                                          |
+| `AGENT_TOKEN`           | yes\*       |                        | That agent's guard-core bearer token                                                          |
+| `AGENT_TOKEN_FILE`      | no          |                        | \*A file holding the token instead, mode 600 (`setup` writes it). `AGENT_TOKEN` wins          |
 | `DEFAULT_CHAIN`         | no          | Solana devnet (CAIP-2) | Used by `transfer` when `chain` is omitted. Must be a chain guard-core runs                   |
 | `BASE_USDC`             | on Base     |                        | USDC contract on Base mainnet, while shared has no verified address for it; ignored elsewhere |
 | `MCP_TRANSPORT`         | no          | `stdio`                | `stdio` or `http`                                                                             |
@@ -291,7 +354,7 @@ worth retrying unchanged.
 The config is validated at startup; a bad value stops the server with the field name, never the
 value. Logs never contain the tokens. At startup the server also reads the budget, and warns if
 `DEFAULT_CHAIN` is not among the chains guard-core runs and this agent may pay on (`chains` in the
-budget, CR-006), or if `DEFAULT_CHAIN` has no dollar token. It warns rather than refuses to start:
+budget), or if `DEFAULT_CHAIN` has no dollar token. It warns rather than refuses to start:
 guard-core may be down at that moment. Against a guard-core that does not report `chains`, the check
 is skipped.
 

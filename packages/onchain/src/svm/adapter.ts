@@ -29,6 +29,7 @@ import {
   type KillTx,
   type SimulationOutcome,
 } from '../ChainAdapter.js'
+import { hotWalletGas } from './gas.js'
 import { inspectTransfer } from './inspect.js'
 import { simulateMessage, topUpFor } from './simulate.js'
 import { confirm, connect, findSpendingLimit, spendingLimitPda } from './squads.js'
@@ -156,6 +157,8 @@ export function svmAdapter(deps: SvmAdapterDeps): SvmAdapter {
         throw error
       }
     },
+
+    getHotWalletGas: () => hotWalletGas(connection, hotWallet.publicKey),
 
     async topUpHotWallet(amount: Amount): Promise<TxId> {
       return useSpendingLimit(connection, hotWallet, {

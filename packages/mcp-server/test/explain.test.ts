@@ -41,6 +41,46 @@ describe('explainStatus', () => {
   })
 })
 
+describe('task budget and breaker codes', () => {
+  it('tells the agent to open a task budget when one is required', () => {
+    const text = explainStatus('rejected', ['MANDATE_REQUIRED'], 'transfer')
+    expect(text).toMatch(
+      /- MANDATE_REQUIRED: the owner requires every payment to belong to a task budget/,
+    )
+    expect(text).toMatch(
+      /Open a task budget for this task with start_task, then repeat the payment with its mandateId\./,
+    )
+  })
+
+  it.each(['MANDATE_EXCEEDED', 'MANDATE_EXPIRED'])('tells the agent to stop on %s', (code) => {
+    expect(explainStatus('rejected', [code], 'x402')).toMatch(
+      /Stop paying for this task and tell the user\./,
+    )
+  })
+
+  it('tells the agent the breaker paused it', () => {
+    const text = explainStatus('rejected', ['BREAKER_TRIPPED'], 'x402')
+    expect(text).toMatch(/AgentGuard paused this agent until the owner resumes it/)
+    expect(text).toMatch(/Stop making payments and tell the user/)
+  })
+
+  it('gives each piece of advice once', () => {
+    const text = explainStatus('rejected', ['MANDATE_EXCEEDED', 'MANDATE_EXCEEDED'], 'transfer')
+    expect(text.match(/Stop paying for this task/g)).toHaveLength(1)
+  })
+})
+
+describe('shadow mode', () => {
+  it('says nothing was paid, for a transfer and for a paid fetch', () => {
+    expect(explainStatus('shadowed', [], 'transfer')).toMatch(
+      /^Shadow mode: nothing was paid and no money moved\./,
+    )
+    expect(explainStatus('shadowed', [], 'x402')).toMatch(
+      /website's unpaid answer, not the paid content/,
+    )
+  })
+})
+
 describe('wrapUntrusted', () => {
   it('fences the body with the nonce on both markers', () => {
     expect(wrapUntrusted('hello', 'n1')).toBe(

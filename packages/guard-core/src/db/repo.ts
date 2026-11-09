@@ -6,8 +6,9 @@ import type {
   PolicyDecision,
   RejectCode,
 } from '@agentguard/shared'
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { and, eq, gt, gte, isNotNull, isNull, like, lte, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
+import type { StoredPolicy } from '../domain/policy.js'
 import type { Db } from './client.js'
 import { agents, auditLog, dailySpend, intents, policies } from './schema.js'
 
@@ -31,7 +32,7 @@ export function agentExists(db: Db, id: string): boolean {
   return db.select({ id: agents.id }).from(agents).where(eq(agents.id, id)).get() !== undefined
 }
 
-export function getPolicy(db: Db, agentId: string): Policy | undefined {
+export function getPolicy(db: Db, agentId: string): StoredPolicy | undefined {
   const row = db.select().from(policies).where(eq(policies.agentId, agentId)).get()
   if (!row) {
     return undefined
@@ -46,9 +47,17 @@ export function getPolicy(db: Db, agentId: string): Policy | undefined {
     allowedRecipients: row.allowedRecipients,
     allowedDomains: row.allowedDomains,
     paused: row.paused,
+    mode: row.mode,
+    priceIncreaseMaxPct: row.priceIncreaseMaxPct,
+    maxPaymentsPerMinute: row.maxPaymentsPerMinute,
+    requireMandate: row.requireMandate,
   }
 }
 
+/**
+ * A field the policy leaves out keeps its stored value, or its column default for a new policy: a
+ * client that predates a field cannot reset it, and cannot switch a shadow agent live by omission.
+ */
 export function putPolicy(db: Db, policy: Policy, now: string): void {
   const row = { ...policy, updatedAt: now }
   db.insert(policies).values(row).onConflictDoUpdate({ target: policies.agentId, set: row }).run()
@@ -70,12 +79,39 @@ export function pauseAll(db: Db, now: string): number {
 type IntentRow = typeof intents.$inferSelect
 
 function toIntent(row: IntentRow): PayIntent {
-  const { domain, txId, ...rest } = row
+  const { domain, txId, mandateId, ...rest } = row
   return {
     ...rest,
     ...(domain === null ? {} : { domain }),
     ...(txId === null ? {} : { txId }),
+    ...(mandateId === null ? {} : { mandateId }),
   }
+}
+
+/** Every intent created from `from` up to and including `to`, for the owner's report. */
+export function intentsBetween(db: Db, from: Date, to: Date): PayIntent[] {
+  return db
+    .select()
+    .from(intents)
+    .where(
+      and(gte(intents.createdAt, from.toISOString()), lte(intents.createdAt, to.toISOString())),
+    )
+    .all()
+    .map(toIntent)
+}
+
+export function agentIds(db: Db): string[] {
+  return db
+    .select({ id: agents.id })
+    .from(agents)
+    .orderBy(agents.id)
+    .all()
+    .map((row) => row.id)
+}
+
+export function revokedAgentIds(db: Db): Set<string> {
+  const rows = db.select({ id: agents.id }).from(agents).where(isNotNull(agents.revokedAt)).all()
+  return new Set(rows.map((row) => row.id))
 }
 
 export function getIntent(db: Db, id: string): PayIntent | undefined {
@@ -84,7 +120,12 @@ export function getIntent(db: Db, id: string): PayIntent | undefined {
 }
 
 export function saveIntent(db: Db, intent: PayIntent): void {
-  const row = { ...intent, domain: intent.domain ?? null, txId: intent.txId ?? null }
+  const row = {
+    ...intent,
+    domain: intent.domain ?? null,
+    txId: intent.txId ?? null,
+    mandateId: intent.mandateId ?? null,
+  }
   db.insert(intents).values(row).onConflictDoUpdate({ target: intents.id, set: row }).run()
 }
 
@@ -106,6 +147,10 @@ export function findApprovedX402(db: Db, terms: PayIntent, now: Date): PayIntent
         eq(intents.amount, terms.amount),
         eq(intents.recipient, terms.recipient),
         eq(intents.domain, terms.domain ?? ''),
+        // The approval was for a payment against this mandate, or against none.
+        terms.mandateId === undefined
+          ? isNull(intents.mandateId)
+          : eq(intents.mandateId, terms.mandateId),
         gt(intents.expiresAt, now.toISOString()),
       ),
     )
@@ -136,6 +181,41 @@ export function spentToday(db: Db, agentId: string, day: string): Amount {
     .where(and(eq(dailySpend.agentId, agentId), eq(dailySpend.day, day)))
     .all()
   return rows.reduce((total, row) => total + BigInt(row.spent), 0n).toString()
+}
+
+/** What shadow mode would have spent today: every intent it recorded instead of sending. */
+export function shadowSpentToday(db: Db, agentId: string, day: string): Amount {
+  const rows = db
+    .select({ amount: intents.amount })
+    .from(intents)
+    .where(
+      and(
+        eq(intents.agentId, agentId),
+        eq(intents.status, 'shadowed'),
+        like(intents.createdAt, `${day}%`),
+      ),
+    )
+    .all()
+  return rows.reduce((total, row) => total + BigInt(row.amount), 0n).toString()
+}
+
+/** Since the agent's first shadowed payment: when, what shadow mode would have spent, how often. */
+export function shadowSummary(
+  db: Db,
+  agentId: string,
+): { since: string; total: Amount; count: number } | undefined {
+  const rows = db
+    .select({ amount: intents.amount, createdAt: intents.createdAt })
+    .from(intents)
+    .where(and(eq(intents.agentId, agentId), eq(intents.status, 'shadowed')))
+    .orderBy(intents.createdAt)
+    .all()
+  const [first] = rows
+  if (first === undefined) {
+    return undefined
+  }
+  const total = rows.reduce((sum, row) => sum + BigInt(row.amount), 0n)
+  return { since: first.createdAt, total: total.toString(), count: rows.length }
 }
 
 export function addSpend(

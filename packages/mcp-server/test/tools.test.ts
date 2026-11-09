@@ -11,13 +11,14 @@ import { call, connect, fakeGuard } from './support.js'
 const INTENT_ID = '3f0c8f5e-8a3b-4c55-9a0e-2d6f2b1c7a10'
 
 describe('tool listing', () => {
-  it('exposes exactly the four SPEC tools, each warning about rejection and approval', async () => {
+  it('exposes exactly the SPEC tools, the payment ones warning about rejection and approval', async () => {
     const client = await connect(fakeGuard({}))
     const { tools } = await client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'check_intent',
       'get_budget',
       'paid_fetch',
+      'start_task',
       'transfer',
     ])
     for (const name of ['paid_fetch', 'transfer']) {
@@ -300,6 +301,24 @@ describe('paid_fetch', () => {
     expect(text).toMatch(/DOMAIN_NOT_ALLOWED/)
   })
 
+  it('fences the unpaid 402 of a shadowed fetch and says nothing was paid', async () => {
+    const client = await connect(
+      fakeGuard({
+        fetch: async () => ({
+          intentId: INTENT_ID,
+          status: 'shadowed',
+          rejectReasons: [],
+          response: { status: 402, headers: {}, body: '{"accepts":[]}' },
+        }),
+      }),
+    )
+    const result = await call(client, 'paid_fetch', { url: 'https://api.test/x' })
+    expect(result.texts[0]).toMatch(/: shadowed\./)
+    expect(result.texts[0]).toMatch(/unpaid answer, not the paid content/)
+    expect(result.texts[0]).toMatch(/HTTP 402/)
+    expect(result.texts[1]).toMatch(/^<untrusted-content id=/)
+  })
+
   it('serializes a body that is not a string', async () => {
     const client = await connect(
       fakeGuard({
@@ -461,6 +480,16 @@ describe('check_intent', () => {
     expect(text).toMatch(
       /\$2\.00 USDG, x402 payment to api\.test, on Robinhood Chain \(eip155:4663\)/,
     )
+  })
+
+  it('reports a shadowed payment with what it would have cost', async () => {
+    const client = await connect(
+      fakeGuard({ intent: async () => ({ ...intent, status: 'shadowed', rejectReasons: [] }) }),
+    )
+    const { text } = await call(client, 'check_intent', { intentId: INTENT_ID })
+    expect(text).toMatch(/: shadowed\./)
+    expect(text).toMatch(/\$2\.00 USDC, x402 payment to api\.test/)
+    expect(text).toMatch(/nothing was paid and no money moved/)
   })
 
   it('refuses an id that is not a uuid', async () => {

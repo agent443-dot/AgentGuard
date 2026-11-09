@@ -1,21 +1,28 @@
 import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import type { ChainStatus } from '../domain/chains.js'
+import type { AgentReport } from '../domain/report.js'
 import { z } from 'zod'
 import { payIntent } from '../http/schemas.js'
 
 export type Decision = 'approve' | 'reject'
 
-export type DecisionResult =
-  | { ok: true; intent: PayIntent }
-  | { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+type Refusal = { ok: false; reason: 'not_found' | 'already_decided' | 'expired' }
+
+export type DecisionResult = { ok: true; intent: PayIntent } | Refusal
+
+/** The bot only needs to know a decision went through; the mandate itself is not shown again. */
+export type Settled = { ok: true } | Refusal
 
 export interface GuardClient {
   decide(intentId: string, decision: Decision, telegramUserId: number): Promise<DecisionResult>
+  decideMandate(mandateId: string, decision: Decision, telegramUserId: number): Promise<Settled>
   setPaused(agentId: string, paused: boolean): Promise<'ok' | 'not_found'>
   kill(): Promise<KillResponse>
   budget(agentId: string): Promise<BudgetView | undefined>
   /** Undefined while guard-core has no chains route (CR-006). */
   chains(): Promise<ChainStatus[] | undefined>
+  /** Undefined while guard-core has no report route. */
+  report(from: Date, to: Date): Promise<AgentReport[] | undefined>
   healthy(): Promise<boolean>
 }
 
@@ -68,15 +75,43 @@ const chainList = z.object({
     .max(16),
 })
 
+/** Since the agent's first shadowed payment: what shadow mode would have spent, and how often. */
+export type ShadowTotal = NonNullable<BudgetView['shadow']>
+
 const budgetView = z.object({
   spentToday: atomic,
+  shadowSpentToday: atomic.optional(),
+  shadow: z
+    .object({
+      since: z.iso.datetime({ offset: true }),
+      total: atomic,
+      count: z.number().int().nonnegative(),
+    })
+    .optional(),
   dailyMax: atomic,
   perTxMax: atomic,
   hotWalletBalances: z.record(z.string(), atomic),
   paused: z.boolean(),
 })
 
-export function httpGuardClient(options: GuardClientOptions): GuardClient {
+const count = z.number().int().nonnegative()
+
+const report = z.object({
+  agents: z
+    .array(
+      z.object({
+        agentId: z.string().min(1).max(64),
+        spent: atomic,
+        payments: count,
+        refused: z.record(z.string().min(1).max(64), count),
+        domains: z.array(z.object({ domain: z.string().min(1).max(253), spent: atomic })).max(500),
+      }),
+    )
+    .max(1000),
+})
+
+/** The calls every guard-core client makes: a bearer token, JSON, and a 10-second ceiling. */
+export function requester(options: GuardClientOptions) {
   const fetchImpl = options.fetch ?? fetch
 
   async function call(token: string, method: string, path: string, body?: unknown) {
@@ -91,16 +126,22 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
     })
   }
 
-  async function admin(method: string, path: string, body?: unknown) {
-    return call(options.adminToken, method, path, body)
+  return {
+    call,
+    admin: (method: string, path: string, body?: unknown) =>
+      call(options.adminToken, method, path, body),
+    async ok(response: Response): Promise<unknown> {
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
+      return response.json()
+    },
   }
+}
 
-  async function ok(response: Response): Promise<unknown> {
-    if (!response.ok) {
-      throw new GuardError(response.status)
-    }
-    return response.json()
-  }
+export function httpGuardClient(options: GuardClientOptions): GuardClient {
+  const fetchImpl = options.fetch ?? fetch
+  const { call, admin, ok } = requester(options)
 
   return {
     async decide(intentId, decision, telegramUserId) {
@@ -116,6 +157,27 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return { ok: false, reason: conflict.parse(await response.json()).error }
       }
       return { ok: true, intent: payIntent.parse(await ok(response)) }
+    },
+
+    async decideMandate(mandateId, decision, telegramUserId) {
+      const response = await call(
+        options.botToken,
+        'POST',
+        `/v1/bot/mandates/${encodeURIComponent(mandateId)}/decision`,
+        { decision, telegramUserId: String(telegramUserId) },
+      )
+      if (response.status === 404) {
+        return { ok: false, reason: 'not_found' }
+      }
+      if (response.status === 409 || response.status === 410) {
+        return { ok: false, reason: conflict.parse(await response.json()).error }
+      }
+      // Only the status: once guard-core has decided, a body the bot cannot read must not make it
+      // tell the owner that nothing was decided.
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
+      return { ok: true }
     },
 
     async setPaused(agentId, paused) {
@@ -149,6 +211,15 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
         return undefined
       }
       return chainList.parse(await ok(response)).chains
+    },
+
+    async report(from, to) {
+      const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })
+      const response = await admin('GET', `/v1/admin/report?${query}`)
+      if (response.status === 404) {
+        return undefined
+      }
+      return report.parse(await ok(response)).agents
     },
 
     async healthy() {

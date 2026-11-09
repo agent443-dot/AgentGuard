@@ -28,6 +28,8 @@ describe('x402 on Base', () => {
         allowedRecipients: [],
         allowedDomains: ['api.example.com'],
         paused: false,
+        // A new agent starts in shadow mode; this one is switched live to pay.
+        mode: 'live',
       },
       new Date().toISOString(),
     )

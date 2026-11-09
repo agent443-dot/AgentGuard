@@ -106,6 +106,7 @@ describe('intent event retries', () => {
             throw new Error('bot down')
           }
         }),
+        alert: vi.fn(async () => {}),
       },
     }
   }

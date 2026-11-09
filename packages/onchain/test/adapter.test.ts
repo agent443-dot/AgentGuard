@@ -57,6 +57,27 @@ describe('getHotWalletBalance', () => {
   })
 })
 
+describe('getHotWalletGas', () => {
+  it('reads the SOL balance, and asks for two token accounts and ten fees, plus a quarter', async () => {
+    const rent = c.svm.minimumBalanceForRentExemption(165n)
+    expect(await c.adapter.getHotWalletGas()).toEqual({
+      balance: String(LAMPORTS_PER_SOL),
+      minimum: String(((2n * rent + 50_000n) * 5n) / 4n),
+      symbol: 'SOL',
+    })
+  })
+
+  it('is zero for a hot wallet that holds no SOL', async () => {
+    c.svm.setAccount(c.hotWallet.publicKey, {
+      lamports: 0,
+      data: new Uint8Array(),
+      owner: SystemProgram.programId,
+      executable: false,
+    })
+    expect((await c.adapter.getHotWalletGas()).balance).toBe('0')
+  })
+})
+
 describe('simulate', () => {
   it('passes a transfer that moves exactly the amount, and describes it', async () => {
     const outcome = await c.adapter.simulate(intent())

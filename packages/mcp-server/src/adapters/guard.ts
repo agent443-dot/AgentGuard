@@ -1,4 +1,4 @@
-import type { BudgetView } from '@agentguard/shared'
+import type { BudgetView, Mandate } from '@agentguard/shared'
 import { z } from 'zod'
 
 const intentStatus = z.enum([
@@ -8,13 +8,14 @@ const intentStatus = z.enum([
   'executed',
   'failed',
   'expired',
+  'shadowed',
 ])
 
 const rejectReasons = z.array(z.string()).default([])
 
 export const fetchResult = z
   .object({
-    // CR-003: both are absent when the resource asked for no payment, and intentId is absent when the
+    // Both are absent when the resource asked for no payment, and intentId is absent when the
     // host was refused before an intent existed.
     intentId: z.string().optional(),
     status: intentStatus.optional(),
@@ -36,14 +37,36 @@ export const transferResult = z.object({
   rejectReasons,
 })
 
+/** An integer count of atomic units, as guard-core sends amounts. */
+const atomic = z.string().regex(/^\d{1,40}$/)
+
+export const mandate = z.object({
+  id: z.uuid(),
+  agentId: z.string(),
+  budget: atomic,
+  spent: atomic,
+  domains: z.array(z.string()),
+  recipients: z.array(z.string()),
+  reason: z.string(),
+  status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
+  createdAt: z.iso.datetime({ offset: true }),
+  expiresAt: z.iso.datetime({ offset: true }),
+}) satisfies z.ZodType<Mandate>
+
+/** Only what proves a receipt exists; the agent has no use for the rest. */
+const receipt = z.object({ signature: z.string().min(1) })
+
 export const budget = z.object({
   spentToday: z.string(),
   dailyMax: z.string(),
   perTxMax: z.string(),
   hotWalletBalances: z.record(z.string(), z.string()).default({}),
   paused: z.boolean(),
-  // CR-006. Absent means "not reported", per the shared type.
+  // Absent means "not reported", per the shared type.
   chains: z.array(z.string()).optional(),
+  // Absent from a guard-core older than task budgets and shadow mode.
+  shadowSpentToday: z.string().optional(),
+  mandates: z.array(mandate).optional(),
 }) satisfies z.ZodType<BudgetView>
 
 export const payIntent = z.object({
@@ -71,6 +94,7 @@ export interface FetchInput {
   headers?: Record<string, string>
   body?: string
   maxAmount?: string
+  mandateId?: string
 }
 
 export interface TransferInput {
@@ -78,6 +102,15 @@ export interface TransferInput {
   token: string
   amount: string
   recipient: string
+  reason: string
+  mandateId?: string
+}
+
+export interface MandateInput {
+  budget: string
+  domains: string[]
+  recipients?: string[]
+  ttlSeconds: number
   reason: string
 }
 
@@ -87,6 +120,9 @@ export interface Guard {
   transfer(input: TransferInput): Promise<TransferResult>
   budget(): Promise<Budget>
   intent(id: string): Promise<Intent>
+  startTask(input: MandateInput): Promise<Mandate>
+  /** Whether guard-core holds a signed receipt for the intent. Its content is for the owner. */
+  hasReceipt(id: string): Promise<boolean>
 }
 
 /** A guard-core call that did not produce a usable answer. `message` is safe to show the model. */
@@ -95,6 +131,8 @@ export class GuardError extends Error {
     readonly code: 'unreachable' | 'http' | 'bad_response',
     message: string,
     readonly httpStatus?: number,
+    /** Policy codes when guard-core refused the request outright, as for a task budget. */
+    readonly rejectReasons: readonly string[] = [],
   ) {
     super(message)
   }
@@ -131,7 +169,14 @@ export function httpGuard(options: HttpGuardOptions): Guard {
       )
     }
     if (!response.ok) {
-      throw new GuardError('http', await errorText(response), response.status)
+      const detail = errorBody.safeParse(await response.json().catch(() => undefined))
+      const error = detail.success ? detail.data : undefined
+      throw new GuardError(
+        'http',
+        errorText(response.status, error),
+        response.status,
+        error?.rejectReasons,
+      )
     }
     const parsed = schema.safeParse(await response.json().catch(() => undefined))
     if (!parsed.success) {
@@ -149,18 +194,33 @@ export function httpGuard(options: HttpGuardOptions): Guard {
     transfer: (input) => call(transferResult, '/v1/agent/transfer', { agentId, ...input }),
     budget: () => call(budget, `/v1/agent/budget/${agent}`),
     intent: (id) => call(payIntent, `/v1/agent/intents/${encodeURIComponent(id)}`),
+    startTask: (input) => call(mandate, '/v1/agent/mandates', { agentId, ...input }),
+    hasReceipt: (id) =>
+      call(receipt, `/v1/agent/intents/${encodeURIComponent(id)}/receipt`).then(
+        () => true,
+        (error: unknown) => {
+          // 404 is the documented answer until the intent is executed.
+          if (error instanceof GuardError && error.httpStatus === 404) {
+            return false
+          }
+          throw error
+        },
+      ),
   }
 }
 
 const errorBody = z.object({
   error: z.string(),
   issues: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+  // Codes only: free text from here would reach the model.
+  rejectReasons: z
+    .array(z.string().regex(/^[A-Z0-9_]{1,64}$/))
+    .max(32)
+    .optional(),
 })
 
-async function errorText(response: Response): Promise<string> {
-  const parsed = errorBody.safeParse(await response.json().catch(() => undefined))
-  const detail = parsed.success ? parsed.data : undefined
-  switch (response.status) {
+function errorText(status: number, detail: z.infer<typeof errorBody> | undefined): string {
+  switch (status) {
     case 400: {
       const issues = detail?.issues?.map((issue) => `${issue.path}: ${issue.message}`).join('; ')
       return `AgentGuard refused the request as invalid${issues ? ` (${issues})` : ''}.`
@@ -173,6 +233,6 @@ async function errorText(response: Response): Promise<string> {
     case 429:
       return 'AgentGuard is rate limiting this agent. Wait a minute before trying again.'
     default:
-      return `AgentGuard returned an error (HTTP ${response.status}).`
+      return `AgentGuard returned an error (HTTP ${status}).`
   }
 }

@@ -1,4 +1,5 @@
 import { pino } from 'pino'
+import { httpAdminClient } from './adapters/admin.js'
 import { httpGuardClient } from './adapters/guard.js'
 import { createBot } from './bot/index.js'
 import { loadConfig } from './config.js'
@@ -13,11 +14,17 @@ const log = pino({
   redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
 })
 
-const guard = httpGuardClient({
+if (config.GUARD_PUBLIC_URL === undefined) {
+  log.warn('GUARD_PUBLIC_URL is not set: a payment that needs a passkey can only be rejected here')
+}
+
+const guardOptions = {
   url: config.GUARD_URL,
   botToken: config.GUARD_BOT_TOKEN,
   adminToken: config.GUARD_ADMIN_TOKEN,
-})
+}
+const guard = httpGuardClient(guardOptions)
+const admin = httpAdminClient(guardOptions)
 
 const { SIGN_PAGE_URL, SQUADS_MULTISIG, SOLANA_HOT_WALLET_PUBKEY, ROBINHOOD_SAFE_ADDRESS } = config
 // loadConfig refuses a half-configured chain, so a chain is either complete here or left out.
@@ -33,13 +40,19 @@ const phantomKills = SIGN_PAGE_URL
   ? targets.map((target) => phantomKill(SIGN_PAGE_URL, target))
   : undefined
 
-const { bot, desk, commands } = createBot({
+const { bot, desk, commands, owner } = createBot({
   token: config.TELEGRAM_BOT_TOKEN,
   owners: config.OWNER_TELEGRAM_IDS,
   guard,
+  admin,
   notifyAbove: config.NOTIFY_ABOVE_AMOUNT,
   log,
   phantomKills,
+  guardPublicUrl: config.GUARD_PUBLIC_URL,
+  weekly:
+    config.REPORT_WEEKDAY === undefined || config.REPORT_HOUR_UTC === undefined
+      ? undefined
+      : { weekday: config.REPORT_WEEKDAY, hourUtc: config.REPORT_HOUR_UTC },
 })
 
 const server = await buildServer({
@@ -47,15 +60,20 @@ const server = await buildServer({
   handlers: {
     approvalRequest: (request) => desk.post(request),
     intentEvent: (event) => desk.event(event),
+    alert: (event) => desk.alert(event),
   },
   logger: log,
   rateLimitPerMinute: config.HOOK_RATE_LIMIT_PER_MINUTE,
 })
 
 const sweep = setInterval(() => {
-  Promise.all([desk.expire(), desk.flushAlerts(), commands.expireKillOffers()]).catch(
-    (err: unknown) => log.error({ err }, 'sweep failed'),
-  )
+  Promise.all([
+    desk.expire(),
+    desk.flushAlerts(),
+    commands.expireKillOffers(),
+    commands.weeklyReport(),
+    owner.sweep(),
+  ]).catch((err: unknown) => log.error({ err }, 'sweep failed'))
 }, EXPIRY_SWEEP_MS)
 
 await server.listen({ port: config.PORT, host: config.HOST })
