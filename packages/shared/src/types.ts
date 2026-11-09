@@ -170,9 +170,23 @@ export type AllowanceState =
   | { status: 'active'; cap: Amount; spent: Amount; resetsAt: string; delegate: Address }
   | { status: 'none'; delegate: Address }
 
-/** Body of POST {BOT_URL}/hooks/approval-request. */
+/** Body of POST {BOT_URL}/hooks/approval-request for a payment. */
 export interface ApprovalRequest {
   intent: PayIntent
+  simulation: SimulationResult
+  approveBefore: string
+  /** CR-010: why it reached the owner below the threshold. Absent from a v0.5 guard-core. */
+  flags?: ApprovalFlag[]
+  /** CR-010: the domain's last executed payment, present whenever a flag is. */
+  pinned?: { recipient: Address; amount: Amount }
+  /** CR-010: true when only a passkey may approve it; the bot then offers no Approve button. */
+  passkey?: boolean
+}
+
+/** CR-010: the same hook, asking the owner to open a task budget rather than to pay. */
+export interface MandateApprovalRequest {
+  mandate: Mandate
+  /** Its summary describes the budget; balanceChanges is empty. */
   simulation: SimulationResult
   approveBefore: string
 }
