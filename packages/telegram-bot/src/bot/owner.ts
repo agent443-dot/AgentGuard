@@ -5,12 +5,15 @@ import type { GuardClient } from '../adapters/guard.js'
 import { Confirms } from '../domain/confirms.js'
 import { pages } from '../domain/pages.js'
 import { agentsText, doctorBlocks } from '../domain/policy.js'
+import { escapeHtml, utcTime } from '../domain/text.js'
 import type { Desk } from './desk.js'
 import { args, code, guarded, HTML, type Press, validAgent } from './owner-kit.js'
 import { registerPolicies } from './policies.js'
 
 export interface OwnerDeps {
   admin: AdminClient
+  /** guard-core's public page, for the passkey enrol link. */
+  guardPublicUrl?: string
   guard: GuardClient
   desk: Desk
   log: Logger
@@ -20,15 +23,22 @@ export interface OwnerDeps {
 /** The token message is deleted this long after it was sent. */
 export const TOKEN_TTL_MS = 60_000
 
+/** The enrol link's message goes when its code does, at the latest. */
+const ENROL_TTL_MS = 10 * 60_000
+
 const SETUP = 'npx @agentguard/mcp-server setup claude-code'
 
 /**
  * The owner's daily commands, so nobody needs a terminal: agents, policies, mode and the doctor.
  * Every button carries only a random id; what it does stays here, and works once.
  */
-export function registerOwner(bot: Bot, { admin, guard, desk, log, now }: OwnerDeps) {
+export function registerOwner(
+  bot: Bot,
+  { admin, guard, desk, log, now, guardPublicUrl }: OwnerDeps,
+) {
   const confirms = new Confirms<Press>()
-  const tokens: { chatId: number; messageId: number; at: number }[] = []
+  /** Messages holding a secret, and when to delete them. */
+  const secrets: { chatId: number; messageId: number; until: number }[] = []
 
   const button = (run: Press, ttlMs?: number) => `own:${confirms.add(run, now(), ttlMs)}`
   const cancel = new InlineKeyboard().text('Cancel', 'own:cancel')
@@ -104,12 +114,48 @@ export function registerOwner(bot: Bot, { admin, guard, desk, log, now }: OwnerD
         `${code(token)}\nCopy it now: this message deletes itself in about a minute.`,
         HTML,
       )
-      tokens.push({ chatId: sent.chat.id, messageId: sent.message_id, at: now().getTime() })
+      secrets.push({
+        chatId: sent.chat.id,
+        messageId: sent.message_id,
+        until: now().getTime() + TOKEN_TTL_MS,
+      })
     } catch {
       log.error('agent token message failed')
       await ctx.reply('The token could not be sent. Revoke this agent and create it again.')
     }
   }
+
+  bot.command('passkey', (ctx) => {
+    if (args(ctx)[0] !== 'enrol') {
+      return ctx.reply('Usage: /passkey enrol')
+    }
+    if (guardPublicUrl === undefined) {
+      return ctx.reply(
+        "A passkey cannot be enrolled from Telegram here: GUARD_PUBLIC_URL is not set, so the bot has no link to guard-core's enrol page.",
+      )
+    }
+    return guarded(ctx, log, async () => {
+      const { code, expiresAt } = await admin.enrolCode()
+      const link = `${guardPublicUrl.replace(/\/+$/, '')}/owner/enrol?code=${encodeURIComponent(code)}`
+      log.info({ owner: ctx.from?.id }, 'passkey enrol link issued')
+      // A failure is logged without the error: it would carry the link and its code.
+      try {
+        const sent = await ctx.reply(
+          `Open this on the device that holds your passkey, once, before ${utcTime(expiresAt)}:\n` +
+            `${escapeHtml(link)}\nThis message deletes itself in 10 minutes.`,
+          { ...HTML, link_preview_options: { is_disabled: true } },
+        )
+        secrets.push({
+          chatId: sent.chat.id,
+          messageId: sent.message_id,
+          until: Math.min(now().getTime() + ENROL_TTL_MS, Date.parse(expiresAt)),
+        })
+      } catch {
+        log.error('passkey enrol message failed')
+        await ctx.reply('The enrol link could not be sent. Run /passkey enrol again.')
+      }
+    })
+  })
 
   bot.command('doctor', (ctx) =>
     guarded(ctx, log, async () => {
@@ -124,12 +170,12 @@ export function registerOwner(bot: Bot, { admin, guard, desk, log, now }: OwnerD
 
   /** Runs on the sweep timer. */
   async function sweep() {
-    const due = tokens.filter(({ at }) => now().getTime() - at >= TOKEN_TTL_MS)
+    const due = secrets.filter(({ until }) => now().getTime() >= until)
     for (const message of due) {
-      tokens.splice(tokens.indexOf(message), 1)
+      secrets.splice(secrets.indexOf(message), 1)
       await bot.api
         .deleteMessage(message.chatId, message.messageId)
-        .catch(() => log.warn('agent token message could not be deleted'))
+        .catch(() => log.warn('secret message could not be deleted'))
     }
     await policies.offerGraduation()
   }

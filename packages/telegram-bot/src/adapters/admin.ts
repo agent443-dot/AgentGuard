@@ -14,6 +14,8 @@ export interface AdminClient {
   policy(agentId: string): Promise<Policy | undefined>
   putPolicy(policy: Policy): Promise<Policy>
   doctor(): Promise<DoctorCheck[]>
+  /** A one-time code for guard-core's passkey enrol page. Never logged. */
+  enrolCode(): Promise<{ code: string; expiresAt: string }>
 }
 
 const atomic = z.string().regex(/^(0|[1-9]\d*)$/)
@@ -57,6 +59,11 @@ const checks = z.object({
     .max(64),
 })
 
+const enrol = z.object({
+  code: z.string().min(8).max(256),
+  expiresAt: z.iso.datetime({ offset: true }),
+})
+
 export function httpAdminClient(options: GuardClientOptions): AdminClient {
   const { admin, ok } = requester(options)
   const path = (agentId: string) => encodeURIComponent(agentId)
@@ -88,6 +95,10 @@ export function httpAdminClient(options: GuardClientOptions): AdminClient {
     async putPolicy({ agentId, ...body }) {
       const response = await admin('PUT', `/v1/admin/policy/${path(agentId)}`, body)
       return policySchema.parse(await ok(response))
+    },
+
+    async enrolCode() {
+      return enrol.parse(await ok(await admin('POST', '/v1/admin/passkeys/code', {})))
     },
 
     async doctor() {

@@ -325,3 +325,55 @@ describe('shadow graduation', () => {
     expect(calls).toHaveLength(0)
   })
 })
+
+describe('/passkey enrol', () => {
+  it('sends a one-time link to the enrol page and deletes it after 10 minutes', async () => {
+    let now = NOW
+    const lines: string[] = []
+    const log = pino(
+      { level: 'trace' },
+      new Writable({
+        write(chunk, _encoding, done) {
+          lines.push(String(chunk))
+          done()
+        },
+      }),
+    )
+    const { bot, owner, admin, calls } = setup({
+      now: () => now,
+      log,
+      guardPublicUrl: 'https://guard.example/',
+    })
+    await bot.handleUpdate(command(OWNER, '/passkey enrol'))
+    expect(admin.enrolCode).toHaveBeenCalled()
+    const link = last(calls)
+    expect(text(link)).toBe(
+      'Open this on the device that holds your passkey, once, before 2026-11-03 12:10:00 UTC:\n' +
+        'https://guard.example/owner/enrol?code=enrol-code-123456\n' +
+        'This message deletes itself in 10 minutes.',
+    )
+    expect(lines.join('')).not.toContain('enrol-code-123456')
+
+    now = new Date(NOW.getTime() + 600_000 - 1)
+    await owner.sweep()
+    expect(sent(calls, 'deleteMessage')).toHaveLength(0)
+    now = new Date(NOW.getTime() + 600_000)
+    await owner.sweep()
+    expect(sent(calls, 'deleteMessage').map((call) => call.payload['message_id'])).toEqual([
+      link?.messageId,
+    ])
+  })
+
+  it('says it cannot be done from Telegram without GUARD_PUBLIC_URL', async () => {
+    const { bot, admin, calls } = setup()
+    await bot.handleUpdate(command(OWNER, '/passkey enrol'))
+    expect(admin.enrolCode).not.toHaveBeenCalled()
+    expect(text(last(calls))).toContain('cannot be enrolled from Telegram here')
+  })
+
+  it('shows its usage for anything else', async () => {
+    const { bot, calls } = setup({ guardPublicUrl: 'https://guard.example' })
+    await bot.handleUpdate(command(OWNER, '/passkey'))
+    expect(text(last(calls))).toBe('Usage: /passkey enrol')
+  })
+})

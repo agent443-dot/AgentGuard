@@ -122,6 +122,17 @@ describe('httpAdminClient', () => {
     })
   })
 
+  it('asks for a passkey enrol code with the admin token', async () => {
+    const body = { code: 'c'.repeat(16), expiresAt: NOW.toISOString() }
+    const { fetch, admin } = client(json(200, body))
+    expect(await admin.enrolCode()).toEqual(body)
+    expect(sent(fetch)).toMatchObject({
+      url: 'http://guard/v1/admin/passkeys/code',
+      method: 'POST',
+      auth: 'Bearer ADMIN',
+    })
+  })
+
   it('reads the doctor checks, and throws on an error', async () => {
     const checks = [{ id: 'db', status: 'ok', message: 'Database writable' }]
     const { admin } = client(json(200, { checks }), json(500, {}))

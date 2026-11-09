@@ -173,6 +173,10 @@ export function fakeAdmin(overrides: Partial<AdminClient> = {}): AdminClient {
       return next
     }),
     doctor: vi.fn(async () => []),
+    enrolCode: vi.fn(async () => ({
+      code: 'enrol-code-123456',
+      expiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
+    })),
     ...overrides,
   }
 }

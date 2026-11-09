@@ -82,7 +82,14 @@ export function createBot({
   const owner =
     admin === undefined
       ? { sweep: async () => {} }
-      : registerOwner(bot, { admin, guard, desk, log, now: now ?? (() => new Date()) })
+      : registerOwner(bot, {
+          admin,
+          guard,
+          desk,
+          log,
+          now: now ?? (() => new Date()),
+          guardPublicUrl,
+        })
 
   bot.catch(({ error }) => log.error({ err: error }, 'update failed'))
 
