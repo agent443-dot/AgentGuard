@@ -195,6 +195,9 @@ GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perT
   agent learns only where it may actually pay, never the operator's full setup.
 
 POST /v1/bot/decision       { intentId, decision: "approve" | "reject", telegramUserId } -> PayIntent
+POST /v1/bot/mandates/:id/decision { decision: "approve" | "reject", telegramUserId } -> Mandate (CR-010)
+  409 { error: "already_decided" } or 410 { error: "expired" }, as for intents. A pending mandate
+  expires after the same 10 minutes as a pending intent.
 POST /v1/admin/pause        { agentId } ; POST /v1/admin/resume { agentId }
 POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chain, the owner tx that
                                   sets the allowance to 0 and removes the delegate
@@ -240,7 +243,8 @@ POST {BOT_URL}/hooks/alert             (same X-Guard-Signature scheme; CR-010)
 The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (empty when none),
 pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
 passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
-open a mandate rather than to pay (then intent is absent).
+open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
+simulation with an empty balanceChanges).
 
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
