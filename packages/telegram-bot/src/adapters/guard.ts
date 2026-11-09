@@ -2,7 +2,7 @@ import type { BudgetView, KillResponse, PayIntent } from '@agentguard/shared'
 import type { ChainStatus } from '../domain/chains.js'
 import type { AgentReport } from '../domain/report.js'
 import { z } from 'zod'
-import { mandate, payIntent } from '../http/schemas.js'
+import { payIntent } from '../http/schemas.js'
 
 export type Decision = 'approve' | 'reject'
 
@@ -158,7 +158,11 @@ export function httpGuardClient(options: GuardClientOptions): GuardClient {
       if (response.status === 409 || response.status === 410) {
         return { ok: false, reason: conflict.parse(await response.json()).error }
       }
-      mandate.parse(await ok(response))
+      // Only the status: once guard-core has decided, a body the bot cannot read must not make it
+      // tell the owner that nothing was decided.
+      if (!response.ok) {
+        throw new GuardError(response.status)
+      }
       return { ok: true }
     },
 

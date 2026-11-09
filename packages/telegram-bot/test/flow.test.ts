@@ -409,55 +409,59 @@ describe('shadow mode events', () => {
 })
 
 describe('approval flags', () => {
-  it('puts the reason a payment is here above the request', async () => {
+  const textOf = async (body: unknown) => {
     const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', {
-      ...approval(),
-      flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'],
-    })
-    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text.split('\n').slice(0, 3)).toEqual([
-      '⚠️ <b>This API asks to pay a different address than last time.</b>',
+    expect((await deliver('/hooks/approval-request', body)).statusCode).toBe(200)
+    return String(sent(calls, 'sendMessage')[0]?.payload['text'])
+  }
+  const lead = (text: string, n: number) => text.split('\n').slice(0, n)
+  const OLD = 'OldPayTo1111111111111111111111111111111111'
+
+  it('puts the reason a payment is here above the request', async () => {
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'] })
+    expect(lead(text, 3)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
       '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
       '<b>Approval needed</b>',
     ])
   })
 
-  it('names the factor and both addresses when guard-core sends the pinned payment', async () => {
-    const { calls, deliver } = await harness()
-    const pinned = { recipient: 'OldPayTo1111111111111111111111111111111111', amount: '5000000' }
-    await deliver('/hooks/approval-request', {
-      ...approval(),
-      flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'],
-      pinned,
-    })
-    const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text.split('\n').slice(0, 2)).toEqual([
-      '⚠️ <b>This API asks to pay a different address than last time: ' +
-        '<code>OldPay…1111</code> → <code>9xQeWv…VFin</code>.</b>',
-      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+  it('shows both recipients in full, and no price factor next to a recipient change', async () => {
+    const pinned = { recipient: OLD, amount: '5000000' }
+    const text = await textOf({ ...approval(), flags: ['RECIPIENT_CHANGED', 'PRICE_JUMP'], pinned })
+    expect(lead(text, 4)).toEqual([
+      '⚠️ <b>This API asks to pay a different recipient, chain or token than last time.</b>',
+      `Last recipient: <code>${OLD}</code>`,
+      `This recipient: <code>${RECIPIENT}</code>`,
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
     ])
   })
 
-  it('keeps the plain wording when the pinned amount gives no factor', async () => {
-    const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', {
+  it('names the factor, exact or as "more than", against the pinned payment', async () => {
+    const at = (amount: string) => ({
       ...approval(),
       flags: ['PRICE_JUMP'],
-      pinned: { recipient: RECIPIENT, amount: '0' },
+      pinned: { recipient: RECIPIENT, amount },
     })
-    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toMatch(
-      /^⚠️ <b>Price jump: this API asks for much more than its last payment\.<\/b>/,
-    )
+    expect(lead(await textOf(at('5000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: 2.5× the last payment.</b>',
+    ])
+    // 12.5 / 3 = 4.1666…: rounded down, so it must not read as exact.
+    expect(lead(await textOf(at('3000000')), 1)).toEqual([
+      '⚠️ <b>Price jump: more than 4.1× the last payment.</b>',
+    ])
+    expect(lead(await textOf(at('0')), 1)).toEqual([
+      '⚠️ <b>Price jump: this API asks for much more than its last payment.</b>',
+    ])
   })
 
-  it('reads a request without flags as having none, and refuses an unknown one', async () => {
-    const { calls, deliver } = await harness()
-    await deliver('/hooks/approval-request', approval())
-    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toMatch(/^<b>Approval needed/)
+  it('reads a request without flags as having none, and shows an unknown one generically', async () => {
+    expect(await textOf(approval())).toMatch(/^<b>Approval needed/)
     const other = approval({ id: '5b8f6c0e-2a8e-4f7e-9a51-6f0c3d1a2b77' })
-    const response = await deliver('/hooks/approval-request', { ...other, flags: ['ODD'] })
-    expect(response.statusCode).toBe(400)
+    expect(lead(await textOf({ ...other, flags: ['ODD<b>'] }), 2)).toEqual([
+      '⚠️ <b>guard-core flagged this payment:</b> <code>ODD&lt;b&gt;</code>',
+      '<b>Approval needed</b>',
+    ])
   })
 })
 
@@ -482,11 +486,57 @@ describe('passkey approvals', () => {
     expect(posted?.payload['text']).toContain('a Telegram tap can only reject it')
   })
 
-  it('offers no way to approve without the passkey page configured', async () => {
+  it('offers no way to approve without the passkey page configured, and says why', async () => {
     const { calls, deliver } = await harness()
     await deliver('/hooks/approval-request', { ...approval(), passkey: true })
-    const labels = buttons(sent(calls, 'sendMessage')[0]).map((button) => button.text)
-    expect(labels).toEqual(['Reject', 'Show full recipient'])
+    const posted = sent(calls, 'sendMessage')[0]
+    expect(buttons(posted).map((button) => button.text)).toEqual(['Reject', 'Show full recipient'])
+    expect(posted?.payload['text']).toContain('(GUARD_PUBLIC_URL is not set)')
+  })
+
+  it('does not even ask guard-core when an Approve button is pressed for a passkey payment', async () => {
+    const { bot, guard, calls, deliver } = await harness({
+      guardPublicUrl: 'https://guard.example',
+    })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    await bot.handleUpdate(press(OWNER, `approve:${INTENT_ID}`))
+    expect(guard.decide).not.toHaveBeenCalled()
+    expect(sent(calls, 'answerCallbackQuery')[0]?.payload['text']).toBe(
+      'This one needs your passkey: use Approve with passkey.',
+    )
+  })
+
+  it('settles the messages when the payment was approved on the passkey page', async () => {
+    let now = NOW
+    const { desk, calls, deliver } = await harness({
+      guardPublicUrl: 'https://guard.example',
+      now: () => now,
+    })
+    await deliver('/hooks/approval-request', { ...approval(), passkey: true })
+    await deliver('/hooks/intent-event', {
+      intent: intent({ status: 'executed', txId: 'sig' }),
+      sentAt: NOW.toISOString(),
+    })
+    const edits = sent(calls, 'editMessageText')
+    expect(edits).toHaveLength(2)
+    expect(edits[0]?.payload['text']).toMatch(/^<b>Approved<\/b> by passkey/)
+
+    // Its deadline passing later changes nothing: it is no longer open.
+    now = new Date(NOW.getTime() + 600_000)
+    await desk.expire()
+    expect(sent(calls, 'editMessageText')).toHaveLength(2)
+  })
+
+  it('settles the messages as rejected when guard-core rejected it', async () => {
+    const { calls, deliver } = await harness()
+    await deliver('/hooks/approval-request', approval())
+    await deliver('/hooks/intent-event', {
+      intent: intent({ status: 'rejected', rejectReasons: ['OWNER_REJECTED'] }),
+      sentAt: NOW.toISOString(),
+    })
+    expect(sent(calls, 'editMessageText')[0]?.payload['text']).toMatch(
+      /^<b>Rejected<\/b> by guard-core/,
+    )
   })
 
   it('keeps the Approve button for a request that needs no passkey', async () => {
@@ -535,15 +585,23 @@ describe('task budget approvals', () => {
     expect(status).toContain('Pending approvals: 0\nPending task budgets: 1')
   })
 
-  it('lists recipients when the budget may pay some, shortened', async () => {
+  it('lists recipients in full, and at most ten of anything', async () => {
     const { calls, deliver } = await harness()
-    await deliver(
-      '/hooks/approval-request',
-      mandateRequest({ recipients: [RECIPIENT], domains: [] }),
-    )
+    const domains = Array.from({ length: 64 }, (_, i) => `api${i}.${'x'.repeat(240)}.com`)
+    await deliver('/hooks/approval-request', mandateRequest({ recipients: [RECIPIENT], domains }))
     const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text).toContain('Domains: none')
-    expect(text).toContain('Recipients: <code>9xQeWv…VFin</code>')
+    expect(text).toContain(`Recipients: <code>${RECIPIENT}</code>`)
+    expect(text).toContain(', and 54 more')
+    expect(text.length).toBeLessThan(4096)
+  })
+
+  it('says no duration when guard-core does not send one, never the approval deadline', async () => {
+    const { calls, deliver } = await harness()
+    const { ttlSeconds: _ttl, ...request } = mandateRequest()
+    await deliver('/hooks/approval-request', request)
+    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toContain(
+      'asks for a task budget of <b>$25.00</b>.',
+    )
   })
 
   it('refuses a replay and a request whose window has passed, like a payment', async () => {

@@ -1,26 +1,31 @@
 import type { MandateRequest } from '../http/schemas.js'
 import { formatUsd } from './money.js'
-import { escapeHtml, type Outcome, outcomeLine, shortAddress, utcTime } from './text.js'
+import { escapeHtml, type Outcome, outcomeLine, utcTime } from './text.js'
 
-function minutes(createdAt: string, expiresAt: string): number {
-  return Math.round((Date.parse(expiresAt) - Date.parse(createdAt)) / 60_000)
+// Enough to judge the request while the message stays far under Telegram's 4096 characters.
+const SHOWN = 10
+
+/** In full: a shortened address is what address poisoning imitates. */
+function list(items: string[]): string {
+  if (items.length === 0) {
+    return 'none'
+  }
+  const shown = items.slice(0, SHOWN).map((item) => `<code>${escapeHtml(item)}</code>`)
+  const more = items.length > SHOWN ? `, and ${items.length - SHOWN} more` : ''
+  return `${shown.join(', ')}${more}`
 }
 
-const list = (items: string[], shown: (item: string) => string) =>
-  items.length === 0
-    ? 'none'
-    : items.map((item) => `<code>${escapeHtml(shown(item))}</code>`).join(', ')
-
-/** Everything in a mandate came from the agent but the budget and window guard-core checked. */
-function details({ mandate, approveBefore }: MandateRequest): string[] {
-  const span = minutes(mandate.createdAt, mandate.expiresAt)
+/**
+ * Everything in a mandate came from the agent but the budget guard-core checked. The duration is
+ * ttlSeconds, counted from approval: a pending mandate's expiresAt is only the approval deadline.
+ */
+function details({ mandate, approveBefore, ttlSeconds }: MandateRequest): string[] {
+  const span = ttlSeconds === undefined ? '' : ` for ${Math.round(ttlSeconds / 60)} min`
   return [
     `Agent <code>${escapeHtml(mandate.agentId)}</code> asks for a task budget of ` +
-      `<b>${formatUsd(mandate.budget)}</b> for ${span} min.`,
-    `Domains: ${list(mandate.domains, (domain) => domain)}`,
-    ...(mandate.recipients.length === 0
-      ? []
-      : [`Recipients: ${list(mandate.recipients, shortAddress)}`]),
+      `<b>${formatUsd(mandate.budget)}</b>${span}.`,
+    `Domains: ${list(mandate.domains)}`,
+    ...(mandate.recipients.length === 0 ? [] : [`Recipients: ${list(mandate.recipients)}`]),
     `Expires: ${utcTime(approveBefore)}`,
     '',
     `agent says: <i>${escapeHtml(mandate.reason) || '(nothing)'}</i>`,
