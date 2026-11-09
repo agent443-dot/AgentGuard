@@ -11,11 +11,11 @@ default branch is switched to `main`).
 **1/8** · Image: `assets/day-01/01-launch.png`
 
 ```text
-AgentGuard is public.
+Your AI agent can pay for things now. It still never touches a private key.
 
-It sits between AI agents and money. The agent never holds a key: every payment is checked against your policy, simulated, then auto-approved, sent to you on Telegram, or rejected.
+AgentGuard is public: an open-source guard between agents and money. Policy, simulation, your approval on Telegram, and a daily cap enforced onchain.
 
-Open source, self-hosted, live on Robinhood Chain mainnet. 🧵
+Live on Robinhood Chain mainnet. 🧵
 ```
 
 Alt text: Dark card with the AgentGuard gradient bar. Headline: "Your agent can spend. It never holds
@@ -93,9 +93,9 @@ What is early, plainly:
 **8/8**
 
 ```text
-895 automated tests and 39 attack cases, and a pre-release review whose fixes are public.
+What makes it different: no key in the agent, no contract of ours, a loss bound enforced onchain, and a real-money mainnet pilot. Plus 895 tests and 39 attack cases.
 
-Apache-2.0. Read the code, run your own, and report anything you break privately via SECURITY.md.
+Apache-2.0. Read it, run it, try to break it.
 
 https://github.com/agent443-dot/AgentGuard/tree/main
 ```
