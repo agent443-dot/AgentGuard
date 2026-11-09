@@ -35,3 +35,6 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# vercel pull (the setup wizard) writes the page project settings here
+.vercel/

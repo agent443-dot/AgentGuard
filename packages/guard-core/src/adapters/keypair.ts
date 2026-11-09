@@ -1,3 +1,4 @@
+import { createPrivateKey, type KeyObject } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 
@@ -32,4 +33,17 @@ export async function readEvmKeyFile(path: string): Promise<`0x${string}`> {
     throw new Error(`invalid key file: ${path}`)
   }
   return key.data as `0x${string}`
+}
+
+/** The receipt signing key: an Ed25519 private key in PEM, kept apart from every hot wallet key. */
+export async function readReceiptKeyFile(path: string): Promise<KeyObject> {
+  try {
+    const key = createPrivateKey(await readFile(path, 'utf8'))
+    if (key.asymmetricKeyType === 'ed25519') {
+      return key
+    }
+  } catch {
+    // Reported below without the parser's message, which could quote the file.
+  }
+  throw new Error(`invalid receipt key file: ${path}`)
 }

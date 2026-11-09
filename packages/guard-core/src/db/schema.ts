@@ -1,5 +1,7 @@
 import type {
   Address,
+  Mandate,
+  Receipt,
   Amount,
   ChainId,
   IntentStatus,
@@ -37,8 +39,35 @@ export const policies = sqliteTable('policies', {
   allowedRecipients: text('allowed_recipients', { mode: 'json' }).$type<Address[]>().notNull(),
   allowedDomains: text('allowed_domains', { mode: 'json' }).$type<string[]>().notNull(),
   paused: integer('paused', { mode: 'boolean' }).notNull().default(false),
+  // The defaults here and in POLICY_DEFAULTS are the same values: a policy written before these
+  // columns existed reads back with them.
+  mode: text('mode').$type<'live' | 'shadow'>().notNull().default('live'),
+  priceIncreaseMaxPct: integer('price_increase_max_pct').notNull().default(100),
+  maxPaymentsPerMinute: integer('max_payments_per_minute').notNull().default(10),
+  requireMandate: integer('require_mandate', { mode: 'boolean' }).notNull().default(false),
   updatedAt: text('updated_at').notNull(),
 })
+
+/**
+ * What an agent last paid each x402 domain. A later 402 from the same domain that names another
+ * payee, chain or token, or a much higher price, is the shape of a compromised or swapped API, so
+ * it goes to the owner even when the amount alone would not.
+ */
+export const x402Pins = sqliteTable(
+  'x402_pins',
+  {
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agents.id),
+    domain: text('domain').notNull(),
+    chain: text('chain').$type<ChainId>().notNull(),
+    token: text('token').$type<Address>().notNull(),
+    recipient: text('recipient').$type<Address>().notNull(),
+    amount: text('amount').$type<Amount>().notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.agentId, t.domain] })],
+)
 
 export const intents = sqliteTable(
   'intents',
@@ -58,6 +87,8 @@ export const intents = sqliteTable(
     status: text('status').$type<IntentStatus>().notNull(),
     rejectReasons: text('reject_reasons', { mode: 'json' }).$type<RejectCode[]>().notNull(),
     txId: text('tx_id'),
+    /** The task budget this payment counts against, if any. */
+    mandateId: text('mandate_id'),
     createdAt: text('created_at').notNull(),
     expiresAt: text('expires_at').notNull(),
   },
@@ -105,3 +136,121 @@ export const dailySpend = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.agentId, t.chain, t.day] })],
 )
+
+/**
+ * One row per payment cleared to be signed, for the breaker's rolling minute. Keyed by intent, so
+ * a payment cleared twice (asked of the owner, then redeemed) counts once. In the database rather
+ * than in memory, so a restart does not hand a runaway agent a fresh minute.
+ */
+export const clearedPayments = sqliteTable(
+  'cleared_payments',
+  {
+    intentId: text('intent_id')
+      .primaryKey()
+      .references(() => intents.id),
+    agentId: text('agent_id').notNull(),
+    at: text('at').notNull(),
+  },
+  (t) => [index('cleared_payments_agent_at').on(t.agentId, t.at)],
+)
+
+/**
+ * A budget for one task, inside the policy. A payment that names one must also fit it, and its
+ * spend is counted here as well as in the day's total.
+ */
+export const mandates = sqliteTable(
+  'mandates',
+  {
+    id: text('id').primaryKey(),
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agents.id),
+    budget: text('budget').$type<Amount>().notNull(),
+    spent: text('spent')
+      .$type<Amount>()
+      .notNull()
+      .default(sql`'0'`),
+    domains: text('domains', { mode: 'json' }).$type<string[]>().notNull(),
+    recipients: text('recipients', { mode: 'json' }).$type<Address[]>().notNull(),
+    /** Agent-provided. Shown to the owner, never read back into a decision. */
+    reason: text('reason').notNull(),
+    status: text('status').$type<Mandate['status']>().notNull(),
+    /** How long it runs once active. The clock starts when the owner approves, not when asked. */
+    ttlSeconds: integer('ttl_seconds').notNull(),
+    createdAt: text('created_at').notNull(),
+    /** While pending, the owner's deadline; once active, the end of the task. */
+    expiresAt: text('expires_at').notNull(),
+  },
+  (t) => [
+    index('mandates_agent_status').on(t.agentId, t.status),
+    index('mandates_expires_at').on(t.expiresAt),
+  ],
+)
+
+/**
+ * What cleared a payment, kept for its receipt: a hash of the policy in force, the simulation's
+ * summary, and who approved it. Written at clearance, because by the time the payment executes the
+ * policy may have changed.
+ */
+export const clearances = sqliteTable('clearances', {
+  intentId: text('intent_id')
+    .primaryKey()
+    .references(() => intents.id),
+  policyHash: text('policy_hash').notNull(),
+  simulation: text('simulation').notNull(),
+  approvedBy: text('approved_by').$type<Receipt['approvedBy']>().notNull(),
+})
+
+/** How the owner approved an intent: by a Telegram tap, or with a passkey. */
+export const ownerApprovals = sqliteTable('owner_approvals', {
+  intentId: text('intent_id')
+    .primaryKey()
+    .references(() => intents.id),
+  method: text('method').$type<'owner' | 'passkey'>().notNull(),
+})
+
+/** One signed receipt per executed intent. */
+export const receipts = sqliteTable(
+  'receipts',
+  {
+    intentId: text('intent_id')
+      .primaryKey()
+      .references(() => intents.id),
+    issuedAt: text('issued_at').notNull(),
+    body: text('body', { mode: 'json' }).$type<Receipt>().notNull(),
+  },
+  (t) => [index('receipts_issued_at').on(t.issuedAt)],
+)
+
+/** The owner's passkeys. Only the public key is kept; the private one never leaves the device. */
+export const passkeys = sqliteTable('passkeys', {
+  /** The credential id, base64url. */
+  id: text('id').primaryKey(),
+  /** COSE public key, base64url. */
+  publicKey: text('public_key').notNull(),
+  /** The authenticator's signature counter; a step backwards hints at a cloned key. */
+  counter: integer('counter').notNull(),
+  transports: text('transports', { mode: 'json' }).$type<string[]>().notNull(),
+  createdAt: text('created_at').notNull(),
+  lastUsedAt: text('last_used_at'),
+})
+
+/**
+ * Outstanding WebAuthn challenges, each for one purpose: enrolling a passkey, or approving one
+ * intent. Taken once and deleted, so an assertion cannot be replayed.
+ */
+export const passkeyChallenges = sqliteTable('passkey_challenges', {
+  /** `registration`, or the intent id the approval is for. */
+  purpose: text('purpose').primaryKey(),
+  challenge: text('challenge').notNull(),
+  expiresAt: text('expires_at').notNull(),
+})
+
+/**
+ * One-time codes that let the owner enrol a passkey from the public page. Only the SHA-256 of a
+ * code is kept, so the table cannot be read back into a working link.
+ */
+export const enrolCodes = sqliteTable('enrol_codes', {
+  hash: text('hash').primaryKey(),
+  expiresAt: text('expires_at').notNull(),
+})

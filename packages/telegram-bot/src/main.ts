@@ -13,6 +13,10 @@ const log = pino({
   redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
 })
 
+if (config.GUARD_PUBLIC_URL === undefined) {
+  log.warn('GUARD_PUBLIC_URL is not set: a payment that needs a passkey can only be rejected here')
+}
+
 const guard = httpGuardClient({
   url: config.GUARD_URL,
   botToken: config.GUARD_BOT_TOKEN,
@@ -40,6 +44,11 @@ const { bot, desk, commands } = createBot({
   notifyAbove: config.NOTIFY_ABOVE_AMOUNT,
   log,
   phantomKills,
+  guardPublicUrl: config.GUARD_PUBLIC_URL,
+  weekly:
+    config.REPORT_WEEKDAY === undefined || config.REPORT_HOUR_UTC === undefined
+      ? undefined
+      : { weekday: config.REPORT_WEEKDAY, hourUtc: config.REPORT_HOUR_UTC },
 })
 
 const server = await buildServer({
@@ -47,15 +56,19 @@ const server = await buildServer({
   handlers: {
     approvalRequest: (request) => desk.post(request),
     intentEvent: (event) => desk.event(event),
+    alert: (event) => desk.alert(event),
   },
   logger: log,
   rateLimitPerMinute: config.HOOK_RATE_LIMIT_PER_MINUTE,
 })
 
 const sweep = setInterval(() => {
-  Promise.all([desk.expire(), desk.flushAlerts(), commands.expireKillOffers()]).catch(
-    (err: unknown) => log.error({ err }, 'sweep failed'),
-  )
+  Promise.all([
+    desk.expire(),
+    desk.flushAlerts(),
+    commands.expireKillOffers(),
+    commands.weeklyReport(),
+  ]).catch((err: unknown) => log.error({ err }, 'sweep failed'))
 }, EXPIRY_SWEEP_MS)
 
 await server.listen({ port: config.PORT, host: config.HOST })

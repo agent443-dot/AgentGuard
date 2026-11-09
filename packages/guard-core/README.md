@@ -13,8 +13,21 @@ pnpm --filter @agentguard/guard-core create-agent my-agent   # prints the agent 
 pnpm --filter @agentguard/guard-core dev                     # API on 127.0.0.1:8787
 ```
 
-A new agent's policy is empty, so it can pay nothing until the owner sets one with
-`PUT /v1/admin/policy/:agentId`.
+A new agent's policy is empty and in shadow mode, so it pays nothing until the owner sets a policy
+with `PUT /v1/admin/policy/:agentId` and switches it to `mode: "live"`. Without a terminal, the
+owner does the same through the admin API (the bot's commands use it):
+
+- `POST /v1/admin/agents { agentId }` returns `{ agentId, token }`. The token is shown once; only its
+  hash is kept. 409 `{ error: "exists" }` for a taken id.
+- `GET /v1/admin/agents` lists the agents with a working token, with `paused` and `mode`.
+- `POST /v1/admin/agents/:id/revoke` cuts one off at its next request.
+- `GET /v1/admin/doctor` checks, in plain English and never quoting a URL, key or token: the
+  database accepts a write (undone at once), each chain's onchain limit is readable and in place,
+  each hot wallet's gas is above its minimum and its token balance, the bot answers, and the newest
+  backup is under two days old. Each warning or failure says what to do.
+
+The budget routes add `shadow: { since, total, count }` for an agent that ran in shadow mode: what
+it would have spent since its first shadowed payment, and how many payments that was.
 
 `pnpm --filter @agentguard/guard-core revoke-agent my-agent` revokes an agent's token. It stops
 working on its next request, on every agent route. The agent's intents and audit history stay.
@@ -55,6 +68,22 @@ the pipeline moves it on.
 - **Simulation** calls `ChainAdapter.simulate`. Any reject code from the adapter refuses the
   payment, a simulation that throws is `SIM_FAILED`, and a simulation in which the wallet loses more
   of the token than the intent pays is `SIM_UNEXPECTED_EFFECT` on every chain.
+- **Policy fields with defaults**: `mode` (`live`), `priceIncreaseMaxPct` (100),
+  `maxPaymentsPerMinute` (10) and `requireMandate` (false). A `PUT` that leaves one out keeps the
+  stored value, and a policy that never set one has the default. So a client that predates a field
+  cannot reset it, and cannot switch a shadow agent live by omission. The `PUT` answers with the
+  policy as stored.
+- **Shadow mode** (`mode: "shadow"`): policy, pinning and simulation run as usual, then the intent
+  is recorded as `shadowed` and stops there. Nothing is funded or signed, the owner is not asked,
+  and an x402 fetch gets the unpaid 402 back. The daily max is held against what shadow mode would
+  have spent, and both budget routes report it as `shadowSpentToday`, so the owner can watch an
+  agent's habits before giving it money.
+- **Breaker**: the payment that would make more than `maxPaymentsPerMinute` in a rolling minute is
+  refused with `BREAKER_TRIPPED`, the agent is paused, and `POST {BOT_URL}/hooks/alert` tells the
+  owner. It stays paused until the owner resumes it. Only payments about to be signed count, each
+  once, and the window is kept in the database so a restart does not reset it. Resuming the agent
+  clears its window. Shadow mode does not
+  trip it: nothing it counts ever happened.
 - **Owner approval**: at or above `approvalThreshold`, the intent is saved as `pending_approval`
   before the webhook goes out. Approval answers the threshold only: policy and simulation run again
   right before anything is sent, so a pause or a spent budget in the meantime still refuses it.
@@ -85,7 +114,7 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
 3. The `PAYMENT-REQUIRED` header is decoded with `@x402/core` and validated with zod. Only x402
    version 2 and scheme `exact` are accepted. `chooseAccept` picks the first offer within the policy
    and the agent's `maxAmount`.
-4. Policy, simulation, approval and top-up as above. Over the threshold it returns
+4. Policy, pinning, simulation, approval and top-up as above. Over the threshold it returns
    `pending_approval` at once. Once the owner approves, the agent repeats the same request and the
    approval is redeemed, once, for exactly those terms. Unused approvals expire with the sweep.
 5. The payment is built by the SDK through `ChainAdapter.x402Scheme` (CR-003), whose signer is
@@ -94,6 +123,15 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
    The SDK's own spend control is set to the intent's amount as a second lock.
 6. The request is retried with `PAYMENT-SIGNATURE`. A second 402 with different terms is
    `INVALID_402`. The paid response is returned as untrusted content.
+
+**Pinning.** Each executed payment pins (and, on upgrade, a migration pins each domain from the
+latest payment already made), per agent and domain, the chain, token, payee and amount
+(table `x402_pins`). A later 402 from that domain that names another payee, chain or token
+(`RECIPIENT_CHANGED`), or asks more than `priceIncreaseMaxPct` above the pinned amount
+(`PRICE_JUMP`, default 100, so up to double passes), goes to the owner even below the threshold, with
+`flags` on the approval request. That is what a compromised or swapped API looks like from here. The
+owner's approval re-pins; a rejection keeps the old pin, so the same request is asked again. The
+first payment to a domain has no pin to compare with and is judged by the policy alone.
 
 A 402 that is refused before an offer qualifies is still recorded, with any field the server sent
 missing or unreadably as `unknown` (an unreadable amount as `0`), so the bot can show it.
@@ -119,7 +157,112 @@ so an agent learns where it can pay and nothing more of the setup.
 `GET /v1/admin/budget/:agentId` returns the same view as the agent's own budget route, for the bot,
 which holds no agent token.
 
+### Mandates
+
+A mandate is a budget for one task, inside the policy: its domains and recipients must already be
+allowed, its budget is at most the daily max, and it lives 60 seconds to a day (`ttlSeconds`).
+
+- `POST /v1/agent/mandates`: below `approvalThreshold` it starts `active`. At or above it, it is
+  `pending_approval` and goes to the owner on the approval-request hook as `{ mandate, simulation,
+approveBefore }`, with no intent. The bot answers at `POST /v1/bot/mandates/:id/decision`: 409
+  once decided, 410 after the same ten minutes as a payment. Its time starts at the approval.
+- `POST /v1/admin/mandates` opens one that starts active; `POST /v1/admin/mandates/:id/revoke`
+  ends one. Both admin routes are the owner's.
+- A transfer or x402 fetch with `mandateId` must fit the mandate as well as the policy:
+  `MANDATE_EXCEEDED` above what is left (or once it is used up), `MANDATE_EXPIRED` when it is not
+  active or its time is over, and the recipient or domain must be the mandate's. With
+  `requireMandate`, a payment without one is `MANDATE_REQUIRED`, as is an unknown id or another
+  agent's.
+- Spend is added to the mandate at the same moment as to the day's total, under the agent's lock.
+  At its budget it becomes `exhausted`. The sweep expires mandates, and the budget routes list the
+  active ones.
+
+A mandate wider than the policy is refused with 422 `{ error: "outside_policy", rejectReasons }`.
+
+### Report
+
+`GET /v1/admin/report?from&to` (ISO times; the last seven days by default, a year at most) returns
+every agent, a quiet one included, with what its executed payments spent (the sum in base units of
+each chain's dollar, USDC or USDG, all with 6 decimals), how many there were,
+every refusal counted by code, and the spend per x402 domain, biggest first.
+
+### Receipts
+
+With `RECEIPT_SIGNING_KEY_FILE` set, an Ed25519 private key in PEM that is separate from every hot
+wallet key, each executed payment gets a signed receipt: the intent, the SHA-256 of the canonical
+JSON of the policy it cleared under, the simulation summary, who approved it (`policy`, `owner` or
+`passkey`) and the time. The signature covers the canonical JSON of all of that: keys sorted at
+every depth, no whitespace. The policy, simulation and approver are recorded when the payment
+clears, because the policy may change before it executes.
+
+- `GET /v1/agent/intents/:id/receipt`: 404 until the intent has executed, and for another agent's.
+- `GET /v1/admin/receipts?from&to`: the same period rules as the report.
+- `GET /v1/receipts/key` on both listeners, without a token: `{ publicKey }`, the raw 32-byte key in
+  hex, so anyone holding a receipt can check it without trusting this server.
+
+Without the key, receipts are off and nothing else changes. Generate one with
+`openssl genpkey -algorithm ed25519 -out receipt.pem`. On Fly it is the `RECEIPT_SIGNING_KEY`
+secret, which the entrypoint moves to tmpfs like the hot keys.
+
+### Passkey approvals
+
+With `PASSKEY_ABOVE` set (an amount), an intent at or above it can be approved only with a passkey
+the owner enrolled, never by a Telegram tap alone. A stolen Telegram account can still reject it,
+never approve it. `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` name guard-core's public address, which the
+passkey is bound to, so a look-alike site cannot use it.
+
+- Enrolment from a phone: `POST /v1/admin/passkeys/code` returns `{ code, expiresAt }`, a code good
+  for one attempt within ten minutes, stored only as its SHA-256 and audited. The bot sends the
+  owner `https://<guard-core>/owner/enrol#code=<code>`. The code is in the fragment, which the
+  browser never sends, so it stays out of request lines and logs. The page's script posts it to
+  `POST /v1/owner/passkeys/options { code }`, creates the passkey, and sends the result with the
+  code to `POST /v1/owner/passkeys { code, response }`, which uses the code up. Each code has its
+  own challenge, so one code's challenge cannot be answered with another.
+- A code alone adds only the first passkey. Once one exists, the options also carry `stepUp`, and
+  the enrolment needs `assertion`: a signature from an enrolled passkey over that challenge
+  (single-use, five minutes). Without it the answer is 401 `step_up_required` and the code is not
+  used up. Whoever holds the owner's Telegram therefore cannot add a passkey of their own.
+- Enrolment through the admin routes, for a tool on the operator's side:
+  `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys { response }`. It adds only the
+  first passkey (409 `step_up_required` after that). "First" is checked together with the insert,
+  so two enrolments verified at the same moment cannot both be the first.
+- Every enrolment is audited and sent to the bot as `/hooks/alert { kind: "passkey_enrolled",
+detail: <first 8 characters of the credential id>, sentAt }`, so the owner hears of one they did
+  not make. A credential already enrolled gets 409 `passkey_exists`, and the code stays good.
+- `GET /v1/admin/passkeys` lists `{ id, createdAt, lastUsedAt }` for each passkey.
+- Removing a passkey has no route: it takes a shell on the machine.
+  `pnpm --filter @agentguard/guard-core remove-passkey` lists them, and
+  `pnpm --filter @agentguard/guard-core remove-passkey <id or prefix>` removes one, audited. The
+  prefix must be at least 8 characters and match exactly one passkey.
+- Both require user verification. Challenges are single-use and last five minutes. Opening a page
+  again reuses the challenge still out, and a challenge is used up only by a verified answer, so a
+  stray or forged request cannot spoil the owner's open page. Challenges and codes are used up by
+  a compare-and-delete, so of several copies of one answer sent at once, only one gets through. Expired challenges and codes are
+  pruned by the sweep.
+- The approval request for such an intent carries `passkey: true`, and `/v1/bot/decision` answers
+  `approve` with 403 `passkey_required` (a rejection still works).
+- `GET /owner/approve/:intentId`, on the public listener, is a small page that runs WebAuthn for
+  this origin. Its challenge is bound to that one intent, single-use, and expires with it.
+  `POST /v1/owner/approve { intentId, assertion }` verifies the assertion and approves; a transfer
+  is then sent, and an x402 payment waits for the agent's repeat, as after a Telegram approval. The
+  receipt says `approvedBy: "passkey"`.
+- The page shows the amount in dollars with the chain's symbol ("3.00 USDC"). Its CSP allows only
+  its own script (no inline code) and its own API, the agent's text is shown as text, and it is
+  sent with `X-Frame-Options: DENY` and HSTS. The public listener's rate limit applies.
+- At startup `PASSKEY_ORIGIN` must be a bare origin (`https://host[:port]`) whose host is
+  `PASSKEY_RP_ID` or a subdomain of it.
+
+Enrol a passkey before setting `PASSKEY_ABOVE`: with it set and none enrolled, guard-core refuses to
+start, because nothing above the amount could ever be approved. The doctor warns when an agent's
+approval threshold is above `PASSKEY_ABOVE`: amounts between the two pay without the owner.
+
 ### Events to the bot
+
+A flagged approval request also carries `pinned: { recipient, amount }`, the domain's last executed
+payment, so the bot can show the old payee and how many times the last price this is.
+
+`POST {BOT_URL}/hooks/alert { kind, agentId, detail, sentAt }`, signed the same way, carries what
+the owner must act on now: today, a tripped breaker. It is retried like an intent event.
 
 Every intent that reaches `executed`, `rejected`, `failed` or `expired` is posted to
 `{BOT_URL}/hooks/intent-event` as `{ intent, sentAt }`, signed like the approval request (CR-004).

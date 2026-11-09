@@ -1,15 +1,7 @@
+import type { ChainId } from '@agentguard/shared'
 import { type Bot, type CallbackQueryContext, type Context, InlineKeyboard } from 'grammy'
 import type { Logger } from 'pino'
 import type { GuardClient } from '../adapters/guard.js'
-import {
-  budgetText,
-  escapeHtml,
-  isBuilt,
-  killedText,
-  ownerTransactionText,
-  statusText,
-} from '../domain/text.js'
-import type { ChainId } from '@agentguard/shared'
 import {
   anywayLabel,
   chainsText,
@@ -20,13 +12,24 @@ import {
   openLabel,
 } from '../domain/chains.js'
 import { type KillOffer, KillOffers } from '../domain/kill-offers.js'
+import { statusText } from '../domain/notices.js'
 import type { PhantomKill } from '../domain/phantom.js'
+import { REPORT_DAYS, type ReportSchedule, reportPages, weeklyDue } from '../domain/report.js'
+import {
+  budgetText,
+  escapeHtml,
+  isBuilt,
+  killedText,
+  ownerTransactionText,
+} from '../domain/text.js'
 import type { Desk } from './desk.js'
 
 export interface CommandDeps {
   guard: GuardClient
   desk: Desk
   log: Logger
+  /** When the weekly report goes to every owner; none without REPORT_WEEKDAY and REPORT_HOUR_UTC. */
+  weekly?: ReportSchedule
   /** The onchain kill of each chain on the signing page; none without SIGN_PAGE_URL. */
   phantomKills?: PhantomKill[]
   now?: () => Date
@@ -38,7 +41,7 @@ const AGENT_ID = /^\S{1,64}$/
 
 export function registerCommands(
   bot: Bot,
-  { guard, desk, log, phantomKills = [], now = () => new Date() }: CommandDeps,
+  { guard, desk, log, phantomKills = [], weekly, now = () => new Date() }: CommandDeps,
 ) {
   const phantom = phantomKills.length > 0
   const offers = new KillOffers()
@@ -81,10 +84,51 @@ export function registerCommands(
     guarded(ctx, async () => {
       const pending = desk.book.open().map((entry) => entry.request)
       const up = await guard.healthy()
-      const text = statusText(up, pending)
+      const text = statusText(up, pending, desk.pendingTasks())
       await ctx.reply(up ? `${text}\n${chainsText(await chains())}` : text, HTML)
     }),
   )
+
+  /** The last REPORT_DAYS days as pages, or undefined when guard-core has no report route. */
+  async function lastWeek() {
+    const to = now()
+    const from = new Date(to.getTime() - REPORT_DAYS * 86_400_000)
+    const agents = await guard.report(from, to)
+    return agents === undefined ? undefined : reportPages(agents, from, to)
+  }
+
+  bot.command('report', (ctx) =>
+    guarded(ctx, async () => {
+      const pages = await lastWeek()
+      if (pages === undefined) {
+        await ctx.reply('This guard-core has no report yet.')
+        return
+      }
+      for (const page of pages) {
+        await ctx.reply(page, HTML)
+      }
+    }),
+  )
+
+  let weeklySent: string | undefined
+
+  /** Runs on the sweep timer. Marked sent before the call, so a guard-core that is down is not retried every tick. */
+  async function weeklyReport() {
+    const key = weekly === undefined ? undefined : weeklyDue(now(), weekly, weeklySent)
+    if (key === undefined) {
+      return
+    }
+    weeklySent = key
+    try {
+      const pages = await lastWeek()
+      for (const page of pages ?? ['This guard-core has no report yet.']) {
+        await desk.announce(page)
+      }
+    } catch (err) {
+      log.error({ err }, 'weekly report failed')
+      await desk.announce('The weekly report failed: guard-core did not answer. Try /report later.')
+    }
+  }
 
   bot.command('budget', (ctx) =>
     withAgent(ctx, 'budget', (agentId) =>
@@ -161,10 +205,13 @@ export function registerCommands(
     label: (chain: ChainId) => string,
   ) {
     const at = now()
-    const keyboard = new InlineKeyboard()
-    for (const kill of kills) {
-      keyboard.url(label(kill.chain), kill.link(at)).row()
-    }
+    // One row per chain: the Phantom app's link, and the plain page for Phantom's desktop extension.
+    const keyboard = InlineKeyboard.from(
+      kills.map((kill) => [
+        InlineKeyboard.url(label(kill.chain), kill.link(at)),
+        InlineKeyboard.url('Open in browser (desktop)', kill.page(at)),
+      ]),
+    )
     const extra = kills.length === 0 ? HTML : { ...HTML, reply_markup: keyboard }
     const message = await show(ctx, text, extra)
     if (kills.length > 0 && message !== undefined) {
@@ -226,7 +273,7 @@ export function registerCommands(
   })
 
   /** Runs on the bot's sweep timer: a button nobody pressed in time stops working. */
-  return { expireKillOffers: () => retire(offers.expired(now())) }
+  return { expireKillOffers: () => retire(offers.expired(now())), weeklyReport }
 }
 
 async function withAgent(ctx: Context, command: string, run: (agentId: string) => Promise<void>) {
