@@ -70,7 +70,8 @@ abandonado e vazio. O script passou a recusar-se a criar um segundo.
 
 ## ✅ HUMAN-1 — Criar o repositório e dar-me acesso
 
-Feito. O repositório é `kikume/AgentGuard` e esta sessão já tem acesso de escrita. O branch `main` já
+Feito. O repositório é agora `agent443-dot/AgentGuard` (antes `kikume/AgentGuard`; os links antigos
+redirecionam) e esta sessão já tem acesso de escrita. O branch `main` já
 existe e é a base de onde as sessões abrem os `feat/<role>`.
 
 ---
@@ -225,7 +226,7 @@ Importante: clona dentro do sistema de ficheiros do Linux (`~`), **não** em `/m
 pnpm e o git ficam muito lentos.
 
 ```bash
-cd ~ && git clone https://github.com/kikume/AgentGuard.git && cd AgentGuard
+cd ~ && git clone https://github.com/agent443-dot/AgentGuard.git && cd AgentGuard
 ```
 
 ### 2.9 Verificar que tudo funciona
@@ -1187,21 +1188,21 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
    diretamente nos segredos do GitHub, sem ele aparecer no ecrã:
 
    ```bash
-   fly tokens create deploy -a agentguard-guard-core | gh secret set FLY_API_TOKEN_GUARD --repo kikume/AgentGuard
+   fly tokens create deploy -a agentguard-guard-core | gh secret set FLY_API_TOKEN_GUARD --repo agent443-dot/AgentGuard
    ```
 
    ```bash
-   fly tokens create deploy -a agentguard-bot | gh secret set FLY_API_TOKEN_BOT --repo kikume/AgentGuard
+   fly tokens create deploy -a agentguard-bot | gh secret set FLY_API_TOKEN_BOT --repo agent443-dot/AgentGuard
    ```
 
-**B. Robinhood Chain** — na Safe que já tens (`0xB460…9d8a`)
+**B. Robinhood Chain** — na Safe que já tens (`0xB460…9d8a`). ✅ **Lançada em 2026-11-09.**
 
-6. Voltar a pôr o teto — o kill do piloto removeu-o — agora de **20 USDG por dia** (`amount=20000000`)
+6. ✅ Voltar a pôr o teto — o kill do piloto removeu-o — agora de **20 USDG por dia** (`amount=20000000`)
    na página de assinatura, e pôr no cofre o que quiseres
    para as primeiras semanas.
-7. A política do agente com os valores da D2, e um pagamento de teste.
+7. ✅ A política do agente com os valores da D2, e um pagamento de teste.
 
-**C. Solana mainnet**
+**C. Solana mainnet** — ⏳ **o próximo passo: amanhã, por volta das 12:05 UTC** (quando a quota do Vercel renova). O integrator guia-te.
 
 8. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
 9. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
@@ -1210,22 +1211,38 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 **D. Antes de abrir** — decisões D7 (código aberto, cada um aloja o seu) e D8 (licença Apache-2.0)
 
-12. **Branch principal**: no GitHub, **Settings → General → Default branch**, troca para `main`
-    (ainda é `claude/agentguard-setup-smlps6`).
-13. **Proteger o `main`**: **Settings → Rules → Rulesets → New branch ruleset**, alvo `main`, com
+12. ✅ **Branch principal**: no GitHub, **Settings → General → Default branch**, troca para `main`
+    (já é `main`).
+13. ✅ **Proteger o `main`**: **Settings → Rules → Rulesets → New branch ruleset**, alvo `main`, com
     "Require a pull request before merging", "Require status checks to pass" (o CI) e
     "Block force pushes".
-14. **Segurança**: em **Settings → Code security**, liga **Private vulnerability reporting**,
+14. ✅ **Segurança**: em **Settings → Code security**, liga **Private vulnerability reporting**,
     **Secret scanning** e **Push protection**.
-15. **Rever o que fica público.** A procura nos 494 commits não encontrou segredos, mas ao abrir o
+15. ✅ **Rever o que fica público.** A procura nos 494 commits não encontrou segredos, mas ao abrir o
     repositório ficam visíveis os emails dos commits e a pasta `coordination/` (este ficheiro incluído,
     com caminhos do teu computador e endereços das carteiras — públicos, mas teus). Diz-me se queres
     tirar alguma coisa antes.
-16. A landing page, e o relatório final.
-17. **A tua autorização escrita para lançar** (`HUMAN-8`).
-18. **Por último, tornar o repositório público**: **Settings → General → Danger Zone → Change
+16. ✅ A landing page, e o relatório final (#125).
+17. ✅ **A tua autorização escrita para lançar** (`HUMAN-8`, 2026-11-09).
+18. ✅ **Por último, tornar o repositório público** (feito em 2026-11-09): **Settings → General → Danger Zone → Change
     visibility → Public**. Logo a seguir entra a mudança que troca os "coming soon" do site pelo link
     do repositório.
+
+---
+
+## ⬜ HUMAN-23 — Registar uma passkey para aprovar pagamentos (CR-010, fase 3)
+
+Ainda não é preciso. Aprovaste o CR-010 em 2026-11-09. Na fase 3, as aprovações maiores pedem uma
+passkey (a impressão digital ou o Face ID do teu telemóvel) além do botão do Telegram. Quando a fase 3
+estiver no `main` (depois da Solana mainnet), eu dou-te os passos exatos para a registar.
+
+---
+
+## ⬜ HUMAN-24 — Criar a chave dos recibos (CR-010, fase 3)
+
+Ainda não é preciso. Na fase 3, cada pagamento passa a ter um recibo assinado pelo guard-core. Essa
+assinatura usa uma chave própria, que crias na tua máquina direto para um ficheiro e guardas nos
+segredos do Fly, sem ela aparecer no ecrã. Eu dou-te o comando quando chegarmos lá.
 
 ---
 
@@ -1237,7 +1254,10 @@ criar quando chegarmos lá.
 
 ---
 
-## ⏳ HUMAN-8 — Decisão e assinatura de mainnet
+## ✅ HUMAN-8 — Decisão e assinatura de mainnet
+
+**Feito em 2026-11-09:** deste a autorização escrita para lançar. As decisões abaixo são as de
+2026-11-05; as de 2026-11-09 (D1, D2, D4, D6, D7, D8) estão na `HUMAN-22` e no `LAUNCH.md`.
 
 **As seis decisões foram tomadas por ti em 2026-11-05** e estão registadas no `LAUNCH.md` (PR #65):
 

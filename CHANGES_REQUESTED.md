@@ -485,3 +485,135 @@ integrator before any session writes code, since every package imports those typ
   - he gets legal advice: in Brazil, the CVM may treat a token bought with an expectation of profit
     as a security;
   - he chooses the governance parameters: quorum, voting period, timelock delay.
+
+### CR-010 — Eight protections beyond the cap: pinning, task budgets, breaker, shadow mode, passkey approvals, proof of cap, receipts, reports
+
+- **From:** integrator, for the owner
+- **Date:** 2026-11-09
+- **Status:** approved by the owner on 2026-11-09 ("faça todas": do all of them). Applied as SPEC
+  v0.6. Built in three phases on the package branches, none merged before Solana's mainnet launch.
+- **Why:** the cap bounds the worst day, but inside it the owner still trusts every API the agent
+  pays and every approval tap. These close the remaining gaps one by one, each without a new
+  contract and each backward compatible: a policy written before v0.6 keeps every limit it had. The
+  defaults only add protection (the breaker, pinning), never let a refused payment through.
+- **What** (all amounts atomic strings, all percentages and counts integers, no floats):
+
+  1. **Recipient and price pinning (x402).** guard-core remembers, per agent and domain, the chain,
+     token, `payTo` and amount of the last executed payment (table `x402_pins`). A later payment to
+     that domain with another `payTo`, chain or token, or an amount above the pinned one by more than
+     `Policy.priceIncreaseMaxPct` (default 100, so double), goes to the owner even below the
+     threshold. The approval request carries `flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[]`. The
+     owner's approval re-pins; a rejection keeps the old pin.
+  2. **Task budgets (mandates).** `Mandate { id, agentId, budget, spent, domains, recipients,
+expiresAt, status: "active" | "exhausted" | "expired" | "revoked", reason, createdAt }`.
+     - `POST /v1/agent/mandates { agentId, budget, domains, recipients?, ttlSeconds, reason }`: an
+       agent opens one inside its policy. Above `approvalThreshold` the owner approves it on Telegram
+       first, like a payment.
+     - `POST /v1/admin/mandates` (owner opens one) and `POST /v1/admin/mandates/:id/revoke`.
+     - The x402 fetch and transfer bodies take an optional `mandateId`. The payment must fit the
+       mandate (remaining budget, domains, recipients, not expired) as well as the policy.
+     - `Policy.requireMandate` (default false): when true, a payment without a mandate is refused.
+     - New reject codes: `MANDATE_REQUIRED`, `MANDATE_EXCEEDED`, `MANDATE_EXPIRED`.
+     - MCP: `start_task { budgetUsd, domains, minutes, reason }` returns a mandate id;
+       `paid_fetch` and `transfer` take `mandateId`; `get_budget` lists open mandates.
+  3. **Circuit breaker.** `Policy.maxPaymentsPerMinute` (default 10). The payment that would exceed
+     it is refused with `BREAKER_TRIPPED`, and the agent is paused. The bot gets a new signed webhook
+     `POST {BOT_URL}/hooks/alert { kind: "breaker_tripped", agentId, detail, sentAt }` and tells the
+     owner. Resuming is the owner's `/resume`.
+  4. **Shadow mode.** `Policy.mode: "live" | "shadow"` (default "live"). In shadow, every payment runs
+     the policy, pinning and simulation, is recorded with the new status `"shadowed"` and is never
+     signed. An x402 fetch returns the unpaid 402 response. The budget routes add
+     `shadowSpentToday`, so the owner sees what the agent would have spent before giving it money.
+  5. **Passkey approvals.** With `PASSKEY_ABOVE` set (guard-core config, an amount), approving an
+     intent at or above it needs a WebAuthn assertion from a passkey the owner enrolled, not only a
+     Telegram tap. A stolen Telegram account can then still reject, never approve.
+     - guard-core serves a small page on its public listener, `/owner/approve/:intentId`, which runs
+       WebAuthn for its own origin, and verifies the assertion at `POST /v1/owner/approve
+{ intentId, assertion }`. The challenge is single-use and expires with the intent.
+     - Enrolment: `POST /v1/admin/passkeys/options` and `POST /v1/admin/passkeys`, through the
+       admin proxy only. No passkey enrolled means `PASSKEY_ABOVE` refuses to start.
+     - The bot shows "Approve with passkey" as a URL button for those intents. `/v1/bot/decision`
+       refuses `approve` for them.
+  6. **Proof of cap.** The signing page gets a read-only action, `?action=proof&cluster=…&multisig=…`
+     or `&safe=…`, needing no wallet. It reads the chain and shows anyone the vault's owner, the
+     daily cap, its delegate, what is left today and when it resets: the most the agent can lose,
+     verifiable without trusting guard-core.
+  7. **Signed receipts.** Each executed intent gets a receipt: the intent, a SHA-256 of the policy in
+     force, the simulation summary, `approvedBy: "policy" | "owner" | "passkey"`, the time, and an
+     Ed25519 signature by `RECEIPT_SIGNING_KEY`, a key separate from the hot wallets.
+     `GET /v1/agent/intents/:id/receipt` and `GET /v1/admin/receipts?from&to`. `GET /v1/receipts/key`
+     publishes the public key. Anchoring a daily hash onchain is left for later.
+  8. **Reports.** `GET /v1/admin/report?from&to` returns, per agent, the spend, payment and refusal
+     counts by code, and the spend per domain. The bot answers `/report` and, with
+     `REPORT_WEEKDAY` and `REPORT_HOUR_UTC` set, sends the last 7 days on that day.
+
+  Not a SPEC change, also in scope: a one-command deploy. `scripts/deploy-fly.sh` creates both Fly
+  apps, the volume and the secrets from local files and deploys them, and a `docker-compose.yml`
+  runs the stack on any server.
+
+- **Blast radius and order:**
+  - phase 1: 1, 3, 4 and the deploy script (guard-core, bot, mcp, shared, integrator);
+  - phase 2: 2, 6, 8 (guard-core, mcp, bot, onchain);
+  - phase 3: 5, 7 (guard-core, bot, mcp).
+
+  Each feature lands with its tests, and the e2e suite gains an attack case for 1, 2 and 3.
+
+### CR-011 — Anyone can set it up: a setup wizard, owner commands in Telegram, a doctor, one-line agent setup
+
+- **From:** integrator, for the owner
+- **Date:** 2026-11-09
+- **Status:** approved by the owner on 2026-11-09 ("faça literalmente tudo isso em ordem"). Applied as
+  SPEC v0.7. Built after CR-010 phase 1, none merged before Solana's mainnet launch.
+- **Why:** self-hosting takes hours today: Fly, Vercel, Phantom, Telegram, keys made by hand,
+  secrets, `curl` through `fly proxy`, and `fly ssh` to create an agent. Each step is a place to get
+  lost or make an unsafe mistake. This change keeps the trust model: the owner key never leaves
+  Phantom, the hot keys are made on the owner's machine, and the cap stays onchain. It moves every
+  other step into a guided path.
+- **What:**
+  1. **Setup wizard**, `npx create-agentguard` (new package `packages/create-agentguard`, owned by
+     the integrator). It:
+     - asks for the chains, the daily cap and the policy preset;
+     - generates the hot keys locally into `~/.agentguard/` (mode 0600) and prints addresses only;
+     - creates and configures the Fly apps, the volume and the secrets, and pipes each key from its
+       file;
+     - deploys the signing page to Vercel with the owner's own token;
+     - deploys guard-core and the bot;
+     - prints the Phantom links for the vault and the cap, then waits and reads them back.
+       A `--dry-run` prints every command without running it. The wizard never sees the owner key and
+       never sends a key anywhere but the owner's own Fly secrets.
+  2. **Owner commands in Telegram**, so no owner step needs a terminal:
+     - `/agent new <id>`, `/agent list`, `/agent revoke <id>`;
+     - `/policy <id>`, with presets ("Careful": 1 per payment, 5 a day, approval above 0.50;
+       "Standard": D2) and a field-by-field edit;
+     - `/allow <id> <domain>`, `/deny <id> <domain>`;
+     - `/mode <id> live|shadow`;
+     - `/doctor`.
+       Revoking, going live and raising any limit ask for a confirm button. The bot uses new admin
+       routes on guard-core's private listener, with the admin token it already holds:
+     - `POST /v1/admin/agents { agentId } -> { agentId, token }`: the token is shown once, and the
+       bot deletes the message after 60 s;
+     - `GET /v1/admin/agents -> { agents: { agentId, paused, mode }[] }`;
+     - `POST /v1/admin/agents/:id/revoke`.
+  3. **Doctor**: `GET /v1/admin/doctor -> { checks: DoctorCheck[] }`, where
+     `DoctorCheck { id, status: "ok" | "warn" | "fail", message, fix? }` is in plain English and
+     never carries a secret. It checks:
+     - the database is writable;
+     - each chain's allowance reads;
+     - each hot wallet's gas and token balance against `ChainAdapter.getHotWalletGas()`, new:
+       `{ balance, minimum, symbol }`, the native coin needed for a few draws;
+     - the bot is reachable;
+     - backups are recent.
+       The bot's `/doctor` and the wizard's `agentguard doctor` show the same checks.
+  4. **One-line agent setup**: `npx @agentguard/mcp-server setup <claude-code|claude-desktop|cursor|
+generic>` prints the exact command or config block for that client, with the guard URL and the
+     agent id filled in. The agent token is read from a prompt, never from argv.
+  5. **New agents start in shadow mode.** `POST /v1/admin/agents` (and `create-agent.ts`) writes a
+     deny-all policy with `mode: "shadow"`. Existing agents are unchanged. After three days with
+     shadow payments, the bot offers "Your agent would have spent $X in N payments. Go live?", which
+     opens the `/mode <id> live` confirm.
+  6. **Run anywhere**: a `docker-compose.yml` for any server, and the same images on Railway, as a
+     template documented in `docs/self-host.md`.
+  7. **Docs for beginners**: `docs/troubleshooting.md` (every problem met at launch, with its fix),
+     and `docs/self-host.pt-BR.md`.
+- **Blast radius:** guard-core (agent routes, doctor, the shadow default), onchain
+  (`getHotWalletGas`), bot (commands), mcp (`setup`), integrator (wizard, compose, docs, shared types).
