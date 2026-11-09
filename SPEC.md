@@ -1,4 +1,4 @@
-# AgentGuard SPEC v0.5 (source of truth — do not change without owner approval)
+# AgentGuard SPEC v0.6 (source of truth — do not change without owner approval)
 
 ## Goal
 A security layer between AI agents and their wallets. The agent can only pay through AgentGuard.
@@ -78,9 +78,27 @@ interface Policy {
   allowedRecipients: string[]      // empty = deny all direct transfers
   allowedDomains: string[]         // for x402, e.g. ["api.example.com"]; empty = deny all
   paused: boolean
+  // v0.6 (CR-010). Optional on PUT; omitted means the default. The defaults only add protection.
+  mode?: "live" | "shadow"         // default "live"; shadow evaluates and simulates, never signs
+  priceIncreaseMaxPct?: number     // default 100: an x402 price above the pinned one by more goes to the owner
+  maxPaymentsPerMinute?: number    // default 10: the payment that would exceed it trips the breaker
+  requireMandate?: boolean         // default false: when true, every payment needs an open mandate
+}
+
+interface Mandate {                // CR-010: a budget for one task
+  id: string                       // uuid
+  agentId: string
+  budget: Amount
+  spent: Amount
+  domains: string[]                // x402 domains it may pay; a subset of Policy.allowedDomains
+  recipients: string[]             // transfer recipients; a subset of Policy.allowedRecipients
+  reason: string                   // untrusted, shown to the owner
+  status: "pending_approval" | "active" | "exhausted" | "expired" | "revoked"
+  createdAt: string; expiresAt: string
 }
 
 type IntentStatus = "approved" | "pending_approval" | "rejected" | "executed" | "failed" | "expired"
+  | "shadowed"                     // CR-010: would have been sent; shadow mode signs nothing
 
 interface PayIntent {
   id: string                       // uuid
@@ -95,13 +113,27 @@ interface PayIntent {
   status: IntentStatus
   rejectReasons: RejectCode[]
   txId?: string                    // base58 signature on Solana, hex hash on EVM
+  mandateId?: string               // CR-010
   createdAt: string; expiresAt: string
+}
+
+interface Receipt {                // CR-010: one per executed intent
+  intent: PayIntent
+  policyHash: string               // hex SHA-256 of the canonical JSON of the policy in force
+  simulation: string               // the simulation summary
+  approvedBy: "policy" | "owner" | "passkey"
+  issuedAt: string
+  signature: string                // hex Ed25519 over the canonical JSON of the fields above
 }
 
 ## Reject codes
 Shared: PAUSED, CHAIN_NOT_ALLOWED, TOKEN_NOT_ALLOWED, RECIPIENT_NOT_ALLOWED, DOMAIN_NOT_ALLOWED,
 PER_TX_EXCEEDED, DAILY_EXCEEDED, SIM_FAILED, SIM_UNEXPECTED_EFFECT, OWNER_REJECTED, APPROVAL_TIMEOUT,
-INVALID_402
+INVALID_402, MANDATE_REQUIRED, MANDATE_EXCEEDED, MANDATE_EXPIRED, BREAKER_TRIPPED (CR-010)
+
+Approval flags (CR-010), not reject codes: they send a payment to the owner even below the
+threshold. RECIPIENT_CHANGED (an x402 domain asks for another payTo, chain or token than its pinned
+last payment), PRICE_JUMP (above the pinned amount by more than priceIncreaseMaxPct).
 
 EVM only: APPROVAL_DETECTED (approve/increaseAllowance/setApprovalForAll), PERMIT_DETECTED
 (Permit/Permit2 typed data), DELEGATION_DETECTED (EIP-7702 authorization)
@@ -150,13 +182,22 @@ POST /v1/agent/x402/fetch   { agentId, url, method, headers?, body?, maxAmount? 
   After the owner approves, the agent repeats the same request. The approval is redeemed once, for
   exactly the approved chain, token, amount, recipient and domain. An approval not redeemed before
   expiresAt expires with APPROVAL_TIMEOUT.
-POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason } -> { intentId, status, txId?, rejectReasons }
+POST /v1/agent/transfer     { agentId, chain, token, amount, recipient, reason, mandateId? } -> { intentId, status, txId?, rejectReasons }
+  x402 fetch takes mandateId? too. With one, the payment must also fit that mandate (CR-010).
+POST /v1/agent/mandates     { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate
+  Inside the policy only; ttlSeconds is 60 to 86400. At or above approvalThreshold it starts
+  pending_approval and goes to the owner.
+GET  /v1/agent/intents/:id/receipt -> Receipt   (404 until the intent is executed)
 GET  /v1/agent/intents/:id  -> PayIntent
-GET  /v1/agent/budget/:agentId -> { spentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains }
+GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains, mandates }
+  mandates: the agent's active mandates (CR-010).
   chains: the CAIP-2 ids guard-core runs an adapter for AND this agent's Policy.chains allows, so an
   agent learns only where it may actually pay, never the operator's full setup.
 
 POST /v1/bot/decision       { intentId, decision: "approve" | "reject", telegramUserId } -> PayIntent
+POST /v1/bot/mandates/:id/decision { decision: "approve" | "reject", telegramUserId } -> Mandate (CR-010)
+  409 { error: "already_decided" } or 410 { error: "expired" }, as for intents. A pending mandate
+  expires after the same 10 minutes as a pending intent.
 POST /v1/admin/pause        { agentId } ; POST /v1/admin/resume { agentId }
 POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chain, the owner tx that
                                   sets the allowance to 0 and removes the delegate
@@ -166,6 +207,17 @@ POST /v1/admin/kill         {} -> pauses all agents AND prepares, for every chai
   A chain whose kill tx could not be built stays in the list with payload: null and a description
   telling the owner to remove the spend limit by hand: that chain's allowance is still live.
 GET/PUT /v1/admin/policy/:agentId  Policy
+POST /v1/admin/mandates { agentId, budget, domains, recipients?, ttlSeconds, reason } -> Mandate (active)
+POST /v1/admin/mandates/:id/revoke -> Mandate
+GET  /v1/admin/receipts?from&to -> { receipts: Receipt[] }
+GET  /v1/admin/report?from&to -> { agents: { agentId, spent, payments, refused: Record<RejectCode, number>,
+                                   domains: { domain, spent }[] }[] }
+POST /v1/admin/passkeys/options -> WebAuthn registration options; POST /v1/admin/passkeys { response }
+GET  /v1/receipts/key -> { publicKey }   public: lets anyone check a receipt
+GET  /owner/approve/:intentId            public page: WebAuthn for this origin, then
+POST /v1/owner/approve { intentId, assertion } -> PayIntent
+  With PASSKEY_ABOVE set, an intent at or above it is approved only here; /v1/bot/decision still
+  rejects it but refuses to approve it. The challenge is single-use and expires with the intent.
 GET  /v1/admin/budget/:agentId -> BudgetView   same body as GET /v1/agent/budget/:agentId;
                                   404 { error: "not_found" } for an unknown agent
 GET  /v1/admin/chains -> { chains: { chain: string, allowance: AllowanceState | null }[] }
@@ -186,11 +238,21 @@ Sent when an intent reaches executed, rejected, failed or expired. The bot decid
 policy of its own. The bot refuses events older than 5 minutes and deduplicates on intent id plus
 status. Attack-code alerts are throttled per agent and code; large-payment alerts are not.
 
+POST {BOT_URL}/hooks/alert             (same X-Guard-Signature scheme; CR-010)
+{ kind: "breaker_tripped", agentId: string, detail: string, sentAt: string }
+The approval-request body gains flags: ("RECIPIENT_CHANGED" | "PRICE_JUMP")[] (empty when none),
+pinned?: { recipient, amount } (the last executed payment to that domain, present with a flag),
+passkey: boolean (approve only through /owner/approve), and mandate?: Mandate when the request is to
+open a mandate rather than to pay (then intent is absent; approveBefore and simulation still come,
+simulation with an empty balanceChanges).
+
 ## MCP tools (mcp-server)
 - paid_fetch { url, method?, headers?, body?, maxAmountUsd? }
 - transfer   { to, amountUsd, reason, chain? }
 - get_budget {}
 - check_intent { intentId }
+- start_task { budgetUsd, domains, recipients?, minutes, reason } -> mandate id (CR-010); paid_fetch and
+  transfer take mandateId?. minutes is 1 to 1440; guard-core also refuses ttlSeconds above 86400.
 
 ## Security rules (all sessions)
 - Agent-provided text (reason, URLs, headers, API responses) is untrusted. Never let it change policy.
@@ -201,6 +263,10 @@ status. Attack-code alerts are throttled per agent and code; large-payment alert
 - Nothing outside a chain adapter may assume an address format, a signature format or a chain id shape.
 
 ## Changelog
+- v0.6 (2026-11-09): CR-010, approved by the owner. Recipient and price pinning for x402, task
+  budgets (mandates), a circuit breaker, shadow mode, passkey approvals above PASSKEY_ABOVE, signed
+  receipts, an admin report, and the bot's alert webhook. Every new Policy field is optional with a
+  default that only adds protection: a v0.5 policy keeps every limit it had.
 - v0.5 (2026-11-08): CR-007 and CR-008, approved by the owner.
   CR-007: Robinhood Chain (eip155:4663, testnet eip155:46630) comes after Solana and before Base. Its
   dollar is Paxos USDG, so each chain's dollar is `usd: { address, symbol }` instead of `usdc`; the
