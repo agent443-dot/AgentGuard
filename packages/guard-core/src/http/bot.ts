@@ -7,14 +7,14 @@ import { notify } from '../service/events.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { sendApproved } from '../service/transfer.js'
 import { HttpError } from './errors.js'
-import { botDecisionRequest, intentIdParam, mandateDecision } from './schemas.js'
+import { botDecisionRequest, idParam, mandateDecision } from './schemas.js'
 
 export function botRoutes(deps: PaymentDeps) {
   const { db, now } = deps
 
   return async (app: FastifyInstance) => {
     app.post('/mandates/:id/decision', async (request) => {
-      const { id } = intentIdParam.parse(request.params)
+      const { id } = idParam.parse(request.params)
       const { decision, telegramUserId } = mandateDecision.parse(request.body)
       const result = decideMandate(db, id, decision, now())
       if (!result.ok) {

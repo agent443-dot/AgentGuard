@@ -1,19 +1,21 @@
 import type { ChainStatus } from '@agentguard/shared'
 import type { FastifyInstance } from 'fastify'
+import { clearWindow } from '../db/breaker.js'
+import { revokeMandate } from '../db/mandates.js'
 import * as repo from '../db/repo.js'
+import { summarise } from '../domain/report.js'
 import { budget } from '../service/budget.js'
+import { openMandate } from '../service/mandates.js'
 import type { PaymentDeps } from '../service/payments.js'
 import { HttpError } from './errors.js'
-import { revokeMandate } from '../db/mandates.js'
-import { openMandate } from '../service/mandates.js'
 import { mandateReply } from './mandates.js'
-import { summarise } from '../domain/report.js'
 import {
   agentIdParam,
-  intentIdParam,
+  idParam,
   mandateRequest,
   policyBody,
   REPORT_DEFAULT_SPAN_MS,
+  REPORT_MAX_SPAN_MS,
   reportQuery,
 } from './schemas.js'
 
@@ -60,11 +62,12 @@ export function adminRoutes(deps: PaymentDeps) {
     )
 
     app.post('/mandates/:id/revoke', async (request) => {
-      const { id } = intentIdParam.parse(request.params)
-      const mandate = revokeMandate(db, id)
-      if (mandate === undefined) {
-        throw new HttpError(404, 'not_found')
+      const { id } = idParam.parse(request.params)
+      const result = revokeMandate(db, id)
+      if (!result.ok) {
+        throw new HttpError(result.reason === 'not_found' ? 404 : 409, result.reason)
       }
+      const { mandate } = result
       repo.audit(
         db,
         { event: 'mandate_revoked', agentId: mandate.agentId, detail: { mandateId: id } },
@@ -74,10 +77,14 @@ export function adminRoutes(deps: PaymentDeps) {
     })
 
     app.get('/report', async (request) => {
-      const { start, end } = reportQuery.parse(request.query)
-      const to = end ?? now()
-      const from = start ?? new Date(to.getTime() - REPORT_DEFAULT_SPAN_MS)
-      if (from >= to) {
+      const query = reportQuery.parse(request.query)
+      const to = query.to === undefined ? now() : new Date(query.to)
+      const from =
+        query.from === undefined
+          ? new Date(to.getTime() - REPORT_DEFAULT_SPAN_MS)
+          : new Date(query.from)
+      // Checked once both ends are known, so a lone `from` cannot ask for ten years.
+      if (from >= to || to.getTime() - from.getTime() > REPORT_MAX_SPAN_MS) {
         throw new HttpError(400, 'invalid_request')
       }
       return { agents: summarise(repo.agentIds(db), repo.intentsBetween(db, from, to)) }
@@ -90,8 +97,10 @@ export function adminRoutes(deps: PaymentDeps) {
         throw new HttpError(404, 'not_found')
       }
       repo.putPolicy(db, policy, now().toISOString())
-      repo.audit(db, { event: 'policy_updated', agentId, detail: { policy } }, now())
-      return policy
+      // Read back, so the answer shows the fields this request left as they were.
+      const stored = repo.getPolicy(db, agentId)
+      repo.audit(db, { event: 'policy_updated', agentId, detail: { policy: stored } }, now())
+      return stored
     })
 
     for (const paused of [true, false]) {
@@ -99,6 +108,11 @@ export function adminRoutes(deps: PaymentDeps) {
         const { agentId } = agentIdParam.parse(request.body)
         if (!repo.setPaused(db, agentId, paused, now().toISOString())) {
           throw new HttpError(404, 'not_found')
+        }
+        // A resumed agent starts a fresh minute: the payments that tripped the breaker are not
+        // counted against it again.
+        if (!paused) {
+          clearWindow(db, agentId)
         }
         repo.audit(db, { event: paused ? 'paused' : 'resumed', agentId }, now())
         return { agentId, paused }

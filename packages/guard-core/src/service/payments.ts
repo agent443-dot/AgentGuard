@@ -11,7 +11,7 @@ import * as repo from '../db/repo.js'
 import { parseAmount, toAmount } from '../domain/amount.js'
 import { mandateReasons } from '../domain/mandate.js'
 import { pinFlags } from '../domain/pinning.js'
-import { evaluate, POLICY_DEFAULTS } from '../domain/policy.js'
+import { evaluate } from '../domain/policy.js'
 import { askOwner, expirePending, expiresAt } from './approvals.js'
 import { simulate } from './simulate.js'
 import { alert, notify } from './events.js'
@@ -78,7 +78,7 @@ export async function clear(
   }
   const adapter = deps.chains.get(intent.chain)
   // In shadow nothing is spent, so the daily max is held against what would have been.
-  const shadow = (policy.mode ?? POLICY_DEFAULTS.mode) === 'shadow'
+  const shadow = policy.mode === 'shadow'
   const day = repo.utcDay(now())
   const spent = shadow
     ? repo.shadowSpentToday(db, intent.agentId, day)
@@ -86,7 +86,7 @@ export async function clear(
   const verdict = evaluate(intent, policy, spent)
   const reasons = [...verdict.reasons]
   const mandate = intent.mandateId === undefined ? undefined : getMandate(db, intent.mandateId)
-  const required = policy.requireMandate ?? POLICY_DEFAULTS.requireMandate
+  const required = policy.requireMandate
   for (const reason of mandateReasons(intent, mandate, required, now())) {
     if (!reasons.includes(reason)) {
       reasons.push(reason)
@@ -100,9 +100,7 @@ export async function clear(
       ? getPin(db, intent.agentId, intent.domain)
       : undefined
   // The owner's approval has already answered a pin's question, so it is not asked again.
-  const flags = ownerApproved
-    ? []
-    : pinFlags(pinned, intent, policy.priceIncreaseMaxPct ?? POLICY_DEFAULTS.priceIncreaseMaxPct)
+  const flags = ownerApproved ? [] : pinFlags(pinned, intent, policy.priceIncreaseMaxPct)
   repo.audit(
     db,
     {
@@ -146,7 +144,7 @@ export async function clear(
   }
 
   // Last, so it counts only payments that are about to be signed.
-  const limit = policy.maxPaymentsPerMinute ?? POLICY_DEFAULTS.maxPaymentsPerMinute
+  const limit = policy.maxPaymentsPerMinute
   if (!admit(db, intent, limit, now())) {
     return { cleared: false, intent: trip(deps, intent, limit) }
   }

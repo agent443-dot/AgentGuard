@@ -56,8 +56,10 @@ the pipeline moves it on.
   payment, a simulation that throws is `SIM_FAILED`, and a simulation in which the wallet loses more
   of the token than the intent pays is `SIM_UNEXPECTED_EFFECT` on every chain.
 - **Policy fields with defaults**: `mode` (`live`), `priceIncreaseMaxPct` (100),
-  `maxPaymentsPerMinute` (10) and `requireMandate` (false). A `PUT` that leaves one out writes its
-  default, never the previous value, so the stored policy is always exactly the one last sent.
+  `maxPaymentsPerMinute` (10) and `requireMandate` (false). A `PUT` that leaves one out keeps the
+  stored value, and a policy that never set one has the default. So a client that predates a field
+  cannot reset it, and cannot switch a shadow agent live by omission. The `PUT` answers with the
+  policy as stored.
 - **Shadow mode** (`mode: "shadow"`): policy, pinning and simulation run as usual, then the intent
   is recorded as `shadowed` and stops there. Nothing is funded or signed, the owner is not asked,
   and an x402 fetch gets the unpaid 402 back. The daily max is held against what shadow mode would
@@ -66,7 +68,8 @@ the pipeline moves it on.
 - **Breaker**: the payment that would make more than `maxPaymentsPerMinute` in a rolling minute is
   refused with `BREAKER_TRIPPED`, the agent is paused, and `POST {BOT_URL}/hooks/alert` tells the
   owner. It stays paused until the owner resumes it. Only payments about to be signed count, each
-  once, and the window is kept in the database so a restart does not reset it. Shadow mode does not
+  once, and the window is kept in the database so a restart does not reset it. Resuming the agent
+  clears its window. Shadow mode does not
   trip it: nothing it counts ever happened.
 - **Owner approval**: at or above `approvalThreshold`, the intent is saved as `pending_approval`
   before the webhook goes out. Approval answers the threshold only: policy and simulation run again
@@ -108,7 +111,8 @@ sends it from `POST /v1/bot/decision`, which returns the final intent.
 6. The request is retried with `PAYMENT-SIGNATURE`. A second 402 with different terms is
    `INVALID_402`. The paid response is returned as untrusted content.
 
-**Pinning.** Each executed payment pins, per agent and domain, the chain, token, payee and amount
+**Pinning.** Each executed payment pins (and, on upgrade, a migration pins each domain from the
+latest payment already made), per agent and domain, the chain, token, payee and amount
 (table `x402_pins`). A later 402 from that domain that names another payee, chain or token
 (`RECIPIENT_CHANGED`), or asks more than `priceIncreaseMaxPct` above the pinned amount
 (`PRICE_JUMP`, default 100, so up to double passes), goes to the owner even below the threshold, with

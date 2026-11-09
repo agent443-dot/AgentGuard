@@ -11,6 +11,9 @@ export const POLICY_DEFAULTS = {
   Pick<Policy, 'mode' | 'priceIncreaseMaxPct' | 'maxPaymentsPerMinute' | 'requireMandate'>
 >
 
+/** A policy as stored: the fields a PUT may leave out are always there once read back. */
+export type StoredPolicy = Policy & Required<Pick<Policy, keyof typeof POLICY_DEFAULTS>>
+
 export interface Evaluation {
   decision: PolicyDecision
   /** Every rule the intent broke, not just the first, so the audit log explains itself. */

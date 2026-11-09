@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getPolicy } from '../src/db/repo.js'
-import { schema } from '../src/db/client.js'
-import { harness, MERCHANT, MINT, CHAIN, type Harness } from './harness.js'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { admit } from '../src/db/breaker.js'
+import { migrateDb, openDb, schema, type Db } from '../src/db/client.js'
+import { ADMIN_TOKEN, CHAIN, harness, MERCHANT, MINT, NOW, type Harness } from './harness.js'
 
 const pay = (h: Harness, amount = '100000', recipient = MERCHANT) =>
   h.agent('POST', '/v1/agent/transfer', {
@@ -52,9 +56,29 @@ describe('the circuit breaker', () => {
   })
 
   it('keeps the window in the database, so a restart does not reset it', async () => {
-    const h = await harness({ policy: { maxPaymentsPerMinute: 5 } })
-    await statuses(h, 3)
-    expect(h.db.select().from(schema.clearedPayments).all()).toHaveLength(3)
+    const file = join(mkdtempSync(join(tmpdir(), 'guard-breaker-')), 'guard.db')
+    const first = openDb(file)
+    migrateDb(first)
+    seedAgent(first)
+    for (const n of [1, 2]) {
+      expect(admit(first, intentRow(first, n), 2, NOW)).toBe(true)
+    }
+    first.$client.close()
+
+    const reopened = openDb(file)
+    expect(admit(reopened, intentRow(reopened, 3), 2, NOW)).toBe(false)
+  })
+
+  it('starts a resumed agent on a fresh minute', async () => {
+    const h = await harness({ policy: { maxPaymentsPerMinute: 1 } })
+    await statuses(h, 2)
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/admin/resume',
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { agentId: 'agent-1' },
+    })
+    expect((await pay(h)).json().status).toBe('executed')
   })
 
   it('does not count payments the policy refused', async () => {
@@ -84,3 +108,29 @@ describe('the circuit breaker', () => {
     expect((await pay(h)).json().rejectReasons).toEqual(['BREAKER_TRIPPED'])
   })
 })
+
+function seedAgent(db: Db) {
+  db.insert(schema.agents)
+    .values({ id: 'agent-1', name: 'agent-1', tokenHash: 'h', createdAt: NOW.toISOString() })
+    .run()
+}
+
+/** A saved intent, which the breaker's rows refer to. */
+function intentRow(db: Db, n: number) {
+  const intent = {
+    id: `00000000-0000-4000-8000-00000000000${n}`,
+    agentId: 'agent-1',
+    kind: 'transfer' as const,
+    chain: CHAIN,
+    token: MINT,
+    amount: '1',
+    recipient: MERCHANT,
+    reason: 'pay',
+    status: 'approved' as const,
+    rejectReasons: [],
+    createdAt: NOW.toISOString(),
+    expiresAt: NOW.toISOString(),
+  }
+  db.insert(schema.intents).values(intent).run()
+  return intent
+}

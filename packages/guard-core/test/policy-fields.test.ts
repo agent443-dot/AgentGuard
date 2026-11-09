@@ -40,7 +40,7 @@ describe('the policy fields added after launch', () => {
     expect(read.json()).toMatchObject(fields)
   })
 
-  it('resets a field to its default when a later policy leaves it out', async () => {
+  it('keeps a stored field that a later policy leaves out, so an older client changes nothing', async () => {
     const h = await harness({ policy: { mode: 'shadow', maxPaymentsPerMinute: 2 } })
     await h.app.inject({
       method: 'PUT',
@@ -53,7 +53,18 @@ describe('the policy fields added after launch', () => {
       url: '/v1/admin/policy/agent-1',
       headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
     })
-    expect(read.json()).toMatchObject({ mode: 'live', maxPaymentsPerMinute: 10 })
+    expect(read.json()).toMatchObject({ mode: 'shadow', maxPaymentsPerMinute: 2 })
+  })
+
+  it('answers the PUT with the policy as stored, kept fields included', async () => {
+    const h = await harness({ policy: { mode: 'shadow' } })
+    const res = await h.app.inject({
+      method: 'PUT',
+      url: '/v1/admin/policy/agent-1',
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: basePolicy,
+    })
+    expect(res.json()).toMatchObject({ mode: 'shadow', priceIncreaseMaxPct: 100 })
   })
 
   it.each([

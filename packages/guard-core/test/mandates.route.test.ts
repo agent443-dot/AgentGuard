@@ -10,11 +10,22 @@ import {
   MERCHANT,
   MINT,
   NOW,
+  offer,
+  paid,
+  paymentRequired,
   type Harness,
 } from './harness.js'
 
-const open = (h: Harness, overrides: object = {}) =>
-  h.agent('POST', '/v1/agent/mandates', {
+const open = (h: Harness, overrides: object = {}, byOwner = false) =>
+  (byOwner
+    ? (payload: object) =>
+        h.app.inject({
+          method: 'POST',
+          url: '/v1/admin/mandates',
+          headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+          payload,
+        })
+    : (payload: object) => h.agent('POST', '/v1/agent/mandates', payload))({
     agentId: 'agent-1',
     budget: '1500000',
     domains: ['api.example.com'],
@@ -177,12 +188,51 @@ describe('paying against a mandate', () => {
     expect((await pay(h, id)).json().rejectReasons).toEqual(['MANDATE_EXPIRED'])
   })
 
+  it('refuses to revoke one that is already over, with 409 and no audit entry', async () => {
+    const { id } = (await open(h)).json()
+    await asAdmin(h, `/v1/admin/mandates/${id}/revoke`)
+    const again = await asAdmin(h, `/v1/admin/mandates/${id}/revoke`)
+    expect(again.statusCode).toBe(409)
+    expect(h.auditEvents().filter((event) => event === 'mandate_revoked')).toHaveLength(1)
+    const unknown = await asAdmin(
+      h,
+      '/v1/admin/mandates/22222222-2222-4222-8222-222222222222/revoke',
+    )
+    expect(unknown.statusCode).toBe(404)
+  })
+
   it('refuses after its time, and the sweep marks it expired', async () => {
     const { id } = (await open(h, { ttlSeconds: 60 })).json()
     h.clock.now = new Date(NOW.getTime() + 61_000)
     expect((await pay(h, id)).json().rejectReasons).toEqual(['MANDATE_EXPIRED'])
     sweep({ ...depsOf(h) })
     expect(getMandate(h.db, id)?.status).toBe('expired')
+  })
+
+  it('redeems an approved x402 payment only with the mandate it was approved under', async () => {
+    const { id } = (await open(h, { budget: '3000000' }, true)).json()
+    h.fetch.mockImplementation(async (_url, init) =>
+      new Headers(init?.headers).has('payment-signature')
+        ? paid()
+        : paymentRequired([offer({ amount: '2500000' })]),
+    )
+    const fetchWith = (mandateId?: string) =>
+      h.agent('POST', '/v1/agent/x402/fetch', {
+        agentId: 'agent-1',
+        url: 'https://api.example.com/data',
+        ...(mandateId === undefined ? {} : { mandateId }),
+      })
+    const pending = await fetchWith(id)
+    expect(pending.json().status).toBe('pending_approval')
+    await h.asBot({ intentId: pending.json().intentId, decision: 'approve', telegramUserId: '1' })
+
+    const without = await fetchWith()
+    expect(without.json()).toMatchObject({ status: 'pending_approval' })
+    expect(without.json().intentId).not.toBe(pending.json().intentId)
+    expect((await fetchWith(id)).json()).toMatchObject({
+      status: 'executed',
+      intentId: pending.json().intentId,
+    })
   })
 
   it('requires one when the policy says so', async () => {

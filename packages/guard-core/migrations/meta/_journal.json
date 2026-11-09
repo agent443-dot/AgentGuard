@@ -29,6 +29,13 @@
       "when": 1794244978474,
       "tag": "0003_mandates",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794248678812,
+      "tag": "0004_backfill_x402_pins",
+      "breakpoints": true
     }
   ]
 }

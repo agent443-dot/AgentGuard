@@ -86,6 +86,7 @@ describe('GET /v1/admin/report', () => {
     ['a period that ends before it starts', `?from=${NOW.toISOString()}&to=2026-01-01T00:00:00Z`],
     ['a period over a year', '?from=2024-01-01T00:00:00Z&to=2026-01-01T00:00:00Z'],
     ['a date that is not a date', '?from=yesterday'],
+    ['a lone from more than a year back', '?from=2020-01-01T00:00:00Z'],
   ])('refuses %s', async (_case, query) => {
     const h = await harness()
     expect((await report(h, query)).statusCode).toBe(400)

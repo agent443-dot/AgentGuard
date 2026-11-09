@@ -35,3 +35,8 @@ export function admit(db: Db, intent: PayIntent, limit: number, now: Date): bool
     .run()
   return true
 }
+
+/** Forgets an agent's recent payments, so resuming it does not trip the breaker again at once. */
+export function clearWindow(db: Db, agentId: string): void {
+  db.delete(clearedPayments).where(eq(clearedPayments.agentId, agentId)).run()
+}

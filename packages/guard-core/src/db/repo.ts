@@ -6,9 +6,9 @@ import type {
   PolicyDecision,
   RejectCode,
 } from '@agentguard/shared'
-import { and, eq, gt, gte, like, lte, sql } from 'drizzle-orm'
+import { and, eq, gt, gte, isNull, like, lte, sql } from 'drizzle-orm'
 import { matchesHash } from '../domain/auth.js'
-import { POLICY_DEFAULTS } from '../domain/policy.js'
+import type { StoredPolicy } from '../domain/policy.js'
 import type { Db } from './client.js'
 import { agents, auditLog, dailySpend, intents, policies } from './schema.js'
 
@@ -32,7 +32,7 @@ export function agentExists(db: Db, id: string): boolean {
   return db.select({ id: agents.id }).from(agents).where(eq(agents.id, id)).get() !== undefined
 }
 
-export function getPolicy(db: Db, agentId: string): Policy | undefined {
+export function getPolicy(db: Db, agentId: string): StoredPolicy | undefined {
   const row = db.select().from(policies).where(eq(policies.agentId, agentId)).get()
   if (!row) {
     return undefined
@@ -54,9 +54,12 @@ export function getPolicy(db: Db, agentId: string): Policy | undefined {
   }
 }
 
-/** A field the policy leaves out is written as its default, never kept from the previous one. */
+/**
+ * A field the policy leaves out keeps its stored value, or its column default for a new policy: a
+ * client that predates a field cannot reset it, and cannot switch a shadow agent live by omission.
+ */
 export function putPolicy(db: Db, policy: Policy, now: string): void {
-  const row = { ...POLICY_DEFAULTS, ...policy, updatedAt: now }
+  const row = { ...policy, updatedAt: now }
   db.insert(policies).values(row).onConflictDoUpdate({ target: policies.agentId, set: row }).run()
 }
 
@@ -139,6 +142,10 @@ export function findApprovedX402(db: Db, terms: PayIntent, now: Date): PayIntent
         eq(intents.amount, terms.amount),
         eq(intents.recipient, terms.recipient),
         eq(intents.domain, terms.domain ?? ''),
+        // The approval was for a payment against this mandate, or against none.
+        terms.mandateId === undefined
+          ? isNull(intents.mandateId)
+          : eq(intents.mandateId, terms.mandateId),
         gt(intents.expiresAt, now.toISOString()),
       ),
     )

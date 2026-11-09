@@ -11,14 +11,11 @@ beforeEach(async () => {
 })
 
 /** One call to a paid API that quotes `quote` and answers once paid. */
-async function buy(quote = offer({ amount: '500000' })) {
+async function buy(quote = offer({ amount: '500000' }), url = 'https://api.example.com/data') {
   h.fetch.mockImplementation(async (_url, init) =>
     new Headers(init?.headers).has('payment-signature') ? paid() : paymentRequired([quote]),
   )
-  return h.agent('POST', '/v1/agent/x402/fetch', {
-    agentId: 'agent-1',
-    url: 'https://api.example.com/data',
-  })
+  return h.agent('POST', '/v1/agent/x402/fetch', { agentId: 'agent-1', url })
 }
 
 /** The last approval request, which here is always about a payment. */
@@ -71,6 +68,16 @@ describe('x402 recipient and price pinning', () => {
     expect(getPin(h.db, 'agent-1', 'api.example.com')?.recipient).toBe(offer().payTo)
 
     expect((await buy(swapped)).json().status).toBe('pending_approval')
+    expect(flagsSent()).toEqual(['RECIPIENT_CHANGED'])
+  })
+
+  it.each([
+    ['upper case', 'https://API.Example.COM/data'],
+    ['an explicit port', 'https://api.example.com:443/data'],
+  ])('holds the same pin for the domain written in %s', async (_case, url) => {
+    await buy()
+    const res = await buy(offer({ amount: '500000', payTo: SWAPPED }), url)
+    expect(res.json().status).toBe('pending_approval')
     expect(flagsSent()).toEqual(['RECIPIENT_CHANGED'])
   })
 

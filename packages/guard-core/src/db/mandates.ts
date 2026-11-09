@@ -45,12 +45,17 @@ export function addMandateSpend(db: Db, id: string, amount: Amount): void {
   }
   const spent = parseAmount(row.spent) + parseAmount(amount)
   db.update(mandates)
-    .set({
-      spent: toAmount(spent),
-      ...(spent >= parseAmount(row.budget) ? { status: 'exhausted' as const } : {}),
-    })
+    .set({ spent: toAmount(spent) })
     .where(eq(mandates.id, id))
     .run()
+  // Only an active mandate becomes exhausted: one revoked or expired while this payment was in
+  // flight keeps that status, which says more.
+  if (spent >= parseAmount(row.budget)) {
+    db.update(mandates)
+      .set({ status: 'exhausted' })
+      .where(and(eq(mandates.id, id), eq(mandates.status, 'active')))
+      .run()
+  }
 }
 
 export type MandateDecision =
@@ -89,13 +94,21 @@ export function decideMandate(
   return { ok: true, mandate: toMandate({ ...row, ...next }) }
 }
 
-/** Ends a pending or active mandate. Anything already over is left as it is. */
-export function revokeMandate(db: Db, id: string): Mandate | undefined {
-  db.update(mandates)
+export type Revoked =
+  { ok: true; mandate: Mandate } | { ok: false; reason: 'not_found' | 'not_open' }
+
+/** Ends a pending or active mandate. One that is already over is left as it is, and said so. */
+export function revokeMandate(db: Db, id: string): Revoked {
+  const changed = db
+    .update(mandates)
     .set({ status: 'revoked' })
     .where(and(eq(mandates.id, id), inArray(mandates.status, ['pending_approval', 'active'])))
-    .run()
-  return getMandate(db, id)
+    .run().changes
+  const mandate = getMandate(db, id)
+  if (mandate === undefined) {
+    return { ok: false, reason: 'not_found' }
+  }
+  return changed > 0 ? { ok: true, mandate } : { ok: false, reason: 'not_open' }
 }
 
 /** Closes pending mandates the owner never answered and active ones whose time is up. */

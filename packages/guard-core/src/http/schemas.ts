@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { POLICY_DEFAULTS } from '../domain/policy.js'
 
 /**
  * Every external input is parsed here before it reaches anything else. Addresses stay opaque: only a
@@ -86,20 +85,11 @@ export const policyBody = z.object({
   allowedRecipients: z.array(address).max(256),
   allowedDomains: z.array(z.string().min(1).max(253)).max(256),
   paused: z.boolean(),
-  mode: z.enum(['live', 'shadow']).default(POLICY_DEFAULTS.mode),
-  priceIncreaseMaxPct: z
-    .number()
-    .int()
-    .min(0)
-    .max(10_000)
-    .default(POLICY_DEFAULTS.priceIncreaseMaxPct),
-  maxPaymentsPerMinute: z
-    .number()
-    .int()
-    .min(1)
-    .max(1_000)
-    .default(POLICY_DEFAULTS.maxPaymentsPerMinute),
-  requireMandate: z.boolean().default(POLICY_DEFAULTS.requireMandate),
+  // Optional with no default: a client that does not know them leaves the stored values alone.
+  mode: z.enum(['live', 'shadow']).optional(),
+  priceIncreaseMaxPct: z.number().int().min(0).max(10_000).optional(),
+  maxPaymentsPerMinute: z.number().int().min(1).max(1_000).optional(),
+  requireMandate: z.boolean().optional(),
 })
 
 export type X402FetchRequest = z.infer<typeof x402FetchRequest>
@@ -109,20 +99,14 @@ export type PolicyBody = z.infer<typeof policyBody>
 
 const DAY_MS = 86_400_000
 
-/** Defaults to the last seven days. A year at most, so one request cannot read the whole log. */
-export const reportQuery = z
-  .object({ from: z.iso.datetime().optional(), to: z.iso.datetime().optional() })
-  .transform(({ from, to }) => {
-    const end = to === undefined ? undefined : new Date(to)
-    const start = from === undefined ? undefined : new Date(from)
-    return { start, end }
-  })
-  .refine(
-    ({ start, end }) =>
-      start === undefined ||
-      end === undefined ||
-      (start < end && end.getTime() - start.getTime() <= 366 * DAY_MS),
-    'from must be before to, at most a year apart',
-  )
+export const reportQuery = z.object({
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
+})
 
+/** The last seven days by default. A year at most, so one request cannot read the whole log. */
 export const REPORT_DEFAULT_SPAN_MS = 7 * DAY_MS
+export const REPORT_MAX_SPAN_MS = 366 * DAY_MS
+
+/** For ids that are not intents, such as mandates. */
+export const idParam = z.object({ id: z.uuid() })
