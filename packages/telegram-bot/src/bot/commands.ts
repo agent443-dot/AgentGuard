@@ -41,7 +41,6 @@ export function registerCommands(
   { guard, desk, log, phantomKills = [], now = () => new Date() }: CommandDeps,
 ) {
   const phantom = phantomKills.length > 0
-  const phantomChains = phantomKills.map((kill) => kill.chain)
   const offers = new KillOffers()
 
   /** Drops the button and says so, keeping what the message told the owner. */
@@ -132,22 +131,43 @@ export function registerCommands(
   })
 
   /**
-   * Edits the kill message to text and, when the signing page is configured, one Phantom button per
-   * chain. These become the only live ones: older ones are retired, and they expire on their own.
+   * Splits the configured kills by what guard-core reports: a chain whose limit is already gone gets
+   * no button, since the page could only say so. Unreadable chains keep theirs, as does every chain
+   * when guard-core cannot report them.
+   */
+  async function liveKills() {
+    if (!phantom) {
+      return { live: [], removed: [] }
+    }
+    const gone = new Set(
+      (await chains())
+        ?.filter(({ allowance }) => allowance?.status === 'none')
+        .map(({ chain }) => chain),
+    )
+    return {
+      live: phantomKills.filter((kill) => !gone.has(kill.chain)),
+      removed: phantomKills.map((kill) => kill.chain).filter((chain) => gone.has(chain)),
+    }
+  }
+
+  /**
+   * Edits the kill message to text and one Phantom button per kill. These become the only live ones:
+   * older ones are retired, and they expire on their own.
    */
   async function offerKill(
     ctx: CallbackQueryContext<Context>,
     text: string,
+    kills: PhantomKill[],
     label: (chain: ChainId) => string,
   ) {
     const message = ctx.callbackQuery.message
-    if (!phantom || message === undefined) {
+    if (kills.length === 0 || message === undefined) {
       await ctx.editMessageText(text, HTML)
       return
     }
     const at = now()
     const keyboard = new InlineKeyboard()
-    for (const kill of phantomKills) {
+    for (const kill of kills) {
       keyboard.url(label(kill.chain), kill.link(at)).row()
     }
     await ctx.editMessageText(text, { ...HTML, reply_markup: keyboard })
@@ -169,11 +189,25 @@ export function registerCommands(
     } catch (err) {
       log.error({ err }, 'kill failed')
       // guard-core may be down, so the onchain limit is the only brake left; the label says so.
-      await offerKill(ctx, phantom ? killFailedOnchain(phantomChains) : KILL_FAILED, anywayLabel)
+      const { live, removed } = await liveKills()
+      const text = phantom
+        ? killFailedOnchain(
+            live.map(({ chain }) => chain),
+            removed,
+          )
+        : KILL_FAILED
+      await offerKill(ctx, text, live, anywayLabel)
       return
     }
     const built = result.ownerTransactions.filter(isBuilt).length
-    await offerKill(ctx, killedText(result.pausedAgents, built, phantomChains), openLabel)
+    const { live, removed } = await liveKills()
+    const text = killedText(
+      result.pausedAgents,
+      built,
+      live.map(({ chain }) => chain),
+      removed,
+    )
+    await offerKill(ctx, text, live, openLabel)
     for (const tx of result.ownerTransactions) {
       await ctx.reply(ownerTransactionText(tx), HTML)
     }
