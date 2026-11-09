@@ -118,6 +118,11 @@ The Robinhood link names no hot wallet: the page uses the one it was built with.
   bot's 15-second sweep. Each link also carries `issued` (unix seconds, set when the result is
   posted), and the signing page refuses a link older than 15 minutes. So a button the bot forgot
   about on a restart still stops working on time, even though its message is not edited.
+- **No button for a limit that is already gone.** Before posting the result, the bot reads
+  `GET /v1/admin/chains`. A chain reported as `status: 'none'` gets the line "<chain>: no onchain
+  limit (already removed)" and no button, on a confirmed kill and on a failed one. A chain whose
+  allowance could not be read (`null`) keeps its button, as does every chain when guard-core does not
+  report them.
 - **Kill everything** itself is unchanged: guard-core pauses every agent and signs nothing more.
 - Every value in the link is public, and all of them come from the bot's config. The cluster is
   derived from `SOLANA_CHAIN` or `ROBINHOOD_CHAIN`, never from anything a user sends.

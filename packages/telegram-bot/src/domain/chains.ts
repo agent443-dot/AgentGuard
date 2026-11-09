@@ -1,6 +1,6 @@
 import type { AllowanceState, ChainId } from '@agentguard/shared'
 import { formatUsd } from './money.js'
-import { chainName, utcTime } from './text.js'
+import { alreadyRemoved, chainName, utcTime } from './text.js'
 
 /** One chain guard-core runs. A null allowance is a chain whose onchain state could not be read. */
 export interface ChainStatus {
@@ -66,11 +66,15 @@ function brake(chain: ChainId): string {
  * With the signing page configured, the onchain limits are still a brake when guard-core is down.
  * Each button removes one chain's, so the message says which does what.
  */
-export function killFailedOnchain(chains: ChainId[]): string {
+export function killFailedOnchain(chains: ChainId[], removed: ChainId[] = []): string {
+  if (chains.length === 0) {
+    return [KILL_FAILED, ...removed.map(alreadyRemoved)].join('\n')
+  }
   return [
     '<b>Kill failed</b>: guard-core did <b>NOT</b> confirm a pause. Assume the agents still run and ' +
       'run /kill again. If guard-core stays down, each button below removes one onchain limit:',
     ...chains.map((chain) => `• ${chainName(chain)}: ${brake(chain)}`),
+    ...removed.map(alreadyRemoved),
     'That is only the onchain half of the kill: guard-core can still spend what the hot wallets hold.',
   ].join('\n')
 }
