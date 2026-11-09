@@ -40,6 +40,21 @@ have run only against forks and fakes, never live. A bug costs at most the day's
 hot wallet holds. The Allowance Module's any-recipient risk (Base, above) applies here too. This is
 a pilot at a pilot's cap. It does not lift D1, and it does not clear the launch blockers in §2.
 
+**Pilot result (2026-11-09):** the full path worked live on 4663, and each step was read back from
+the chain:
+
+- the owner created Safe `0xB460…9d8a` in Phantom;
+- he funded it with 4.91 USDG and set the 5 USDG/day allowance;
+- the agent paid 0.50 USDG over x402 (tx `0xa9c7…3d86`);
+- `/kill` paused guard-core;
+- the owner's kill removed the delegate.
+
+Details and two findings are in docs/security-review.md. The pilot found that the bot on Fly was
+older than `main`. **Before any live run, redeploy every app whose package changed and check the
+image in `fly status`.** If a chain's Phantom kill button is missing, use the manual kill link:
+`https://agentguard-onchain.vercel.app/?action=kill&cluster=robinhood&safe=<Safe>&issued=$(date +%s)`,
+opened within 15 minutes, from `/kill` → Confirm first.
+
 **Key rule, not a decision:** mainnet uses **new keys only**, owner and hot wallet both, generated for
 mainnet and never used on devnet. A devnet seed phrase has been exposed, so no devnet key, and nothing
 derived from its seed, may control mainnet funds.
