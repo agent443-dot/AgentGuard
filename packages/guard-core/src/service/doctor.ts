@@ -1,17 +1,16 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { Amount, ChainId, DoctorCheck, HotWalletGas } from '@agentguard/shared'
+import type { Amount, ChainId, DoctorCheck } from '@agentguard/shared'
+import { usdSymbol } from '@agentguard/shared'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { dbFile, type Db } from '../db/client.js'
 import * as repo from '../db/repo.js'
 import { auditLog } from '../db/schema.js'
-import { parseAmount } from '../domain/amount.js'
+import { formatDollars, parseAmount } from '../domain/amount.js'
+import { chainName } from '../domain/chains.js'
 
 const BACKUP_MAX_AGE_MS = 2 * 86_400_000
 const READ_TIMEOUT_MS = 5_000
-
-/** Onchain's adapters gain getHotWalletGas in a release that is not on main yet. */
-type WithGas = ChainAdapter & { getHotWalletGas?: () => Promise<HotWalletGas> }
 
 export interface DoctorDeps {
   db: Db
@@ -64,10 +63,13 @@ function database({ db, now }: { db: Db; now: () => Date }): DoctorCheck {
 }
 
 async function chainChecks(deps: DoctorDeps, adapter: ChainAdapter): Promise<DoctorCheck[]> {
-  const { chain } = adapter
+  const id = adapter.chain
+  const chain = chainName(id)
+  const attempt = (check: string, read: () => Promise<Omit<DoctorCheck, 'id'>>) =>
+    within(`${id}:${check}`, chain, read)
   // Side by side, so a chain whose RPC hangs costs one timeout, not three.
   return Promise.all([
-    attempt(`${chain}:allowance`, async () => {
+    attempt('allowance', async () => {
       const allowance = await adapter.getAllowanceState()
       return allowance.status === 'active'
         ? { status: 'ok', message: `The onchain daily limit on ${chain} is in place.` }
@@ -77,11 +79,8 @@ async function chainChecks(deps: DoctorDeps, adapter: ChainAdapter): Promise<Doc
             fix: 'If this follows a kill, set the limit up again before paying on this chain.',
           }
     }),
-    attempt(`${chain}:gas`, async () => {
-      const gas = await (adapter as WithGas).getHotWalletGas?.()
-      if (gas === undefined) {
-        return { status: 'ok', message: `The hot wallet's gas on ${chain} is not reported.` }
-      }
+    attempt('gas', async () => {
+      const gas = await adapter.getHotWalletGas()
       return parseAmount(gas.balance) < parseAmount(gas.minimum)
         ? {
             status: 'warn',
@@ -90,20 +89,22 @@ async function chainChecks(deps: DoctorDeps, adapter: ChainAdapter): Promise<Doc
           }
         : { status: 'ok', message: `The hot wallet on ${chain} has enough ${gas.symbol} for fees.` }
     }),
-    attempt(`${chain}:balance`, async () => {
-      const token = deps.usdc.get(chain)
-      if (token === undefined) {
+    attempt('balance', async () => {
+      const token = deps.usdc.get(id)
+      const symbol = usdSymbol(id)
+      if (token === undefined || symbol === undefined) {
         return { status: 'warn', message: `No dollar token is configured for ${chain}.` }
       }
-      const balance = await adapter.getHotWalletBalance(token)
-      return { status: 'ok', message: `The hot wallet on ${chain} holds ${balance} atomic units.` }
+      const balance = formatDollars(await adapter.getHotWalletBalance(token))
+      return { status: 'ok', message: `The hot wallet on ${chain} holds ${balance} ${symbol}.` }
     }),
   ])
 }
 
 /** A check whose read throws fails, and says which read, never the error text: it may hold a URL. */
-async function attempt(
+async function within(
   id: string,
+  chain: string,
   check: () => Promise<Omit<DoctorCheck, 'id'>>,
 ): Promise<DoctorCheck> {
   let timer: NodeJS.Timeout | undefined
@@ -114,7 +115,6 @@ async function attempt(
     // A hung RPC must not hang the whole report: the owner is waiting on it in Telegram.
     return { id, ...(await Promise.race([check(), timeout])) }
   } catch {
-    const [chain] = id.split(':')
     return {
       id,
       status: 'fail',
