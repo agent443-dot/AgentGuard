@@ -7,8 +7,8 @@ import {
   isBuilt,
   killedText,
   ownerTransactionText,
-  statusText,
 } from '../domain/text.js'
+import { statusText } from '../domain/notices.js'
 import type { ChainId } from '@agentguard/shared'
 import {
   anywayLabel,

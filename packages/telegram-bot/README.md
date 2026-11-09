@@ -49,6 +49,14 @@ intent id is a duplicate. Intent events and alerts are refused when `sentAt` is 
 old. Intent events are deduplicated on intent id plus status, alerts on kind, agent and `sentAt`. Both memories are in-process: a replay right after a restart
 can post a message again, but its buttons cannot decide anything twice because guard-core answers 409.
 
+## Task budget approval
+
+An approval request with `mandate` and no `intent` is an agent asking for a task budget (CR-010).
+Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes, the
+domains and any recipients it may pay, the expiry, and the agent's reason labelled `agent says:`.
+**Approve** and **Reject** call `POST /v1/bot/mandates/:id/decision`; the messages settle and expire
+exactly like a payment's, with the same replay window from `approveBefore`.
+
 ## Circuit breaker alert
 
 `kind: "breaker_tripped"` means guard-core has already paused the agent (CR-010). Every owner gets
