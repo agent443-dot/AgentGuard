@@ -49,4 +49,8 @@ export const SHARED_REJECT_CODES = [
   'OWNER_REJECTED',
   'APPROVAL_TIMEOUT',
   'INVALID_402',
+  'MANDATE_REQUIRED',
+  'MANDATE_EXCEEDED',
+  'MANDATE_EXPIRED',
+  'BREAKER_TRIPPED',
 ] as const satisfies readonly SharedRejectCode[]
