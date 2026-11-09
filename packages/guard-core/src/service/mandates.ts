@@ -1,4 +1,4 @@
-import type { Amount, Mandate, RejectCode } from '@agentguard/shared'
+import type { Amount, Mandate, MandateApprovalRequest, RejectCode } from '@agentguard/shared'
 import { randomUUID } from 'node:crypto'
 import { insertMandate } from '../db/mandates.js'
 import * as repo from '../db/repo.js'
@@ -68,12 +68,16 @@ export async function openMandate(
   )
   if (ask) {
     try {
-      await deps.bot.requestApproval({
+      // While pending, expiresAt is the owner's deadline, so how long the task would then run
+      // travels on its own: the owner approves the task's length, not the ten minutes.
+      const request: MandateApprovalRequest & { ttlSeconds: number } = {
         mandate,
+        ttlSeconds: terms.ttlSeconds,
         // Opening a budget moves nothing; the payments made under it are each simulated.
         simulation: { summary: 'opens a task budget; no funds move now', balanceChanges: [] },
         approveBefore: mandate.expiresAt,
-      })
+      }
+      await deps.bot.requestApproval(request)
     } catch (error) {
       // Saved as pending first, so the sweep closes it if the bot never hears.
       deps.log.warn({ err: error, mandateId: mandate.id }, 'mandate approval webhook failed')

@@ -3,6 +3,10 @@ import { parseAmount, toAmount } from './amount.js'
 
 export interface AgentReport {
   agentId: string
+  /**
+   * The sum, in base units, of each chain's dollar (USDC, or USDG on Robinhood Chain). They all have
+   * 6 decimals, so the sum reads as dollars; a token with other decimals would need its own line.
+   */
   spent: Amount
   payments: number
   refused: Partial<Record<RejectCode, number>>

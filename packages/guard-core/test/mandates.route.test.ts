@@ -79,6 +79,8 @@ describe('opening a mandate', () => {
     expect(asked).not.toHaveProperty('intent')
     expect(asked.simulation.balanceChanges).toEqual([])
     expect(asked.approveBefore).toBe(res.json().expiresAt)
+    // The owner approves the task's length, not the ten-minute deadline in expiresAt.
+    expect(asked).toMatchObject({ ttlSeconds: 3600 })
   })
 
   it("starts the owner's own at once, whatever its size", async () => {

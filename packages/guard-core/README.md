@@ -165,7 +165,8 @@ A mandate wider than the policy is refused with 422 `{ error: "outside_policy", 
 ### Report
 
 `GET /v1/admin/report?from&to` (ISO times; the last seven days by default, a year at most) returns
-every agent, a quiet one included, with what its executed payments spent, how many there were,
+every agent, a quiet one included, with what its executed payments spent (the sum in base units of
+each chain's dollar, USDC or USDG, all with 6 decimals), how many there were,
 every refusal counted by code, and the spend per x402 domain, biggest first.
 
 ### Events to the bot
