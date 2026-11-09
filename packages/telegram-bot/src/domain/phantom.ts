@@ -15,7 +15,10 @@ export type KillTarget = { chain: ChainId } & ({ multisig: string; hot: string }
 /** One chain's onchain kill, as a link the bot stamps with the time it posts it. */
 export interface PhantomKill {
   chain: ChainId
+  /** The Phantom app's universal link. */
   link: (issued: Date) => string
+  /** The same page in the browser, for Phantom's desktop extension. */
+  page: (issued: Date) => string
 }
 
 /**
@@ -26,6 +29,16 @@ export interface PhantomKill {
  * still stops working.
  */
 export function phantomKillUrl(signPage: string, target: KillTarget, issued: Date): string {
+  const link = killPageUrl(signPage, target, issued)
+  const ref = new URL(signPage).origin
+  return `https://phantom.app/ul/browse/${encodeURIComponent(link)}?ref=${encodeURIComponent(ref)}`
+}
+
+/**
+ * The signing page itself. On a desktop browser with the Phantom extension the universal link stops
+ * at a "open this in the Phantom app" page; this one opens straight in the browser.
+ */
+export function killPageUrl(signPage: string, target: KillTarget, issued: Date): string {
   const cluster = CLUSTERS.get(target.chain)
   if (cluster === undefined) {
     throw new Error(`no signing-page cluster for ${target.chain}`)
@@ -38,11 +51,13 @@ export function phantomKillUrl(signPage: string, target: KillTarget, issued: Dat
     ...keys,
     issued: String(Math.floor(issued.getTime() / 1000)),
   })
-  const link = `${signPage.replace(/\/+$/, '')}/?${query}`
-  const ref = new URL(signPage).origin
-  return `https://phantom.app/ul/browse/${encodeURIComponent(link)}?ref=${encodeURIComponent(ref)}`
+  return `${signPage.replace(/\/+$/, '')}/?${query}`
 }
 
 export function phantomKill(signPage: string, target: KillTarget): PhantomKill {
-  return { chain: target.chain, link: (issued) => phantomKillUrl(signPage, target, issued) }
+  return {
+    chain: target.chain,
+    link: (issued) => phantomKillUrl(signPage, target, issued),
+    page: (issued) => killPageUrl(signPage, target, issued),
+  }
 }

@@ -205,10 +205,13 @@ export function registerCommands(
     label: (chain: ChainId) => string,
   ) {
     const at = now()
-    const keyboard = new InlineKeyboard()
-    for (const kill of kills) {
-      keyboard.url(label(kill.chain), kill.link(at)).row()
-    }
+    // One row per chain: the Phantom app's link, and the plain page for Phantom's desktop extension.
+    const keyboard = InlineKeyboard.from(
+      kills.map((kill) => [
+        InlineKeyboard.url(label(kill.chain), kill.link(at)),
+        InlineKeyboard.url('Open in browser (desktop)', kill.page(at)),
+      ]),
+    )
     const extra = kills.length === 0 ? HTML : { ...HTML, reply_markup: keyboard }
     const message = await show(ctx, text, extra)
     if (kills.length > 0 && message !== undefined) {
