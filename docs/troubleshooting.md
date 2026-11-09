@@ -35,6 +35,18 @@ an old button cannot fire later. Run `/kill` again.
 nothing to remove. Check with `/status`. The page refuses a kill link that names a hot wallet other
 than the one it was built for.
 
+**On a computer, the bot's "Open … kill in Phantom" button stops on a phantom.com page with a QR
+code.** That button is made for the Phantom app on a phone: scan the QR code with it. On a computer
+with the Phantom extension, open the signing page directly instead. Use the same link without the
+phantom.com part, with a fresh `issued` time, within 15 minutes of `/kill`:
+`https://<your page>/?action=kill&cluster=mainnet-beta&multisig=<multisig>&hot=<hot wallet>&issued=$(date +%s)`.
+
+**Phantom says "This dApp could be malicious" when you create the Solana multisig.** The page
+partly signs that transaction with a one-time key that creates the multisig, and Phantom's scanner
+distrusts that on a new domain. Confirm only on your own signing page, and only when the page's
+summary names your wallet as the only member and config authority, with a creation fee of 0 SOL.
+Anywhere else, reject.
+
 ## Wallet and funds
 
 **Phantom will not send to an address you were given.** It probably is a token mint, such as
