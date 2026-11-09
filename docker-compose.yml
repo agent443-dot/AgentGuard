@@ -1,0 +1,64 @@
+# AgentGuard on any server with Docker: guard-core, the Telegram bot and, with --profile tls, Caddy
+# for HTTPS. The same images as on Fly. Settings and keys come from ~/.agentguard/compose.env, which
+# the setup wizard writes (see docs/self-host.md, "Run anywhere"); none of them is in this file.
+#
+#   docker compose --env-file ~/.agentguard/compose.env up -d --build                 # this machine only
+#   DOMAIN=guard.example.com docker compose --env-file … --profile tls up -d --build  # HTTPS for agents
+
+services:
+  guard-core:
+    build:
+      context: .
+      dockerfile: packages/guard-core/Dockerfile
+    restart: unless-stopped
+    env_file: ${AGENTGUARD_ENV:-~/.agentguard/compose.env}
+    environment:
+      # The private listener (admin and bot routes) is on the compose network only.
+      HOST: 0.0.0.0
+      PORT: '8787'
+      # The public listener serves the agent routes. It believes Fly-Client-IP for its per-IP limit,
+      # so it must never face the internet directly: Caddy overwrites that header.
+      PUBLIC_HOST: 0.0.0.0
+      PUBLIC_PORT: '8080'
+      DATABASE_URL: file:/data/guard.db
+      BOT_URL: http://bot:8788
+    # The entrypoint writes the hot keys here; already tmpfs, so it needs no mount privilege.
+    tmpfs:
+      - /run/agentguard:size=64k,mode=0700
+    volumes:
+      - guard_data:/data
+    ports:
+      - 127.0.0.1:8080:8080
+
+  bot:
+    build:
+      context: .
+      dockerfile: packages/telegram-bot/Dockerfile
+    restart: unless-stopped
+    env_file: ${AGENTGUARD_ENV:-~/.agentguard/compose.env}
+    environment:
+      HOST: 0.0.0.0
+      PORT: '8788'
+      GUARD_URL: http://guard-core:8787
+    depends_on:
+      - guard-core
+
+  caddy:
+    profiles: [tls]
+    image: caddy:2.10.2
+    restart: unless-stopped
+    environment:
+      # Caddy refuses to start without it, so no catch-all site is ever served.
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - guard-core
+
+volumes:
+  guard_data:
+  caddy_data:
