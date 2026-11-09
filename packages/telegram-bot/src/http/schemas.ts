@@ -55,8 +55,8 @@ export const mandate = z.object({
   agentId: z.string().min(1).max(64),
   budget: atomic,
   spent: atomic,
-  domains: z.array(z.string().min(1).max(253)).max(50),
-  recipients: z.array(opaque).max(50),
+  domains: z.array(z.string().min(1).max(253)).max(64),
+  recipients: z.array(opaque).max(64),
   reason: z.string().max(500),
   status: z.enum(['pending_approval', 'active', 'exhausted', 'expired', 'revoked']),
   createdAt: isoTime,
@@ -66,6 +66,8 @@ export const mandate = z.object({
 /** An agent asks the owner for a task budget: the same body as a payment's, with a mandate instead. */
 export const mandateRequest = z.object({
   mandate,
+  /** How long the budget lasts once approved; a guard-core that predates it leaves it out. */
+  ttlSeconds: z.number().int().min(1).max(86_400).optional(),
   simulation: z.object({ summary: z.string().max(1000) }),
   approveBefore: isoTime,
 })

@@ -47,7 +47,7 @@ const ANSWERS: Record<Outcome['kind'], string> = {
   rejected: 'Rejected',
   expired: 'Too late: this request expired. Nothing was paid.',
   already_decided: 'Already decided.',
-  not_found: 'guard-core does not know this intent.',
+  not_found: 'guard-core does not know this request.',
 }
 
 /** Callback data is capped at 64 bytes by Telegram; an action plus a uuid fits. */

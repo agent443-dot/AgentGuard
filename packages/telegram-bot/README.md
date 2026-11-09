@@ -52,8 +52,11 @@ can post a message again, but its buttons cannot decide anything twice because g
 ## Task budget approval
 
 An approval request with `mandate` and no `intent` is an agent asking for a task budget (CR-010).
-Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes, the
-domains and any recipients it may pay, the expiry, and the agent's reason labelled `agent says:`.
+Every owner gets "Task budget requested": the agent, the budget in dollars, its length in minutes
+(`ttlSeconds`, counted from approval; left out when guard-core does not send it, never taken from the
+pending mandate's `expiresAt`, which is only the approval deadline), the domains and any recipients it
+may pay (in full, at most ten of each with "and N more"), the expiry, and the agent's reason labelled
+`agent says:`.
 **Approve** and **Reject** call `POST /v1/bot/mandates/:id/decision`; the messages settle and expire
 exactly like a payment's, with the same replay window from `approveBefore`.
 
@@ -167,9 +170,10 @@ The Robinhood link names no hot wallet: the page uses the one it was built with.
 ## Weekly report
 
 With `REPORT_WEEKDAY` (0 is Sunday) and `REPORT_HOUR_UTC` both set, every owner gets the same report as
-`/report` once in that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
+`/report` in the first minute of that hour, checked on the bot's 15-second sweep. Setting only one of them is refused
 at startup. If guard-core does not answer, the owners are told once to run `/report` later; the bot does
-not retry every tick. The sent marker is in memory, so a restart inside that hour sends it again.
+not retry every tick. The sent marker is in memory, but a bot restarted after that first minute does
+not send it again.
 
 ## Notifications
 

@@ -46,6 +46,9 @@ describe('httpGuardClient', () => {
       json(410, { error: 'expired' }),
     )
     expect(await guard.decideMandate(MANDATE_ID, 'approve', 1001)).toEqual({ ok: true })
+    // Decided is decided: a body the bot cannot read does not undo that.
+    const odd = client(new Response('not json', { status: 200 }))
+    expect(await odd.guard.decideMandate(MANDATE_ID, 'approve', 1001)).toEqual({ ok: true })
     const { url, init, headers } = sentTo(fetch)
     expect(url).toBe(`http://guard/v1/bot/mandates/${MANDATE_ID}/decision`)
     expect(headers.get('authorization')).toBe(`Bearer ${BOT}`)

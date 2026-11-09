@@ -502,15 +502,23 @@ describe('task budget approvals', () => {
     expect(status).toContain('Pending approvals: 0\nPending task budgets: 1')
   })
 
-  it('lists recipients when the budget may pay some, shortened', async () => {
+  it('lists recipients in full, and at most ten of anything', async () => {
     const { calls, deliver } = await harness()
-    await deliver(
-      '/hooks/approval-request',
-      mandateRequest({ recipients: [RECIPIENT], domains: [] }),
-    )
+    const domains = Array.from({ length: 64 }, (_, i) => `api${i}.${'x'.repeat(240)}.com`)
+    await deliver('/hooks/approval-request', mandateRequest({ recipients: [RECIPIENT], domains }))
     const text = String(sent(calls, 'sendMessage')[0]?.payload['text'])
-    expect(text).toContain('Domains: none')
-    expect(text).toContain('Recipients: <code>9xQeWv…VFin</code>')
+    expect(text).toContain(`Recipients: <code>${RECIPIENT}</code>`)
+    expect(text).toContain(', and 54 more')
+    expect(text.length).toBeLessThan(4096)
+  })
+
+  it('says no duration when guard-core does not send one, never the approval deadline', async () => {
+    const { calls, deliver } = await harness()
+    const { ttlSeconds: _ttl, ...request } = mandateRequest()
+    await deliver('/hooks/approval-request', request)
+    expect(String(sent(calls, 'sendMessage')[0]?.payload['text'])).toContain(
+      'asks for a task budget of <b>$25.00</b>.',
+    )
   })
 
   it('refuses a replay and a request whose window has passed, like a payment', async () => {
