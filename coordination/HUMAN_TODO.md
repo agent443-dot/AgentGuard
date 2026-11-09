@@ -1202,7 +1202,7 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
    para as primeiras semanas.
 7. ✅ A política do agente com os valores da D2, e um pagamento de teste.
 
-**C. Solana mainnet** — ⏳ **o próximo passo (amanhã).** O integrator guia-te.
+**C. Solana mainnet** — ⏳ **o próximo passo: amanhã, por volta das 12:05 UTC** (quando a quota do Vercel renova). O integrator guia-te.
 
 8. Uma hot wallet nova de mainnet, criada direto para um ficheiro.
 9. O multisig e o teto de **20 USDC por dia**, criados pela página de assinatura na tua Phantom.
@@ -1213,10 +1213,10 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
 
 12. ✅ **Branch principal**: no GitHub, **Settings → General → Default branch**, troca para `main`
     (já é `main`).
-13. ⏳ **Proteger o `main`** (confirma que ficou ligado): **Settings → Rules → Rulesets → New branch ruleset**, alvo `main`, com
+13. ✅ **Proteger o `main`**: **Settings → Rules → Rulesets → New branch ruleset**, alvo `main`, com
     "Require a pull request before merging", "Require status checks to pass" (o CI) e
     "Block force pushes".
-14. ⏳ **Segurança** (confirma que ficou ligado): em **Settings → Code security**, liga **Private vulnerability reporting**,
+14. ✅ **Segurança**: em **Settings → Code security**, liga **Private vulnerability reporting**,
     **Secret scanning** e **Push protection**.
 15. ✅ **Rever o que fica público.** A procura nos 494 commits não encontrou segredos, mas ao abrir o
     repositório ficam visíveis os emails dos commits e a pasta `coordination/` (este ficheiro incluído,
@@ -1224,7 +1224,7 @@ O integrator guia-te em cada bloco; aqui fica a ordem:
     tirar alguma coisa antes.
 16. ✅ A landing page, e o relatório final (#125).
 17. ✅ **A tua autorização escrita para lançar** (`HUMAN-8`, 2026-11-09).
-18. ⏳ **Por último, tornar o repositório público** (a decorrer agora): **Settings → General → Danger Zone → Change
+18. ✅ **Por último, tornar o repositório público** (feito em 2026-11-09): **Settings → General → Danger Zone → Change
     visibility → Public**. Logo a seguir entra a mudança que troca os "coming soon" do site pelo link
     do repositório.
 
