@@ -206,6 +206,8 @@ export interface BudgetView {
   shadowSpentToday?: Amount
   /** CR-010: the agent's active mandates. Absent from a v0.5 guard-core. */
   mandates?: Mandate[]
+  /** CR-011: shadow mode since its first shadowed payment, so the bot can offer to go live. */
+  shadow?: { since: string; total: Amount; count: number }
 }
 
 /** One entry of GET /v1/admin/chains (CR-006). */

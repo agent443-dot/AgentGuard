@@ -193,6 +193,8 @@ GET  /v1/agent/intents/:id/receipt -> Receipt   (404 until the intent is execute
 GET  /v1/agent/intents/:id  -> PayIntent
 GET  /v1/agent/budget/:agentId -> { spentToday, shadowSpentToday, dailyMax, perTxMax, hotWalletBalances, paused, chains, mandates }
   mandates: the agent's active mandates (CR-010).
+  shadow?: { since, total, count }: since the agent's first shadowed payment, what shadow mode would
+  have spent in all and how many payments (CR-011). Absent when it never ran in shadow.
   chains: the CAIP-2 ids guard-core runs an adapter for AND this agent's Policy.chains allows, so an
   agent learns only where it may actually pay, never the operator's full setup.
 
