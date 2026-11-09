@@ -185,7 +185,10 @@ export interface ApprovalRequest {
 
 /** CR-010: the same hook, asking the owner to open a task budget rather than to pay. */
 export interface MandateApprovalRequest {
+  /** While pending, its expiresAt is the approval deadline, not the budget's end. */
   mandate: Mandate
+  /** How long the budget runs once approved, from the moment of approval. */
+  ttlSeconds: number
   /** Its summary describes the budget; balanceChanges is empty. */
   simulation: SimulationResult
   approveBefore: string
