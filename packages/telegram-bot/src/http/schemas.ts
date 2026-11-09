@@ -78,9 +78,12 @@ export const intentEvent: z.ZodType<IntentEvent | ShadowedEvent> = z.union([
 ])
 
 /** Guard-core tells the owner something that is not about one payment. */
-export const alertEvent = z.object({
-  kind: z.literal('breaker_tripped'),
-  agentId: z.string().min(1).max(64),
-  detail: z.string().max(500),
-  sentAt: isoTime,
-})
+export const alertEvent = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('breaker_tripped'),
+    agentId: z.string().min(1).max(64),
+    detail: z.string().max(500),
+    sentAt: isoTime,
+  }),
+  z.object({ kind: z.literal('passkey_enrolled'), detail: z.string().max(500), sentAt: isoTime }),
+])

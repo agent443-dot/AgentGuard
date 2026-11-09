@@ -7,6 +7,7 @@ import { type Admission, ApprovalBook, EventLog, type MessageRef } from '../doma
 import {
   approvalText,
   breakerText,
+  passkeyText,
   type FlaggedRequest,
   type Outcome,
   settledFallback,
@@ -134,14 +135,16 @@ export class Desk {
     return admission
   }
 
-  /** A tripped breaker has already paused the agent; the owner only needs to know and look. */
+  /** Nothing to approve: a tripped breaker has already paused the agent, a passkey is already added. */
   async alert(event: AlertEvent) {
-    const key = `${event.kind}:${event.agentId}:${event.sentAt}`
+    const breaker = event.kind === 'breaker_tripped'
+    const key = `${event.kind}:${breaker ? event.agentId : ''}:${event.sentAt}`
     const admission = this.#events.admit(key, event.sentAt, this.#now())
     if (admission !== 'accepted') {
       return admission
     }
-    const sent = await this.#broadcast(breakerText(event.agentId, event.detail))
+    const text = breaker ? breakerText(event.agentId, event.detail) : passkeyText(event.detail)
+    const sent = await this.#broadcast(text)
     return sent.length > 0 ? admission : 'undelivered'
   }
 

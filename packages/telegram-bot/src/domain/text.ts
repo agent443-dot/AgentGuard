@@ -150,6 +150,14 @@ export function breakerText(agentId: string, detail: string): string {
   ].join('\n')
 }
 
+/** Sent on every enrolment, so an owner who did not add the passkey hears of it at once. */
+export function passkeyText(detail: string): string {
+  return [
+    '<b>A passkey was added</b> for approvals. If it was not you, run /kill and remove it on the machine.',
+    ...(detail === '' ? [] : [`guard-core says: <i>${escapeHtml(detail)}</i>`]),
+  ].join('\n')
+}
+
 export function settledText(request: ApprovalRequest, outcome: Outcome): string {
   return [outcomeLine(outcome), ...details(request, true)].join('\n')
 }

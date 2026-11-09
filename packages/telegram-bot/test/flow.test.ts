@@ -390,6 +390,19 @@ describe('breaker alerts', () => {
     const { deliver } = await harness({ fail: () => true })
     expect((await deliver('/hooks/alert', alert())).statusCode).toBe(502)
   })
+
+  it('tells every owner a passkey was added and what to do if it was not them', async () => {
+    const { calls, deliver } = await harness()
+    const enrolled = { kind: 'passkey_enrolled', detail: 'id abc', sentAt: NOW.toISOString() }
+    expect((await deliver('/hooks/alert', enrolled)).statusCode).toBe(200)
+    expect((await deliver('/hooks/alert', enrolled)).statusCode).toBe(409)
+    const posted = sent(calls, 'sendMessage')
+    expect(posted.map((call) => call.payload['chat_id'])).toEqual([OWNER.id, OTHER_OWNER.id])
+    expect(posted[0]?.payload['text']).toBe(
+      '<b>A passkey was added</b> for approvals. If it was not you, run /kill and remove it on the ' +
+        'machine.\nguard-core says: <i>id abc</i>',
+    )
+  })
 })
 
 describe('shadow mode events', () => {
