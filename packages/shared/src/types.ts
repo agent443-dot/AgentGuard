@@ -33,6 +33,55 @@ export interface Policy {
   /** x402 hosts, e.g. ["api.example.com"]. Empty denies all. */
   allowedDomains: string[]
   paused: boolean
+  /** CR-010. Shadow evaluates and simulates every payment and signs none. Default 'live'. */
+  mode?: 'live' | 'shadow'
+  /** CR-010. An x402 price above the pinned one by more than this goes to the owner. Default 100. */
+  priceIncreaseMaxPct?: number
+  /** CR-010. The payment that would exceed it trips the breaker and pauses the agent. Default 10. */
+  maxPaymentsPerMinute?: number
+  /** CR-010. When true, a payment without an open mandate is refused. Default false. */
+  requireMandate?: boolean
+}
+
+/** CR-010: a budget for one task, inside the policy. */
+export interface Mandate {
+  id: string
+  agentId: string
+  budget: Amount
+  spent: Amount
+  /** x402 domains it may pay, a subset of the policy's. */
+  domains: string[]
+  /** Transfer recipients it may pay, a subset of the policy's. */
+  recipients: Address[]
+  /** Agent-provided, shown to the owner, never used in a decision. */
+  reason: string
+  status: 'pending_approval' | 'active' | 'exhausted' | 'expired' | 'revoked'
+  createdAt: string
+  expiresAt: string
+}
+
+/** CR-010: why a payment goes to the owner even below the threshold. */
+export type ApprovalFlag = 'RECIPIENT_CHANGED' | 'PRICE_JUMP'
+
+/** CR-010: one per executed intent, signed by RECEIPT_SIGNING_KEY. */
+export interface Receipt {
+  intent: PayIntent
+  /** Hex SHA-256 of the canonical JSON of the policy in force. */
+  policyHash: string
+  /** The simulation summary. */
+  simulation: string
+  approvedBy: 'policy' | 'owner' | 'passkey'
+  issuedAt: string
+  /** Hex Ed25519 signature over the canonical JSON of the fields above. */
+  signature: string
+}
+
+/** Body of POST {BOT_URL}/hooks/alert (CR-010). */
+export interface AlertEvent {
+  kind: 'breaker_tripped'
+  agentId: string
+  detail: string
+  sentAt: string
 }
 
 export type IntentStatus =
@@ -55,6 +104,8 @@ export interface PayIntent {
   status: IntentStatus
   rejectReasons: RejectCode[]
   txId?: TxId
+  /** CR-010: the mandate this payment counts against. */
+  mandateId?: string
   createdAt: string
   expiresAt: string
 }
