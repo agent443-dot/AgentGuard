@@ -5,7 +5,8 @@ const c = require('./cards.cjs')
 
 const CTA = [
   ['Star it and read the code', 'github.com/agent443-dot/AgentGuard'],
-  ['Run the setup wizard', 'pnpm --filter create-agentguard start'],
+  ['Install the beta', 'github.com/agent443-dot/AgentGuard#install-the-beta'],
+  ['Release v0.1.0-beta', 'github.com/agent443-dot/AgentGuard/releases'],
   ['Found a hole? Report it privately', 'SECURITY.md · Security → Report a vulnerability'],
 ]
 const killWarning =
@@ -24,7 +25,7 @@ module.exports = {
         items: [
           ['1', 'Your rules', 'How much per payment, per day, which sites. Anything else: no.'],
           ['2', 'A practice run', 'The exact payment is simulated before anything is signed.'],
-          ['3', 'Your yes', 'Big payments, price jumps and new payees go to you on Telegram.'],
+          ['3', 'Your yes', 'Big payments, a doubled price or a new payee go to you on Telegram.'],
           ['4', 'A daily lock, onchain', 'Your vault lets out only the daily cap. It holds even if the guard breaks.'],
           ['5', 'One button', '/kill pauses every agent. One Phantom signature shuts the vault.'],
         ],
@@ -79,13 +80,26 @@ module.exports = {
         items: [
           ['✓', 'A budget per task', 'Its own limit, websites and expiry.'],
           ['✓', 'A breaker', 'Paying too fast? It trips. Default: 10 payments a minute.'],
-          ['✓', 'Price jump or new payee', 'Goes to you, even below your threshold.'],
-          ['✓', 'A receipt for every payment', 'Signed, so anyone can check it.'],
+          ['✓', 'Price doubles or new payee', 'Goes to you, even below your threshold.'],
+          ['✓', 'Signed receipts, when you turn them on', 'One per payment, checkable with a public key.'],
         ],
       }),
     ),
     site('12-site-chains', '#chains'),
     h('13-cta', c.cta({ heading: ['Give your robot pocket money,', '*not your keys.*'], items: CTA })),
+    h(
+      '14-beta',
+      c.list({
+        kicker: 'Public beta · v0.1.0-beta',
+        heading: ['New, open,', '*and honest about it.*'],
+        items: [
+          ['!', 'No external audit yet', 'Internal reviews only: docs/security-review.md'],
+          ['!', 'Start with small amounts', 'Default daily cap 20; the signing page refuses more than 50.'],
+          ['✓', '1,294 automated tests', 'Run on every change.'],
+          ['✓', 'Known risks, written down', 'docs/final-report.md'],
+        ],
+      }),
+    ),
     h('thumb', c.title({ kicker: 'How to use AgentGuard', lines: ['Pocket money.', '*Not your keys.*'], xl: true })),
   ],
 }

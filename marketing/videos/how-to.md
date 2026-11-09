@@ -7,7 +7,7 @@
 | Format        | Horizontal 16:9, 1920×1080 master; vertical 9:16 cut from the same edit                      |
 | Length        | about 2:40                                                                                   |
 | Presenter     | None. Voice only, over futuristic visuals and real product screens                           |
-| Facts as of   | `main` at `04c0e0c` (2026-11-09): live on Robinhood Chain and Solana, Base next              |
+| Facts as of   | `main` at `4f4ee3f`, release `v0.1.0-beta` (2026-11-09): public beta, live on Robinhood Chain and Solana, Base next, no external audit yet |
 | Status        | ready to produce                                                                             |
 
 ## The idea: a boot sequence
@@ -53,7 +53,7 @@ Shield one. Your rules. How much per payment. How much per day. Which websites. 
 
 Shield two. A practice run. Before any money moves, I play the payment in a practice world, to see what it would really do. Not what the robot says it does.
 
-Shield three. Your yes. A big payment? Your phone lights up on Telegram. You say yes, or no. If the price suddenly jumps, or the payee changes, I ask you too.
+Shield three. Your yes. A big payment? Your phone lights up on Telegram. You say yes, or no. If the price suddenly doubles, or the payee changes, I ask you too.
 
 Shield four. The lock. Your money sits in your own vault, and only your Phantom wallet controls it. A lock built into the blockchain lets out only a little each day. Even if someone breaks me… the lock holds.
 
@@ -71,16 +71,16 @@ Move four. Happy? Pick your limits in Telegram, allow the sites you trust, and s
 
 Got a big job? Give the robot a budget for that one task, with its own limit and an expiry. Paying too fast? A breaker trips.
 
-Live today, on Robinhood Chain and Solana. Base is next.
+Public beta. Live today, on Robinhood Chain and Solana. Base is next.
 
-I'm new, and I'm open source. Every line of code, and every known risk, is out in the open.
+I'm new, and I'm open source. No outside audit yet, so start small: twenty a day is the default. Every line of code, and every known risk, is out in the open.
 
 [beat] Robots are getting wallets. Give them pocket money. Not your keys.
 
 AgentGuard. [beat] Boot yours.
 ```
 
-About 420 words, about 2:40 at a cinematic pace.
+About 440 words, about 2:45 at a cinematic pace.
 
 ## Script to paste — Português (PT-BR)
 
@@ -103,7 +103,7 @@ Escudo um. As suas regras. Quanto por pagamento. Quanto por dia. Quais sites. Qu
 
 Escudo dois. Um ensaio. Antes de qualquer dinheiro sair, eu jogo o pagamento num mundo de treino, para ver o que ele faria de verdade. Não o que o robô diz que faz.
 
-Escudo três. O seu sim. Pagamento grande? O seu celular acende no Telegram. Você diz sim, ou não. Se o preço dispara de repente, ou quem recebe muda, eu também pergunto para você.
+Escudo três. O seu sim. Pagamento grande? O seu celular acende no Telegram. Você diz sim, ou não. Se o preço dobra de repente, ou quem recebe muda, eu também pergunto para você.
 
 Escudo quatro. A tranca. O seu dinheiro fica no seu próprio cofre, e só a sua carteira Phantom controla ele. Uma tranca embutida na blockchain deixa sair só um pouquinho por dia. Mesmo que alguém me quebre… a tranca segura.
 
@@ -121,9 +121,9 @@ Movimento quatro. Gostou? Escolha os seus limites no Telegram, libere os sites e
 
 Tem um trabalho grande? Dê ao robô um orçamento só para aquela tarefa, com limite e prazo próprios. Pagando rápido demais? Um disjuntor desarma.
 
-No ar hoje, na Robinhood Chain e na Solana. A Base é a próxima.
+Beta público. No ar hoje, na Robinhood Chain e na Solana. A Base é a próxima.
 
-Eu sou novo, e sou open source. Cada linha de código, e cada risco conhecido, está à vista de todos.
+Eu sou novo, e sou open source. Ainda não tenho auditoria externa, então comece pequeno: vinte por dia é o padrão. Cada linha de código, e cada risco conhecido, está à vista de todos.
 
 [beat] Os robôs estão ganhando carteiras. Dê a eles uma mesada. Não as suas chaves.
 
@@ -166,16 +166,16 @@ HUD line per scene is in the table.
 | 14  | 1:57–2:06 | Move three. Shadow mode…                          | `MOVE 03 // SHADOW MODE`          | **AI:** the robot paying with ghost-like translucent coins of light that vanish before they land (no symbols); a counter of "would-have-spent" glows. Then `10-telegram.png` row 1 | Muffled, echoing version of the pulse |
 | 15  | 2:06–2:14 | Move four. Happy? Pick your limits…               | `MOVE 04 // LIVE`                 | `10-telegram.png`, rows 2–5                                                                                                                            | Full beat returns                       |
 | 16  | 2:14–2:22 | Got a big job? … A breaker trips.                 | `ARMOUR // TASK BUDGET · BREAKER` | `11-extras.png`                                                                                                                                        | Electric "trip" click                   |
-| 17  | 2:22–2:27 | Live today, on Robinhood Chain and Solana. Base is next. | `NETWORKS // 2 LIVE`       | `12-site-chains.png`                                                                                                                                   | Music at its fullest                    |
-| 18  | 2:27–2:33 | I'm new, and I'm open source…                     | `SOURCE // OPEN`                  | **AI:** flying through a corridor of floating, unreadable glowing code glyphs. Then `02-site-hero.png`                                                   | Pulls back to pads                      |
-| 19  | 2:33–2:40 | Robots are getting wallets… AgentGuard. Boot yours. | `AGENTGUARD // READY`           | **AI:** the robot from scene 2 walks into the light holding a small glowing card (pocket money). Fade to `13-cta.png`                                    | Final hit, ring out                     |
+| 17  | 2:22–2:27 | Public beta. Live today, on Robinhood Chain and Solana. Base is next. | `v0.1.0-BETA // 2 NETWORKS LIVE` | `12-site-chains.png`                                                                                                                                   | Music at its fullest                    |
+| 18  | 2:27–2:38 | I'm new, and I'm open source. No outside audit yet, so start small…  | `NO EXTERNAL AUDIT // START SMALL` | **AI:** flying through a corridor of floating, unreadable glowing code glyphs. Then `14-beta.png`, held still                                           | Pulls back to pads                      |
+| 19  | 2:38–2:45 | Robots are getting wallets… AgentGuard. Boot yours. | `AGENTGUARD // READY`           | **AI:** the robot from scene 2 walks into the light holding a small glowing card (pocket money). Fade to `13-cta.png`                                    | Final hit, ring out                     |
 
 Scene 14 uses "coins of light": keep them plain discs with no symbol, and if any render looks like a
 crypto coin or token, regenerate it or use glowing cards instead.
 
 ## Images (rendered, `assets/howto/`, 1920×1080)
 
-Rendered from the site on `main` (Solana live) and the repository's real commands:
+Rendered from the site on `main` (public beta, Solana live) and the repository's real commands:
 `git show origin/main:site/index.html > /tmp/main-site.html` then
 `AG_SITE=/tmp/main-site.html node marketing/videos/assets/src/render.cjs howto`.
 
@@ -191,9 +191,10 @@ Rendered from the site on `main` (Solana live) and the repository's real command
 | `08-four-moves.png`    | The four moves                                                                 |
 | `09-terminal.png`      | The two real commands: the setup wizard and the MCP setup                      |
 | `10-telegram.png`      | The real bot commands: `/mode`, `/policy`, `/allow`, `/report`, `/kill`        |
-| `11-extras.png`        | Task budgets, the breaker, price jump / new payee, receipts                    |
+| `11-extras.png`        | Task budgets, the breaker, price jump / new payee, optional signed receipts    |
 | `12-site-chains.png`   | Robinhood Chain and Solana live, Base next                                     |
-| `13-cta.png`           | Repo, the wizard, private security reports                                     |
+| `13-cta.png`           | Install the beta, the release, private security reports                        |
+| `14-beta.png`          | Public beta v0.1.0-beta: no external audit, start small (cap 20, at most 50)   |
 | `thumb.png`            | "Pocket money. Not your keys." (kicker: HOW TO USE AGENTGUARD)                 |
 
 No image shows a key, token, `.env` or a real address.
@@ -214,19 +215,20 @@ spelling of: AgentGuard, x402, Phantom, Telegram, Robinhood Chain, Solana, Claud
 ## Description (EN)
 
 ```
-AI voice and AI-generated visuals. AgentGuard is open source (Apache-2.0) and self-hosted: there is no hosted AgentGuard service.
-Early software: read the known risks in docs/final-report.md before you put money behind it.
-Code: https://github.com/agent443-dot/AgentGuard
-Self-host: https://github.com/agent443-dot/AgentGuard/blob/main/docs/self-host.md
+AI voice and AI-generated visuals. AgentGuard v0.1.0-beta is a public beta: open source (Apache-2.0), self-hosted, no hosted AgentGuard service.
+No external audit yet, only internal reviews. Start with small amounts: the default daily cap is 20, at most 50. Known risks: docs/final-report.md.
+Install the beta: https://github.com/agent443-dot/AgentGuard#install-the-beta
+Release: https://github.com/agent443-dot/AgentGuard/releases/tag/v0.1.0-beta
 Security reports, privately: https://github.com/agent443-dot/AgentGuard/security
 ```
 
 ## Descrição (PT-BR)
 
 ```
-Voz e imagens geradas por IA. O AgentGuard é open source (Apache-2.0) e auto-hospedado: não existe serviço hospedado do AgentGuard.
-Software novo: leia os riscos conhecidos em docs/final-report.md antes de colocar dinheiro nele.
-Código: https://github.com/agent443-dot/AgentGuard
+Voz e imagens geradas por IA. O AgentGuard v0.1.0-beta é um beta público: open source (Apache-2.0), auto-hospedado, sem serviço hospedado do AgentGuard.
+Ainda sem auditoria externa, só revisões internas. Comece com valores pequenos: o limite diário padrão é 20, no máximo 50. Riscos conhecidos: docs/final-report.md.
+Instale o beta: https://github.com/agent443-dot/AgentGuard#install-the-beta
+Release: https://github.com/agent443-dot/AgentGuard/releases/tag/v0.1.0-beta
 Guia em português: https://github.com/agent443-dot/AgentGuard/blob/main/docs/self-host.pt-BR.md
 Relatos de segurança, em privado: https://github.com/agent443-dot/AgentGuard/security
 ```
@@ -239,8 +241,8 @@ Your AI agent can pay now. Should it hold your keys? No.
 AgentGuard: five shields on every payment. Your rules, a practice run, your yes on big ones, a daily lock enforced onchain, and one button to stop it all.
 
 Set up with one wizard, test in shadow mode, then go live.
-Live on Robinhood Chain and Solana.
-https://github.com/agent443-dot/AgentGuard
+Public beta v0.1.0-beta, live on Robinhood Chain and Solana. No external audit yet: start small.
+https://github.com/agent443-dot/AgentGuard#install-the-beta
 ```
 
 ## Post no X (PT-BR)
@@ -251,8 +253,8 @@ Seu agente de IA já pode pagar. Ele deveria ter as suas chaves? Não.
 AgentGuard: cinco escudos em cada pagamento. Suas regras, um ensaio, o seu sim nos grandes, uma tranca diária na blockchain e um botão para parar tudo.
 
 Instale com um assistente, teste no modo sombra e vá para o ao vivo.
-No ar na Robinhood Chain e na Solana.
-https://github.com/agent443-dot/AgentGuard
+Beta público v0.1.0-beta, no ar na Robinhood Chain e na Solana. Ainda sem auditoria externa: comece pequeno.
+https://github.com/agent443-dot/AgentGuard#install-the-beta
 ```
 
 ## Fact check (against `main`, 2026-11-09)
@@ -270,6 +272,8 @@ https://github.com/agent443-dot/AgentGuard
 | Move 3: shadow mode signs nothing, shows would-have-spent | `mode: "shadow"`; `/mode live` shows what shadow would have spent                      | `SPEC.md`, `packages/telegram-bot/README.md`            |
 | Move 4: `/policy`, `/allow`, `/mode live`, `/report`   | Bot owner commands (CR-011)                                                               | `packages/telegram-bot/README.md`                       |
 | Task budget with limit and expiry; breaker             | `start_task` mandates; `maxPaymentsPerMinute` (default 10) trips the breaker              | `packages/mcp-server/README.md`, `SPEC.md`              |
-| Receipts anyone can check                              | One signed receipt per executed intent; public key at `/v1/receipts/key`                  | `SPEC.md`                                               |
-| Live on Robinhood Chain and Solana; Base next          | Launch status on `main`                                                                   | `README.md` (main), `docs/final-report.md` (main)       |
+| Price doubles or payee changes → asks you              | Pinned x402 payees, flagged above twice the last price                                    | `CHANGELOG.md` v0.1.0-beta                              |
+| Signed receipts (on screen only, optional)             | Ed25519 receipts, off until `RECEIPT_SIGNING_KEY_FILE` is set                             | `CHANGELOG.md` "Built in, off until you configure them" |
+| Public beta; live on Robinhood Chain and Solana; Base next | Release v0.1.0-beta                                                                   | `README.md`, `CHANGELOG.md` (main)                      |
+| No external audit; start small, default 20, at most 50 | Beta notice                                                                               | `README.md` (main)                                      |
 | Open source, known risks in the open                   | Apache-2.0; Known risks section                                                           | `LICENSE`, `docs/final-report.md`                       |
