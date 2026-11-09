@@ -4,7 +4,7 @@ An MCP server that lets an AI agent pay **only** through AgentGuard. It holds no
 policy decisions. It checks the agent's inputs, turns dollars into atomic units of the chain's dollar
 (USDC, or USDG on Robinhood Chain), asks guard-core, and explains the answer in plain English.
 
-Owner: Session 3 (mcp). Source of truth: [`/SPEC.md`](../../SPEC.md).
+Source of truth: [`/SPEC.md`](../../SPEC.md).
 
 ## For agent builders
 

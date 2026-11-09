@@ -31,7 +31,8 @@ const solanaLink = z.discriminatedUnion('action', [
     action: z.literal('kill'),
     cluster,
     multisig: key,
-    hot: key,
+    // Optional, and only ever checked against the hot wallet the page was built for.
+    hot: key.optional(),
     issued,
   }),
   z.object({ action: z.literal('create'), cluster }),
@@ -52,32 +53,45 @@ const solanaLink = z.discriminatedUnion('action', [
   }),
 ])
 
-function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof solanaLink>) {
-  switch (request.action) {
-    case 'kill':
-      if (expired(request.issued)) {
-        return Promise.resolve<Plan>({ kind: 'refused', reason: EXPIRED })
-      }
-      return prepareKill(connection, { ...request, hotWallet: request.hot }, owner)
-    case 'create':
-      return prepareCreate(connection, request.cluster, owner)
-    case 'add-limit': {
-      const usdc = built(USDC_MINTS, request.cluster)
-      const hot = built(HOT_WALLETS, request.cluster)
-      const refuse = (reason: string) => Promise.resolve<Plan>({ kind: 'refused', reason })
-      if (!usdc || !hot) {
-        return refuse(`This page knows no USDC or no hot wallet for ${request.cluster}.`)
-      }
-      const hotWallet = new PublicKey(hot)
-      if (request.hot && !request.hot.equals(hotWallet)) {
-        return refuse(
-          `The link names ${request.hot.toBase58()} as the hot wallet, but this page only sets the ` +
-            `limit for ${hot}. Do not sign anything from this link.`,
-        )
-      }
-      return prepareLimit(connection, { ...request, hotWallet, usdc: new PublicKey(usdc) }, owner)
-    }
+const refuse = (reason: string) => Promise.resolve<Plan>({ kind: 'refused', reason })
+
+/**
+ * The hot wallet the page was built for. A link may name one, but only to be refused when it names
+ * another: a kill that looked up the wrong one would find no limit and report it gone.
+ */
+function builtHot(cluster: string, named: PublicKey | undefined): PublicKey | string {
+  const hot = built(HOT_WALLETS, cluster)
+  if (!hot) {
+    return `This page knows no hot wallet for ${cluster}.`
   }
+  if (named && !named.equals(new PublicKey(hot))) {
+    return (
+      `The link names ${named.toBase58()} as the hot wallet, but this page only acts for ${hot}. ` +
+      'Do not sign anything from this link.'
+    )
+  }
+  return new PublicKey(hot)
+}
+
+function prepare(connection: Connection, owner: PublicKey, request: z.infer<typeof solanaLink>) {
+  if (request.action === 'create') {
+    return prepareCreate(connection, request.cluster, owner)
+  }
+  if (request.action === 'kill' && expired(request.issued)) {
+    return refuse(EXPIRED)
+  }
+  const hotWallet = builtHot(request.cluster, request.hot)
+  if (typeof hotWallet === 'string') {
+    return refuse(hotWallet)
+  }
+  if (request.action === 'kill') {
+    return prepareKill(connection, { ...request, hotWallet }, owner)
+  }
+  const usdc = built(USDC_MINTS, request.cluster)
+  if (!usdc) {
+    return refuse(`This page knows no USDC for ${request.cluster}.`)
+  }
+  return prepareLimit(connection, { ...request, hotWallet, usdc: new PublicKey(usdc) }, owner)
 }
 
 async function main() {

@@ -1,6 +1,6 @@
 /**
- * Shared types, transcribed from /SPEC.md. Owner: integrator (Session 5).
- * Other sessions import from here and propose changes in /CHANGES_REQUESTED.md.
+ * Shared types, transcribed from /SPEC.md.
+ * Every other package imports from here; changes are proposed in /CHANGES_REQUESTED.md.
  */
 
 /** Atomic units (USDC = 6 decimals) as a decimal string. Parse to bigint before any math. */

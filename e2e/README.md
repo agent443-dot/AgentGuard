@@ -3,10 +3,8 @@
 End-to-end and attack tests across guard-core, telegram-bot and mcp-server, run once per chain:
 Solana devnet first, then Base Sepolia (SPEC v0.3).
 
-- **Owner:** integrator (Session 5).
-- **Tasks:** INT-3 to INT-6 in [`/coordination/BOARD.md`](../coordination/BOARD.md).
-- **`pnpm dev:all` preflight:** `src/env-check.ts` cross-checks the three services' `.env` files
-  (INT-3). See the root README for the full setup.
+- **`pnpm dev:all` preflight:** `src/env-check.ts` cross-checks the three services' `.env` files.
+  See the root README for the full setup.
 
 ## How it runs
 
@@ -20,7 +18,7 @@ three services, so expiry is tested without waiting. Runs in CI, with no network
 pnpm --filter @agentguard/e2e test
 ```
 
-## End-to-end flows (INT-4), `test/solana-flows.test.ts`
+## End-to-end flows, `test/solana-flows.test.ts`
 
 1. Under the threshold: paid without asking the owner, and the body comes back fenced as untrusted.
 2. Over the threshold: the owner approves on Telegram, the agent repeats the request, and the
@@ -29,7 +27,7 @@ pnpm --filter @agentguard/e2e test
 4. Left unanswered: `APPROVAL_TIMEOUT`, and a late press is told it is too late.
 5. `/kill`: the agent is paused, and the owner receives the chain's kill transaction.
 
-## Attacks (INT-5), `test/solana-attacks.test.ts`
+## Attacks, `test/solana-attacks.test.ts`
 
 Each one must end with nothing paid and the right reject code.
 
@@ -46,8 +44,8 @@ Each one must end with nothing paid and the right reject code.
 | non-owner pressing Approve; webhook with a bad HMAC; replayed webhook   | ignored, 401, 409                                                      | here                                         |
 | one approval redeemed twice                                             | the second asks the owner again                                        | here                                         |
 | prompt-injected response telling the agent to pay someone               | body fenced by a nonce, allowlist still refuses                        | here                                         |
-| hot wallet drained by a bug: loss capped by the onchain daily cap       | Squads Spending Limit                                                  | devnet and SVM-8 (LiteSVM)                   |
-| approve / Permit / Permit2 / EIP-7702 disguised as a payment            | the EVM codes                                                          | Base, INT-6                                  |
+| hot wallet drained by a bug: loss capped by the onchain daily cap       | Squads Spending Limit                                                  | devnet and `packages/onchain` (LiteSVM)      |
+| approve / Permit / Permit2 / EIP-7702 disguised as a payment            | the EVM codes                                                          | Base attacks, below                          |
 
 The devnet run on the owner's machine covers the two the stub cannot: the real Solana adapter signing
 and inspecting real transactions, and the onchain cap.
@@ -58,7 +56,7 @@ No public x402 endpoint on Solana devnet is assumed. `pnpm --filter @agentguard/
 (`src/devnet-paywall.ts`) is a paid API that acts as its own facilitator, using the x402 SDK's
 `ExactSvmScheme`. It quotes a price and verifies the payment the guard signed. Then it settles that
 payment on devnet itself, paying the network fee from its own key. Run it alongside `pnpm dev:all`,
-after the transfer run in HUMAN-11 works.
+after a plain transfer on devnet works.
 
 1. `cp e2e/.env.example e2e/.env`. Set `PAYWALL_FEE_PAYER_KEYPAIR` to a keypair file that holds
    devnet SOL; the owner's works. Set `PAYWALL_PAY_TO` to the address that should receive the USDC,
@@ -85,7 +83,7 @@ after the transfer run in HUMAN-11 works.
    `"status":"pending_approval"`. Approve on Telegram, then run step 4 again: it redeems the
    approval and returns `"status":"executed"`.
 
-## The x402 path on Base Sepolia (owner's machine, HUMAN-12) and Robinhood Chain testnet
+## The x402 path on Base Sepolia (owner's machine) and Robinhood Chain testnet
 
 `pnpm --filter @agentguard/e2e paywall:base` and `paywall:robinhood` (`src/evm-paywall.ts`) are the
 EVM counterparts of the devnet paywall. Each is its own facilitator through the x402 SDK's
@@ -121,7 +119,7 @@ On Robinhood Chain testnet the steps are the same with `paywall:robinhood`, port
 5. For the approval path, restart it with `PAYWALL_AMOUNT=1500000`: the first call is
    `pending_approval`, you approve on Telegram, and the second call is `executed`.
 
-## Base attacks (INT-6), `test/base-attacks.test.ts`
+## Base attacks, `test/base-attacks.test.ts`
 
 The same suite on the Base Sepolia stub chain, 15 cases. Every malicious 402 is refused: whole
 balance, wrong token, Base mainnet while only Sepolia is allowed, a Solana offer to a Base-only

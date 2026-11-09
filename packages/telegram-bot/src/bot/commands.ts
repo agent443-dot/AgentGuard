@@ -160,24 +160,36 @@ export function registerCommands(
     kills: PhantomKill[],
     label: (chain: ChainId) => string,
   ) {
-    const message = ctx.callbackQuery.message
-    if (kills.length === 0 || message === undefined) {
-      await ctx.editMessageText(text, HTML)
-      return
-    }
     const at = now()
     const keyboard = new InlineKeyboard()
     for (const kill of kills) {
       keyboard.url(label(kill.chain), kill.link(at)).row()
     }
-    await ctx.editMessageText(text, { ...HTML, reply_markup: keyboard })
-    const offer = {
-      chatId: message.chat.id,
-      messageId: message.message_id,
-      text,
-      at: at.getTime(),
+    const extra = kills.length === 0 ? HTML : { ...HTML, reply_markup: keyboard }
+    const message = await show(ctx, text, extra)
+    if (kills.length > 0 && message !== undefined) {
+      const offer = {
+        chatId: message.chat.id,
+        messageId: message.message_id,
+        text,
+        at: at.getTime(),
+      }
+      await retire(offers.offer(offer))
     }
-    await retire(offers.offer(offer))
+  }
+
+  /**
+   * The kill result replaces the confirm prompt, or arrives as a new message if Telegram refuses the
+   * edit: whatever happens to the prompt, the owner must still get the result and the onchain steps.
+   */
+  async function show(ctx: CallbackQueryContext<Context>, text: string, extra: typeof HTML) {
+    try {
+      await ctx.editMessageText(text, extra)
+      return ctx.callbackQuery.message
+    } catch (err) {
+      log.warn({ err }, 'kill result edit failed, sending it as a new message')
+      return ctx.reply(text, extra)
+    }
   }
 
   bot.callbackQuery('kill:confirm', async (ctx) => {

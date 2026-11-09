@@ -1,8 +1,12 @@
-import { getAccount, getAssociatedTokenAddressSync } from '@solana/spl-token'
+import {
+  getAccount,
+  getAssociatedTokenAddressSync,
+  TokenAccountNotFoundError,
+} from '@solana/spl-token'
 import { PublicKey } from '@solana/web3.js'
 import * as multisig from '@sqds/multisig'
 import { loadSvmConfig } from '../svm/config.js'
-import { connect, readSpendingLimit, spendingLimitPda, VAULT_INDEX } from '../svm/squads.js'
+import { connect, findSpendingLimit, spendingLimitPda, VAULT_INDEX } from '../svm/squads.js'
 
 const config = loadSvmConfig()
 if (!config.SQUADS_MULTISIG) {
@@ -27,20 +31,31 @@ if (config.USDC_MINT) {
   try {
     const { amount } = await getAccount(connection, ata)
     console.log(`  usdc:           ${amount} atomic units`)
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TokenAccountNotFoundError)) {
+      throw error
+    }
     console.log('  usdc:           none yet')
   }
 }
 
 const limit = spendingLimitPda(multisigPda, hotWallet)
-try {
-  const state = await readSpendingLimit(connection, limit)
+// Only a missing account means no limit: an RPC error must not read as a confirmed kill.
+const state = await findSpendingLimit(connection, limit)
+if (state === null) {
+  console.log(`spending limit:   none at ${limit.toBase58()}`)
+} else {
   console.log(`spending limit:   ${limit.toBase58()}`)
   console.log(`  cap:            ${state.cap} atomic units per day`)
   console.log(`  spent:          ${state.spent}`)
   console.log(`  resets at:      ${state.resetsAt}`)
   console.log(`  members:        ${state.members.join(', ')}`)
   console.log(`  destinations:   ${state.destinations.join(', ') || '(any)'}`)
-} catch {
-  console.log(`spending limit:   none at ${limit.toBase58()}`)
+  const onlyHot = (keys: string[]) => keys.length === 1 && keys[0] === hotWallet.toBase58()
+  if (!onlyHot(state.members) || !onlyHot(state.destinations)) {
+    console.error(
+      `UNEXPECTED: the limit's only member and destination must be ${hotWallet.toBase58()}`,
+    )
+    process.exitCode = 1
+  }
 }

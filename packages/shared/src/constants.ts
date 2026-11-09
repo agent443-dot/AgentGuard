@@ -1,6 +1,4 @@
-/**
- * Constants from /SPEC.md. Owner: integrator (Session 5).
- */
+/** Constants from /SPEC.md. */
 import type { ChainId, SharedRejectCode } from './types.js'
 
 /**
@@ -12,7 +10,7 @@ export const CHAINS = {
   solanaDevnet: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
   base: 'eip155:8453',
   baseSepolia: 'eip155:84532',
-  // CR-007. Chain ids read from the chains themselves in RH-1 (forge/RobinhoodProbe.t.sol).
+  // CR-007. Chain ids read from the chains themselves (forge/RobinhoodProbe.t.sol).
   robinhood: 'eip155:4663',
   robinhoodTestnet: 'eip155:46630',
 } as const satisfies Record<string, ChainId>

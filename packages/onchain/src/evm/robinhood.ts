@@ -37,7 +37,7 @@ export function loadRobinhoodConfig(env: NodeJS.ProcessEnv = process.env): Robin
     throw new Error(`invalid robinhood configuration: ${fields}`)
   }
   const chain = parsed.data.ROBINHOOD_CHAIN
-  // Both come from shared, verified on the chain in RH-1; there is no .env override on Robinhood.
+  // Both come from shared, verified on the chain; there is no .env override on Robinhood.
   const usdg = sharedAddress(chain, 'usd')
   const module = sharedAddress(chain, 'allowanceModule')
   if (!usdg || !module) {

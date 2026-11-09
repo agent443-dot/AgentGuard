@@ -17,6 +17,8 @@ import {
   type PaymentDeps,
 } from './payments.js'
 
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
 export interface X402Deps extends PaymentDeps {
   fetch: typeof fetch
 }
@@ -36,15 +38,17 @@ export async function paidFetch(
 ): Promise<FetchOutcome> {
   const url = new URL(request.url)
   // Checked before the first request, not only before paying: the guard should not be a proxy that
-  // agents can point at hosts the owner never approved, internal ones included.
-  if (!policy.allowedDomains.includes(url.hostname)) {
+  // agents can point at hosts the owner never approved, internal ones included. Over plain http
+  // anyone on the path could rewrite the 402 and its payTo, so http is for this machine only.
+  const secure = url.protocol === 'https:' || LOOPBACK.has(url.hostname)
+  if (!secure || !policy.allowedDomains.includes(url.hostname)) {
     repo.audit(
       deps.db,
       {
         event: 'x402_refused',
         agentId: request.agentId,
         reasons: ['DOMAIN_NOT_ALLOWED'],
-        detail: { domain: url.hostname },
+        detail: { domain: url.hostname, protocol: url.protocol },
       },
       deps.now(),
     )
@@ -86,20 +90,19 @@ export async function paidFetch(
   )
   // Signing, the retry and the final status all happen under the lock: until the intent leaves
   // `approved`, a second request with the same terms could otherwise redeem it again.
-  return deps.serial(request.agentId, () => pay(deps, request, policy, required, chosen, intent))
+  return deps.serial(request.agentId, () => pay(deps, request, required, chosen, intent))
 }
 
 async function pay(
   deps: X402Deps,
   request: X402FetchRequest,
-  policy: Policy,
   required: PaymentRequired,
   chosen: PaymentRequirements,
   fresh: PayIntent,
 ): Promise<FetchOutcome> {
   // An approval the owner already gave for exactly these terms is redeemed here, once.
   const approved = repo.findApprovedX402(deps.db, fresh, deps.now())
-  const clearance = await clear(deps, approved ?? fresh, policy, approved !== undefined)
+  const clearance = await clear(deps, approved ?? fresh, approved !== undefined)
   if (!clearance.cleared) {
     return view(clearance.intent)
   }

@@ -1,4 +1,4 @@
-# guard-core on Fly.io (D3, GC-22). Two listeners:
+# guard-core on Fly.io (D3). Two listeners:
 #   public,  0.0.0.0:8080 behind Fly's TLS: the agent routes /v1/agent/* and /health, nothing else.
 #   private, the 6PN address :8787: the admin and bot routes, for the bot over
 #            agentguard-guard-core.internal. No Fly service exposes it.

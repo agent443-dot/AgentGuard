@@ -144,6 +144,25 @@ describe('the kill page', () => {
     expect(s.server.signed).toEqual([])
   })
 
+  it('refuses a kill naming another hot wallet, instead of finding no limit and saying killed', async () => {
+    const other = Keypair.generate().publicKey.toBase58()
+    const page = await s.open(browser, { ...kill(), hot: other })
+    await expect.poll(() => heading(page).textContent()).toBe('Nothing to sign')
+    expect(await lines(page)).toEqual([
+      `The link names ${other} as the hot wallet, but this page only acts for ` +
+        `${s.c.hotWallet.publicKey.toBase58()}. Do not sign anything from this link.`,
+    ])
+    expect(s.server.signed).toEqual([])
+    expect(s.c.svm.getAccount(limit)).not.toBeNull()
+  })
+
+  it('kills the hot wallet the page was built for when the link names none', async () => {
+    const { hot: _hot, ...rest } = kill()
+    const page = await s.open(browser, rest)
+    await expect.poll(() => heading(page).textContent(), { timeout: 20_000 }).toBe('Killed')
+    expect(s.c.svm.getAccount(limit)).toBeNull()
+  })
+
   it('refuses a link that does not name two Solana addresses', async () => {
     const page = await s.open(browser, { action: 'kill', multisig: 'nope', hot: 'nope' })
     await expect.poll(() => heading(page).textContent()).toBe('This link is not valid')

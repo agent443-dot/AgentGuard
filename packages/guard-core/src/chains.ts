@@ -145,7 +145,7 @@ export function usdcFor(config: Config, chain: ChainId): string | undefined {
   return getAddress(chain, 'usd') ?? (chain === config.BASE_CHAIN ? config.BASE_USDC : undefined)
 }
 
-/** Every value, or an error naming the absent ones. Names only: one of them is a private key. */
+/** Every value, or an error naming the absent ones. Names only: an RPC URL can carry an API key. */
 function required<T extends Record<string, string | undefined>>(
   values: T,
 ): { [K in keyof T]: string } {

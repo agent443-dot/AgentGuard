@@ -1,8 +1,8 @@
 /**
- * Verified onchain addresses. Owner: integrator (Session 5).
+ * Verified onchain addresses.
  *
- * SPEC rule: never guess. Session 1 reads these from the official Safe, Squads and Circle sources and
- * reports them in /CHANGES_REQUESTED.md. Reading an unset value throws rather than defaulting.
+ * SPEC rule: never guess. Each one is read from the official Safe, Squads or Circle source and
+ * proposed in /CHANGES_REQUESTED.md first. Reading an unset value throws rather than defaulting.
  */
 import { CHAINS } from './constants.js'
 import type { Address, ChainId } from './types.js'
@@ -49,11 +49,11 @@ export const ADDRESSES: Record<ChainId, ChainAddresses> = {
     // confirmed by the owner on 2026-11-04. It is also the address the x402 SDK ships for this chain.
     usd: { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', symbol: 'USDC' },
   },
-  // RH-1 (packages/onchain/docs/robinhood-research.md). The Allowance Module 0.1.1 is canonical on both
-  // chains in safe-modules-deployments 3.0.14, and its code hash equals Base mainnet's (forge
-  // RobinhoodProbe). USDG from Paxos's "USDG on Test/Main Networks" pages, read by the owner
-  // (HUMAN-18), and on mainnet also Robinhood's contract list. Robinhood Chain has no Circle USDC:
-  // every token named USDC there is someone else's.
+  // From packages/onchain/docs/robinhood-research.md. The Allowance Module 0.1.1 is canonical on
+  // both chains in safe-modules-deployments 3.0.14, and its code hash equals Base mainnet's (forge
+  // RobinhoodProbe). USDG from Paxos's "USDG on Test/Main Networks" pages, read by the owner, and
+  // on mainnet also Robinhood's contract list. Robinhood Chain has no Circle USDC: every token
+  // named USDC there is someone else's.
   [CHAINS.robinhood]: {
     allowanceModule: '0xAA46724893dedD72658219405185Fb0Fc91e091C',
     usd: { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', symbol: 'USDG' },

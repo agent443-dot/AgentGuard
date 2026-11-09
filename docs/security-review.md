@@ -240,6 +240,35 @@ hot 0x46F5…2204}`, read from the deployed `app.js`.
   is idempotent, so nothing breaks, but the owner is sent to a dead button. The bot session is asked
   to read the allowance state and offer buttons only for chains that still have one.
 
+## Pre-release code review (2026-11-09, before the repository went public)
+
+Three read-only passes over every package: guard-core; onchain and the signing page; the bot,
+mcp-server, shared and e2e. No critical finding: nothing signs without the policy and the
+simulation, no key or token reaches a log or an error, and the shared addresses are exact. The
+most severe findings were each checked against the code, then fixed with a test:
+
+| Finding                                                                                                                                                                      | Severity | Fix                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| The Solana kill page took the hot wallet from the link. A wrong one found no limit and showed "Already killed" while the real limit stayed live                              | high     | The kill acts only for the hot wallet the page was built for, as add-limit and the EVM kill do                    |
+| A pause or kill did not reach a payment already waiting on the agent's lock: the policy was read when the request arrived                                                    | high     | `clear()` reads the policy under the lock                                                                         |
+| `pnpm status` printed "spending limit: none" for any read error, which is what confirms a kill                                                                               | medium   | Only a missing account reads as none. It also exits non-zero on a member or destination other than the hot wallet |
+| If Telegram refused to edit the kill prompt, the owner got neither the result nor the owner transactions                                                                     | medium   | The result arrives as a new message, and the transactions follow                                                  |
+| x402 over plain http to an allowlisted host: anyone on the path could rewrite the 402 and its `payTo`                                                                        | medium   | https only, plain http only to loopback                                                                           |
+| The paid server's settlement id and refused terms were stored and shown as given: a long id hid the owner's payment alert, and text reached the agent through `check_intent` | medium   | Only a base58 or hex id is kept; refused terms keep address characters only                                       |
+| viem quotes the RPC URL in its errors, so a key in the URL path reached the logs                                                                                             | medium   | guard-core's error serializer removes every URL                                                                   |
+| A malformed keypair file quoted some of its secret bytes in the JSON parse error                                                                                             | low      | Both loaders name the path only                                                                                   |
+
+Open, low, none of which moves money past the policy:
+
+- the x402 allowlist matches the host name, not the port;
+- a repeated x402 request before the owner answers opens a second approval;
+- a paid response over 1 MB is marked failed after the payment;
+- the bot's replay memory is lost on a restart (the hooks are private on Fly);
+- `/status` with 25 or more pending approvals exceeds Telegram's message size;
+- the Solana kill page trusts the multisig from the link, so a decoy multisig the owner controls
+  reads "Already killed". The owner compares the address with `pnpm status`;
+- the Solana token-account creation in a payment does not check who pays the rent (about 0.002 SOL).
+
 - Re-run this review on the devnet stack (HUMAN-11), and on the live Base run (HUMAN-12).
 - The Base hot key finding above: D5 is now decided (a Fly secret written to a file), so the Base
   key must be read from a file like Solana's before Base launches. D6 puts Base after Solana.

@@ -1,7 +1,7 @@
 name: Deploy
 
 # Deploys guard-core and the bot to Fly.io after CI passes on main, so the hosted apps never lag
-# behind main (the Robinhood pilot found a bot older than main, HUMAN-21). Each app deploys only when
+# behind main (the Robinhood pilot found a bot older than main). Each app deploys only when
 # the commit touched what goes into its image. Each app has its own deploy token, scoped to that
 # app; without a token its job says so and deploys nothing.
 

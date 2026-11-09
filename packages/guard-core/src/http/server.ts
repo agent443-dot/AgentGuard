@@ -15,6 +15,7 @@ import type { Config } from '../config.js'
 import type { Db } from '../db/client.js'
 import { usdcFor } from '../chains.js'
 import { parseBearer, tokenMatches } from '../domain/auth.js'
+import { serializeError } from '../domain/redact.js'
 import { sweep } from '../service/payments.js'
 import { serial } from '../service/serial.js'
 import type { X402Deps } from '../service/x402.js'
@@ -67,6 +68,7 @@ export async function buildServers(
         level: config.LOG_LEVEL,
         // A bearer token in a log file is the same as a bearer token in a repository.
         redact: ['req.headers.authorization', 'req.headers["x-guard-signature"]'],
+        serializers: { err: serializeError },
       },
     }),
   )

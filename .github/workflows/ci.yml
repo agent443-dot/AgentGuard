@@ -176,7 +176,7 @@ jobs:
           BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
         run: |
           if [ ! -f foundry.toml ]; then
-            echo "::notice::No Foundry project yet (owner: onchain, task ON-6). Skipping."
+            echo "::notice::No Foundry project yet. Skipping."
             exit 0
           fi
           forge --version

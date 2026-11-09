@@ -37,14 +37,14 @@ export async function buildServer({
   await app.register(rateLimit, { max: rateLimitPerMinute, timeWindow: '1 minute' })
 
   // onRequest runs before the body is read: a request with no usable signature never gets that far.
-  // A well-formed one still needs the bytes for the HMAC, but they reach no parser until it holds.
   app.addHook('onRequest', async (request, reply) => {
     if (request.url.startsWith('/hooks/') && !wellFormed(request.headers['x-guard-signature'])) {
       return reply.code(401).send({ error: 'bad_signature' })
     }
   })
 
-  // The signature covers the bytes on the wire, so the body must reach the handler unparsed.
+  // The signature covers the bytes on the wire, so the body reaches the handler unparsed and no
+  // parser sees it until the signature holds.
   app.removeContentTypeParser('application/json')
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) =>
     done(null, body),
@@ -53,7 +53,6 @@ export async function buildServer({
   function hook<T>(schema: z.ZodType<T>, handle: (value: T) => Promise<PostResult>) {
     return async (request: FastifyRequest, reply: FastifyReply) => {
       const raw = typeof request.body === 'string' ? request.body : ''
-      // Nothing is parsed before the signature holds: unauthenticated bytes reach no parser.
       if (!signatureValid(raw, secret, request.headers['x-guard-signature'])) {
         return reply.code(401).send({ error: 'bad_signature' })
       }

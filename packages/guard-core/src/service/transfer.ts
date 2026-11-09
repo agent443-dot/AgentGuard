@@ -1,25 +1,13 @@
 import type { ChainAdapter } from '@agentguard/onchain'
-import type { PayIntent, Policy } from '@agentguard/shared'
+import type { PayIntent } from '@agentguard/shared'
 import * as repo from '../db/repo.js'
 import type { TransferRequest } from '../http/schemas.js'
-import {
-  clear,
-  finish,
-  fund,
-  newIntent,
-  recordSpend,
-  reject,
-  type PaymentDeps,
-} from './payments.js'
+import { clear, finish, fund, newIntent, recordSpend, type PaymentDeps } from './payments.js'
 
-export async function transfer(
-  deps: PaymentDeps,
-  request: TransferRequest,
-  policy: Policy,
-): Promise<PayIntent> {
+export async function transfer(deps: PaymentDeps, request: TransferRequest): Promise<PayIntent> {
   return deps.serial(request.agentId, async () => {
     const intent = newIntent({ ...request, kind: 'transfer' }, deps.now())
-    const clearance = await clear(deps, intent, policy, false)
+    const clearance = await clear(deps, intent, false)
     return clearance.cleared ? send(deps, clearance.adapter, clearance.intent) : clearance.intent
   })
 }
@@ -35,12 +23,7 @@ export async function sendApproved(deps: PaymentDeps, id: string): Promise<PayIn
     if (intent?.status !== 'approved' || intent.kind !== 'transfer') {
       return intent
     }
-    const policy = repo.getPolicy(deps.db, intent.agentId)
-    if (policy === undefined) {
-      // No policy means nothing is allowed, which is what a paused agent already means.
-      return reject(deps, intent, ['PAUSED'])
-    }
-    const clearance = await clear(deps, intent, policy, true)
+    const clearance = await clear(deps, intent, true)
     return clearance.cleared ? send(deps, clearance.adapter, clearance.intent) : clearance.intent
   })
 }

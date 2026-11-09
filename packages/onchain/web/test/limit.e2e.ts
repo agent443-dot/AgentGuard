@@ -118,7 +118,7 @@ describe('the add-limit page', () => {
     const page = await s.open(browser, { ...addLimit(), hot: attacker })
     await expect.poll(() => heading(page).textContent()).toBe('Nothing to sign')
     expect(await lines(page)).toEqual([
-      `The link names ${attacker} as the hot wallet, but this page only sets the limit for ` +
+      `The link names ${attacker} as the hot wallet, but this page only acts for ` +
         `${s.c.hotWallet.publicKey.toBase58()}. Do not sign anything from this link.`,
     ])
     expect(s.server.signed).toEqual([])

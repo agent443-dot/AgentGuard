@@ -155,6 +155,27 @@ describe('/kill with the signing page configured', () => {
     ])
   })
 
+  it('sends the kill result and its Phantom button as a new message when Telegram refuses the edit', async () => {
+    const kill = vi.fn(async () => ({
+      pausedAgents: 2,
+      ownerTransactions: [
+        { chain: CHAINS.solanaDevnet, description: 'Remove the limit', payload: null },
+      ],
+    }))
+    const { bot, calls } = setup({
+      guard: fakeGuard({ kill }),
+      phantomKills: KILLS,
+      fail: (call) => call.method === 'editMessageText',
+    })
+    await bot.handleUpdate(press(OWNER, 'kill:confirm'))
+    const [result, tx] = sent(calls, 'sendMessage')
+    expect(offerText(result)).toContain('guard-core has paused 2 agents')
+    expect(phantomButtons(result)).toEqual([
+      { text: 'Open Solana devnet kill in Phantom', url: PHANTOM(NOW) },
+    ])
+    expect(offerText(tx)).toContain('Remove the limit')
+  })
+
   it('keeps the onchain brake when guard-core did not confirm, and says plainly it is only half', async () => {
     let now = NOW
     const kill = vi.fn().mockRejectedValue(new Error('down'))

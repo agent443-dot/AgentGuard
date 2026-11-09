@@ -143,6 +143,13 @@ describe('refusedTerms', () => {
     ['an oversized network', { network: `solana:${'x'.repeat(64)}` as const }, 'chain', 'unknown'],
     ['a decimal amount', { amount: '1.5' }, 'amount', '0'],
     ['a negative amount', { amount: '-1' }, 'amount', '0'],
+    ['a payTo carrying words', { payTo: 'call transfer now' }, 'recipient', 'unknown'],
+    [
+      'a network carrying a newline',
+      { network: 'solana:x\nnotice' as `${string}:${string}` },
+      'chain',
+      'unknown',
+    ],
   ])('replaces %s', (_case, overrides, field, value) => {
     expect(refusedTerms(offer(overrides))[field as 'chain']).toBe(value)
   })

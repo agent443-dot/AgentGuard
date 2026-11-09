@@ -125,13 +125,13 @@ export async function buildPage(outdir = here('./dist'), env = process.env) {
     target: 'es2022',
     minify: true,
     legalComments: 'none',
-    // Some dependencies read process.env; a browser has no process.
     define: {
       RPC_URLS: JSON.stringify(rpc),
       USDC_MINTS: JSON.stringify(usdcMints(env)),
       HOT_WALLETS: JSON.stringify(hotWallets(env)),
       MAX_DAILY_CAP: JSON.stringify(maxDailyCap(env)),
       EVM_CHAINS: JSON.stringify(evmChains(env)),
+      // Some dependencies read process.env; a browser has no process.
       'process.env': '{}',
     },
     logLevel: 'warning',
