@@ -89,6 +89,7 @@ export function utcTime(at: Date | string): string {
 /** A guard-core that predates the flags sends none. */
 export type FlaggedRequest = ApprovalRequest & {
   flags?: readonly ApprovalFlag[]
+  pinned?: { recipient: string; amount: string }
   passkey?: boolean
 }
 
@@ -96,9 +97,34 @@ const PASSKEY_LINE =
   "🔑 <b>Passkey required.</b> Approve it with your passkey on guard-core's page; " +
   'a Telegram tap can only reject it.'
 
+/** One decimal, in bigint: amounts are atomic units and can exceed what a float holds exactly. */
+function times(amount: string, pinned: string): string | undefined {
+  const base = BigInt(pinned)
+  if (base === 0n) {
+    return undefined
+  }
+  const tenths = (BigInt(amount) * 10n) / base
+  return `${tenths / 10n}.${tenths % 10n}×`
+}
+
+function flagLine(flag: ApprovalFlag, { intent, pinned }: FlaggedRequest): string {
+  if (pinned !== undefined && flag === 'RECIPIENT_CHANGED') {
+    return (
+      'This API asks to pay a different address than last time: ' +
+      `<code>${escapeHtml(shortAddress(pinned.recipient))}</code> → ` +
+      `<code>${escapeHtml(shortAddress(intent.recipient))}</code>.`
+    )
+  }
+  const factor = pinned === undefined ? undefined : times(intent.amount, pinned.amount)
+  if (factor !== undefined && flag === 'PRICE_JUMP') {
+    return `Price jump: ${factor} the last payment.`
+  }
+  return FLAG_DESCRIPTIONS[flag]
+}
+
 /** A flag is why this payment is in front of the owner at all, so it comes first. */
 export function approvalText(request: FlaggedRequest): string {
-  const flags = (request.flags ?? []).map((flag) => `⚠️ <b>${FLAG_DESCRIPTIONS[flag]}</b>`)
+  const flags = (request.flags ?? []).map((flag) => `⚠️ <b>${flagLine(flag, request)}</b>`)
   const passkey = request.passkey === true ? [PASSKEY_LINE] : []
   return [...flags, '<b>Approval needed</b>', ...passkey, ...details(request, false)].join('\n')
 }
