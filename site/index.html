@@ -665,6 +665,99 @@
       }
 
       /* Marquee */
+      .token-band {
+        padding-block: clamp(56px, 7vw, 90px);
+      }
+      .token-card {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: clamp(28px, 4vw, 48px);
+        background:
+          radial-gradient(130% 150% at 0% 0%, rgba(153, 69, 255, 0.12), transparent 55%),
+          radial-gradient(120% 140% at 100% 100%, rgba(20, 241, 149, 0.08), transparent 60%),
+          var(--panel);
+      }
+      .token-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .token-chain {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--mint);
+        border: 1px solid rgba(20, 241, 149, 0.35);
+        background: rgba(20, 241, 149, 0.08);
+        border-radius: 999px;
+        padding: 6px 12px;
+      }
+      .token-title {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: clamp(26px, 3.6vw, 40px);
+        letter-spacing: -0.025em;
+        margin: 18px 0 8px;
+      }
+      .token-sub {
+        color: var(--muted);
+        font-size: 15px;
+        max-width: 60ch;
+        margin: 0 0 24px;
+      }
+      .ca-row {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .ca {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--mono);
+        font-size: clamp(12px, 2.4vw, 16px);
+        color: var(--fg);
+        background: #060606;
+        border: 1px solid var(--line-2);
+        border-radius: 12px;
+        padding: 16px 18px;
+        overflow-x: auto;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+      }
+      .ca-copy {
+        flex: none;
+        font-family: var(--body);
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--bg);
+        background: var(--fg);
+        border: 0;
+        border-radius: 12px;
+        padding: 0 22px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+      .ca-copy:hover {
+        background: #fff;
+      }
+      .ca-copy.done {
+        background: var(--mint);
+      }
+      .token-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+      @media (max-width: 560px) {
+        .ca-copy {
+          width: 100%;
+          padding: 13px 0;
+        }
+      }
       .marquee-band {
         padding-block: 56px;
         overflow: hidden;
@@ -1757,6 +1850,7 @@
           <a href="#security">Security</a>
           <a href="#developers">Developers</a>
           <a href="#chains">Chains</a>
+          <a href="#token">Token</a>
           <a href="#roadmap">Roadmap</a>
         </nav>
         <div class="nav-cta">
@@ -1833,6 +1927,48 @@
         </div>
         <div class="wrap">
           <p class="stats-cap">Figures from the codebase, SPEC v0.5, November 2026.</p>
+        </div>
+      </section>
+
+      <section class="band token-band" id="token" aria-label="Token">
+        <div class="wrap">
+          <div class="token-card">
+            <div class="token-head">
+              <span class="eyebrow">Token</span>
+              <span class="token-chain">Robinhood Chain</span>
+            </div>
+            <h2 class="token-title">
+              The official <span class="grad-text">AgentGuard token</span>
+            </h2>
+            <p class="token-sub">
+              This is the one and only AgentGuard token address. Always check it matches before you
+              interact. We will never DM you or ask for your keys.
+            </p>
+            <div class="ca-row">
+              <code id="ca" class="ca">0x5fc31d3ade1f83e77cb0e02e3bed6c8c183f8269</code>
+              <button class="ca-copy" type="button" id="caCopy" aria-label="Copy contract address">
+                Copy
+              </button>
+            </div>
+            <div class="token-actions">
+              <a
+                class="btn btn-primary"
+                href="https://gmgn.ai/robinhood/token/0x5fc31d3ade1f83e77cb0e02e3bed6c8c183f8269"
+                target="_blank"
+                rel="noopener"
+                >View on GMGN
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M5 11 11 5M6 5h5v5"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -3051,6 +3187,32 @@
           }),
         )
         showCodes('shared')
+
+        // Copy the token contract address.
+        const caBtn = document.getElementById('caCopy')
+        const caText = document.getElementById('ca')
+        if (caBtn && caText) {
+          caBtn.addEventListener('click', () => {
+            const addr = caText.textContent.trim()
+            const done = () => {
+              caBtn.textContent = 'Copied'
+              caBtn.classList.add('done')
+              setTimeout(() => {
+                caBtn.textContent = 'Copy'
+                caBtn.classList.remove('done')
+              }, 1600)
+            }
+            navigator.clipboard.writeText(addr).then(done, () => {
+              const r = document.createRange()
+              r.selectNodeContents(caText)
+              const sel = getSelection()
+              sel.removeAllRanges()
+              sel.addRange(r)
+              caBtn.textContent = 'Selected'
+              setTimeout(() => (caBtn.textContent = 'Copy'), 1600)
+            })
+          })
+        }
       })()
     </script>
   </body>
