@@ -1381,6 +1381,22 @@
         border-color: rgba(67, 180, 202, 0.4);
         background: rgba(67, 180, 202, 0.1);
       }
+      .order.live-tag {
+        color: var(--mint);
+        border-color: rgba(20, 241, 149, 0.4);
+        background: rgba(20, 241, 149, 0.1);
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .order.live-tag::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 8px var(--mint);
+      }
       .chain-head {
         display: flex;
         justify-content: space-between;
@@ -1719,7 +1735,13 @@
           <a href="#roadmap">Roadmap</a>
         </nav>
         <div class="nav-cta">
-          <span class="status-pill"><span class="dot"></span>v0.3 · test network</span>
+          <span class="status-pill"
+            ><span
+              class="dot"
+              style="background: var(--mint); box-shadow: 0 0 10px var(--mint)"
+            ></span
+            >Live on mainnet</span
+          >
           <a class="btn btn-primary" href="#how">See it in action</a>
         </div>
       </div>
@@ -1785,7 +1807,7 @@
           <div class="stat"><b>0</b><span>new smart contracts for you to trust</span></div>
         </div>
         <div class="wrap">
-          <p class="stats-cap">Figures from the codebase, SPEC v0.3, November 2026.</p>
+          <p class="stats-cap">Figures from the codebase, SPEC v0.5, November 2026.</p>
         </div>
       </section>
 
@@ -2302,7 +2324,7 @@
                 <hr />
                 <div class="bubble-row"><span>Kind</span><span>x402</span></div>
                 <div class="bubble-row"><span>Domain</span><span>api.datafeed.example</span></div>
-                <div class="bubble-row"><span>Chain</span><span>Solana devnet</span></div>
+                <div class="bubble-row"><span>Chain</span><span>Solana mainnet</span></div>
                 <div class="bubble-row">
                   <span>Effect</span><span>spending wallet −18.00 USDC</span>
                 </div>
@@ -2388,7 +2410,7 @@
             <article class="chain svm">
               <div class="chain-head">
                 <h3>Solana</h3>
-                <span class="order">Ships first</span>
+                <span class="order live-tag">Live</span>
               </div>
               <dl class="kv">
                 <div>
@@ -2404,8 +2426,8 @@
                   <dd>x402 pay-per-use, in USDC</dd>
                 </div>
                 <div>
-                  <dt>Test network</dt>
-                  <dd>Solana devnet</dd>
+                  <dt>Network</dt>
+                  <dd>Solana mainnet-beta</dd>
                 </div>
                 <div>
                   <dt>Network ID</dt>
@@ -2416,7 +2438,7 @@
             <article class="chain evm">
               <div class="chain-head">
                 <h3>Robinhood Chain</h3>
-                <span class="order">Ships second</span>
+                <span class="order live-tag">Live</span>
               </div>
               <dl class="kv">
                 <div>
@@ -2432,8 +2454,8 @@
                   <dd>x402 pay-per-use, in USDG</dd>
                 </div>
                 <div>
-                  <dt>Test network</dt>
-                  <dd>Robinhood testnet</dd>
+                  <dt>Network</dt>
+                  <dd>Robinhood Chain mainnet</dd>
                 </div>
                 <div>
                   <dt>Network ID</dt>
@@ -2444,7 +2466,7 @@
             <article class="chain evm">
               <div class="chain-head">
                 <h3>Base</h3>
-                <span class="order">Ships third</span>
+                <span class="order soon-tag">Coming next</span>
               </div>
               <dl class="kv">
                 <div>
@@ -2492,30 +2514,28 @@
             </div>
             <div class="phase done">
               <span class="phase-tag">Done</span>
-              <h3>Onchain cap on devnet</h3>
+              <h3>Onchain cap, proven live</h3>
               <ul>
                 <li>Spending inside the cap works</li>
-                <li>One unit over the cap: refused by the chain itself</li>
-                <li>After the kill switch, nothing can be drawn</li>
+                <li>One unit over: refused by the chain itself</li>
+                <li>Kill rehearsed on Solana mainnet</li>
               </ul>
             </div>
             <div class="phase now">
-              <span class="phase-tag">In progress</span>
-              <h3>Full stack on devnet</h3>
+              <span class="phase-tag">Live now</span>
+              <h3>Solana + Robinhood Chain</h3>
               <ul>
-                <li>Real signing end to end</li>
-                <li>Hardware wallet kill</li>
-                <li>Agent token revocation</li>
-                <li>Second security review</li>
+                <li>Live on mainnet with real money</li>
+                <li>Capped daily per chain to start</li>
+                <li>Real signing, Telegram and kill end to end</li>
               </ul>
             </div>
             <div class="phase next">
               <span class="phase-tag">Next</span>
-              <h3>Mainnet beta</h3>
+              <h3>Base and higher caps</h3>
               <ul>
-                <li>Solana mainnet-beta</li>
-                <li>Robinhood Chain mainnet</li>
                 <li>Base mainnet</li>
+                <li>Caps raised after clean weeks</li>
                 <li>Bug bounty</li>
               </ul>
             </div>
@@ -2628,8 +2648,8 @@
             <span class="eyebrow">Get started</span>
             <h2>Give your agent <span class="grad-text">spending power</span>, not your keys.</h2>
             <p class="lede" style="text-align: center">
-              Running on Solana devnet today. Plug in through MCP and set your first spending policy
-              in minutes.
+              Live on Solana and Robinhood Chain mainnet, with a capped daily limit to start. Plug
+              in through MCP and set your first spending policy in minutes.
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary" href="#how"
@@ -2745,7 +2765,9 @@
             </ul>
           </div>
         </div>
-        <div class="legal"><span>© 2026 AgentGuard</span><span>SPEC v0.3 · devnet</span></div>
+        <div class="legal">
+          <span>© 2026 AgentGuard</span><span>SPEC v0.5 · live on mainnet</span>
+        </div>
       </div>
     </footer>
 
