@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>AgentGuard Whitepaper</title>
+    <meta
+      name="description"
+      content="AgentGuard whitepaper: the security layer between AI agents and their wallets. Policy, simulation, human approval and an onchain daily cap on Solana and Robinhood Chain."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #050505;
+        --bg-2: #0a0a0a;
+        --panel: #0d0d0d;
+        --line: #1c1c1e;
+        --line-2: #2a2a2d;
+        --fg: #f5f5f5;
+        --muted: #a0a0a5;
+        --dim: #6a6a6f;
+        --violet: #9945ff;
+        --mint: #14f195;
+        --grad: linear-gradient(90deg, #9945ff 0%, #43b4ca 50%, #14f195 100%);
+        --display: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif;
+        --body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        --gut-l: max(20px, env(safe-area-inset-left, 0px));
+        --gut-r: max(20px, env(safe-area-inset-right, 0px));
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0 0 auto;
+        height: env(safe-area-inset-top, 0px);
+        z-index: 60;
+        background: var(--bg);
+      }
+      a {
+        color: #c9a2ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      :focus-visible {
+        outline: 2px solid var(--mint);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding-left: var(--gut-l);
+        padding-right: var(--gut-r);
+      }
+      .grad-text {
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      /* Nav */
+      .nav {
+        position: sticky;
+        top: env(safe-area-inset-top, 0px);
+        z-index: 50;
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+        background: rgba(5, 5, 5, 0.78);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .nav .wrap {
+        max-width: 1080px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 68px;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+        color: var(--fg);
+      }
+      .brand svg {
+        width: 30px;
+        height: 30px;
+        filter: drop-shadow(0 0 7px rgba(153, 69, 255, 0.6));
+        overflow: visible;
+      }
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .back {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .back:hover {
+        color: var(--fg);
+        text-decoration: none;
+      }
+      .lang {
+        display: inline-flex;
+        border: 1px solid var(--line-2);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .lang button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 7px 12px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+      }
+      .lang button[aria-pressed='true'] {
+        background: var(--fg);
+        color: var(--bg);
+      }
+      .lang button:hover:not([aria-pressed='true']) {
+        color: var(--fg);
+      }
+      @media (max-width: 620px) {
+        .back {
+          display: none;
+        }
+      }
+
+      /* Hero */
+      .head {
+        padding-block: clamp(48px, 8vw, 92px) 20px;
+      }
+      .kicker {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .kicker::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--grad);
+      }
+      h1 {
+        font-family: var(--display);
+        font-weight: 800;
+        font-size: clamp(38px, 6.6vw, 68px);
+        line-height: 1.02;
+        letter-spacing: -0.035em;
+        margin: 20px 0 16px;
+        text-wrap: balance;
+      }
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--dim);
+      }
+      .meta-row b {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .live-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--mint);
+      }
+      .live-dot::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 8px var(--mint);
+      }
+
+      /* Article */
+      article {
+        padding-bottom: 100px;
+      }
+      article[hidden] {
+        display: none;
+      }
+      .abstract {
+        margin: 34px 0 10px;
+        padding: 24px 26px;
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--violet);
+        border-radius: 14px;
+        background: var(--bg-2);
+        color: var(--muted);
+        font-size: 16.5px;
+      }
+      .abstract b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      h2 {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: clamp(24px, 3.4vw, 32px);
+        letter-spacing: -0.02em;
+        margin: 52px 0 6px;
+        scroll-margin-top: 90px;
+      }
+      h2 .n {
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--violet);
+        margin-right: 12px;
+        font-weight: 500;
+      }
+      h3 {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 18px;
+        margin: 26px 0 4px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 12px 0;
+        color: #d7d7db;
+      }
+      .lead {
+        color: var(--muted);
+      }
+      ul.plain {
+        margin: 12px 0;
+        padding-left: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+      ul.plain li {
+        position: relative;
+        padding-left: 22px;
+        color: #d7d7db;
+      }
+      ul.plain li::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 10px;
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--grad);
+      }
+      strong {
+        color: var(--fg);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        color: #c9a2ff;
+      }
+
+      .flow {
+        display: grid;
+        gap: 0;
+        margin: 20px 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .flow-step {
+        padding: 16px 20px;
+        background: var(--bg-2);
+        border-top: 1px solid var(--line);
+      }
+      .flow-step:first-child {
+        border-top: 0;
+      }
+      .flow-step b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .flow-step span {
+        color: var(--muted);
+      }
+      .flow-step .mono {
+        color: var(--mint);
+        font-size: 12px;
+      }
+
+      .formula {
+        margin: 20px 0;
+        padding: 22px 24px;
+        border-radius: 16px;
+        background: rgba(153, 69, 255, 0.08);
+        border: 1px solid rgba(153, 69, 255, 0.25);
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: clamp(18px, 2.6vw, 24px);
+        letter-spacing: -0.02em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0;
+        font-size: 14px;
+      }
+      .tscroll {
+        overflow-x: auto;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--dim);
+        font-weight: 400;
+      }
+      td code {
+        color: #f08fa0;
+        white-space: nowrap;
+      }
+      td .d {
+        color: var(--muted);
+      }
+
+      .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin: 18px 0;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        background: var(--bg-2);
+      }
+      .card h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--line-2);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .tag.live {
+        color: var(--mint);
+        border-color: rgba(20, 241, 149, 0.4);
+        background: rgba(20, 241, 149, 0.1);
+      }
+      .card dl {
+        margin: 10px 0 0;
+        display: grid;
+        gap: 8px;
+      }
+      .card dl div {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 12px;
+        font-size: 13.5px;
+      }
+      .card dt {
+        color: var(--dim);
+      }
+      .card dd {
+        margin: 0;
+        color: #d7d7db;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 620px) {
+        .cols {
+          grid-template-columns: 1fr;
+        }
+        .card dl div {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+      }
+
+      .note {
+        margin: 30px 0;
+        padding: 20px 22px;
+        border-radius: 14px;
+        border: 1px solid rgba(232, 180, 90, 0.3);
+        background: rgba(232, 180, 90, 0.06);
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .note b {
+        color: #e8b45a;
+        font-weight: 600;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        padding-block: 40px 56px;
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      footer .wrap {
+        max-width: 1080px;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      footer a {
+        color: var(--muted);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0.25">
+          <stop offset="0" stop-color="#3fd9ff" />
+          <stop offset=".5" stop-color="#5b8cff" />
+          <stop offset="1" stop-color="#9b6bff" />
+        </linearGradient>
+        <filter id="gl" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+        </filter>
+      </defs>
+    </svg>
+
+    <header class="nav">
+      <div class="wrap">
+        <a class="brand" href="index.html">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <g fill="none" stroke="url(#lg)">
+              <g filter="url(#gl)" opacity=".95">
+                <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="4"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+              </g>
+              <circle cx="50" cy="50" r="40" stroke-width="3" />
+              <path
+                d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                stroke-width="3.4"
+                stroke-linejoin="round"
+              />
+              <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+              <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+            </g>
+          </svg>
+          AgentGuard
+        </a>
+        <div class="nav-right">
+          <a class="back" href="index.html">← Back to site</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="head">
+      <div class="wrap">
+        <span class="kicker" data-t="kicker">Whitepaper</span>
+        <h1 data-t="title">The security layer <span class="grad-text">every agent needs.</span></h1>
+        <div class="meta-row">
+          <span><b>AgentGuard</b></span>
+          <span data-t="version">Version 0.5</span>
+          <span data-t="date">November 2026</span>
+          <span class="live-dot" data-t="status">Live on mainnet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ ENGLISH ============================ -->
+    <article lang="en" data-article="en">
+      <div class="wrap">
+        <p class="abstract">
+          <b
+            >AgentGuard is a security layer between an AI agent and its wallet, a firewall for
+            autonomous payments.</b
+          >
+          An agent can only pay through AgentGuard. Every payment is checked against a policy the
+          owner sets, test-run before it is signed, and then auto-approved, sent to the owner on
+          Telegram for approval, or rejected. The agent never holds a key. Funds stay in the owner's
+          own multisig vault; the agent spends only from a small hot wallet that is refilled under a
+          daily limit enforced by the blockchain itself, so the maximum that can be lost in a day is
+          bounded even if our software fails.
+        </p>
+
+        <h2><span class="n">01</span>The problem</h2>
+        <p>
+          Autonomous agents are starting to move money: paying per-request APIs, settling invoices,
+          buying compute. The moment an agent can spend, a single bad instruction, a prompt
+          injection, a bug or a compromised key can drain a wallet in seconds. Handing an agent a
+          private key trades all of your funds for a little convenience.
+        </p>
+        <p class="lead">
+          AgentGuard removes that trade-off. The agent gets spending power; you keep the keys and a
+          hard ceiling on what can go wrong.
+        </p>
+
+        <h2><span class="n">02</span>Architecture</h2>
+        <p>Money flows through four layers. Each one narrows what the one above it can do.</p>
+        <div class="flow">
+          <div class="flow-step">
+            <b>Owner multisig vault</b> — holds the funds.
+            <span>Squads v4 on Solana, Safe on EVM chains. Only the owner controls it.</span>
+          </div>
+          <div class="flow-step">
+            <b>Onchain spend limit</b> —
+            <span>refills the hot wallet, never above the daily cap.</span>
+            <span class="mono">enforced by the chain, not by us</span>
+          </div>
+          <div class="flow-step">
+            <b>Guard hot wallet</b> —
+            <span
+              >a small balance the agent spends from. Its key lives only inside the guard service,
+              never logged, never returned.</span
+            >
+          </div>
+          <div class="flow-step">
+            <b>Payments</b> —
+            <span
+              >x402 pay-per-use APIs and transfers, only to recipients and domains the owner
+              allowed.</span
+            >
+          </div>
+        </div>
+        <p>
+          The agent talks to AgentGuard over the Model Context Protocol (MCP), so one connection
+          works with any agent on any platform. Four tools are exposed: <code>paid_fetch</code>,
+          <code>transfer</code>, <code>get_budget</code> and <code>check_intent</code>. The guard
+          never imports a chain SDK directly; each chain sits behind a single adapter interface, so
+          every chain gets the same policy, the same test run and the same kill switch.
+        </p>
+
+        <h2><span class="n">03</span>Onchain guarantees</h2>
+        <p>
+          The spend limit is a primitive that is already audited and deployed: the Squads Spending
+          Limit on Solana, and the Safe Allowance Module (reset every 24 hours) on EVM chains.
+          AgentGuard deploys no smart contract of its own. The vault refills the hot wallet up to a
+          daily cap and no more, and the chain enforces that regardless of what our software does.
+        </p>
+        <div class="formula">Maximum loss per day = daily cap + hot wallet balance.</div>
+        <p>
+          This holds even if the offchain guard has a bug or is fully compromised. At launch the cap
+          is deliberately low and raised only after weeks without incident. A kill removes the limit
+          entirely and is signed by the owner.
+        </p>
+
+        <h2><span class="n">04</span>The policy engine</h2>
+        <p>
+          Before anything is signed, every payment is checked against the agent's policy. A new
+          agent starts at deny-all and can spend nothing until the owner allows it.
+        </p>
+        <ul class="plain">
+          <li>
+            <strong>Per-payment and daily limits</strong> — a hard ceiling on each payment and on
+            the day's total, beneath the onchain cap.
+          </li>
+          <li>
+            <strong>Allowlists</strong> — which chains, tokens, recipients and API domains are
+            permitted. Empty means deny.
+          </li>
+          <li>
+            <strong>Approval threshold</strong> — any payment at or above it waits for the owner on
+            Telegram.
+          </li>
+          <li><strong>Pause</strong> — one switch stops an agent, or every agent at once.</li>
+        </ul>
+        <p>
+          Agent-provided text, the reason it gives, the URL, an API response, is shown to the owner
+          but never used to make a decision. Amounts are integers in the token's smallest unit end
+          to end; a value that would need rounding is refused, never rounded.
+        </p>
+
+        <h2><span class="n">05</span>Simulation and threat detection</h2>
+        <p>
+          A payment that passes policy is test-run against the real chain before signing. The guard
+          inspects the exact transaction, sees what it would actually do, and refuses anything that
+          differs from the approved intent, with a named reject code written to the audit log.
+        </p>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Reject code</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>PER_TX_EXCEEDED</code> · <code>DAILY_EXCEEDED</code></td>
+                <td class="d">Over a limit you set.</td>
+              </tr>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>RECIPIENT_NOT_ALLOWED</code> · <code>DOMAIN_NOT_ALLOWED</code></td>
+                <td class="d">A destination you did not approve.</td>
+              </tr>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>SIM_UNEXPECTED_EFFECT</code></td>
+                <td class="d">The test run shows an effect the intent never described.</td>
+              </tr>
+              <tr>
+                <td class="d">Solana</td>
+                <td><code>DELEGATE_DETECTED</code> · <code>AUTHORITY_CHANGE_DETECTED</code></td>
+                <td class="d">A hidden permission grab or an account takeover.</td>
+              </tr>
+              <tr>
+                <td class="d">EVM</td>
+                <td><code>APPROVAL_DETECTED</code> · <code>PERMIT_DETECTED</code></td>
+                <td class="d">
+                  A hidden token approval or a signature that would allow later withdrawals.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead">
+          Twenty reject codes in all, split into a shared core and per-chain sets. Default deny: any
+          parsing doubt is a rejection.
+        </p>
+
+        <h2><span class="n">06</span>Human approval and the kill switch</h2>
+        <p>
+          Payments at or above your threshold are sent to Telegram with a plain summary of what the
+          transaction will do. You approve or reject. An approval is redeemed once, for exactly the
+          approved chain, token, amount, recipient and domain, and expires after ten minutes if you
+          do not answer, so nothing is paid by default. Every message to the bot is
+          cryptographically signed; stale or replayed events are refused.
+        </p>
+        <p>
+          One command, <code>/kill</code>, pauses every agent at once and prepares, for each chain,
+          the transaction that sets the spending limit to zero and removes the delegate. You sign it
+          and the vault is sealed. The kill has been rehearsed on mainnet.
+        </p>
+
+        <h2><span class="n">07</span>Chains and assets</h2>
+        <div class="cols">
+          <div class="card">
+            <h3>Solana <span class="tag live">Live</span></h3>
+            <dl>
+              <div>
+                <dt>Vault</dt>
+                <dd>Squads v4</dd>
+              </div>
+              <div>
+                <dt>Spend limit</dt>
+                <dd>Squads Spending Limit</dd>
+              </div>
+              <div>
+                <dt>Asset</dt>
+                <dd>USDC</dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>mainnet-beta</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="card">
+            <h3>Robinhood Chain <span class="tag live">Live</span></h3>
+            <dl>
+              <div>
+                <dt>Vault</dt>
+                <dd>Safe</dd>
+              </div>
+              <div>
+                <dt>Spend limit</dt>
+                <dd>Safe Allowance Module</dd>
+              </div>
+              <div>
+                <dt>Asset</dt>
+                <dd>USDG (Paxos)</dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>mainnet · eip155:4663</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <p>
+          Base is next. Every chain uses that chain's dollar, one audited vault and the same policy,
+          simulation and kill switch. No asset other than the chain's dollar is spendable in this
+          version.
+        </p>
+
+        <h2><span class="n">08</span>Status and roadmap</h2>
+        <p>
+          AgentGuard is <strong>live on Solana and Robinhood Chain mainnet</strong> with a
+          deliberately low daily cap per chain, raised only after clean weeks of operation. Base
+          mainnet, higher caps and a public bug bounty come next. Mainnet runs on keys generated for
+          mainnet alone.
+        </p>
+        <div class="note">
+          <b>Security posture.</b> AgentGuard writes no smart contract of its own; the onchain limit
+          is enforced by independently audited primitives already deployed on each chain. The
+          offchain guard is open to inspection, defaults to deny, and bounds the worst case onchain.
+          Use a cap you are comfortable losing.
+        </div>
+      </div>
+    </article>
+
+    <footer>
+      <div class="wrap">
+        <span data-t="foot"
+          >© 2026 AgentGuard · The security layer between AI agents and their wallets.</span
+        >
+        <a href="index.html" data-t="footback">← Back to site</a>
+      </div>
+    </footer>
+  </body>
+</html>
