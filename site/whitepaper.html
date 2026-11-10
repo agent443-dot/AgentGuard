@@ -1,0 +1,1344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>AgentGuard Whitepaper</title>
+    <meta
+      name="description"
+      content="AgentGuard whitepaper: the security layer between AI agents and their wallets. Policy, simulation, human approval and an onchain daily cap on Solana and Robinhood Chain."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #050505;
+        --bg-2: #0a0a0a;
+        --panel: #0d0d0d;
+        --line: #1c1c1e;
+        --line-2: #2a2a2d;
+        --fg: #f5f5f5;
+        --muted: #a0a0a5;
+        --dim: #6a6a6f;
+        --violet: #9945ff;
+        --mint: #14f195;
+        --grad: linear-gradient(90deg, #9945ff 0%, #43b4ca 50%, #14f195 100%);
+        --display: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif;
+        --body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        --gut-l: max(20px, env(safe-area-inset-left, 0px));
+        --gut-r: max(20px, env(safe-area-inset-right, 0px));
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0 0 auto;
+        height: env(safe-area-inset-top, 0px);
+        z-index: 60;
+        background: var(--bg);
+      }
+      a {
+        color: #c9a2ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      :focus-visible {
+        outline: 2px solid var(--mint);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding-left: var(--gut-l);
+        padding-right: var(--gut-r);
+      }
+      .grad-text {
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      /* Nav */
+      .nav {
+        position: sticky;
+        top: env(safe-area-inset-top, 0px);
+        z-index: 50;
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+        background: rgba(5, 5, 5, 0.78);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .nav .wrap {
+        max-width: 1080px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 68px;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+        color: var(--fg);
+      }
+      .brand svg {
+        width: 30px;
+        height: 30px;
+        filter: drop-shadow(0 0 7px rgba(153, 69, 255, 0.6));
+        overflow: visible;
+      }
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .back {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .back:hover {
+        color: var(--fg);
+        text-decoration: none;
+      }
+      .lang {
+        display: inline-flex;
+        border: 1px solid var(--line-2);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .lang button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 7px 12px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+      }
+      .lang button[aria-pressed='true'] {
+        background: var(--fg);
+        color: var(--bg);
+      }
+      .lang button:hover:not([aria-pressed='true']) {
+        color: var(--fg);
+      }
+      @media (max-width: 620px) {
+        .back {
+          display: none;
+        }
+      }
+
+      /* Hero */
+      .head {
+        padding-block: clamp(48px, 8vw, 92px) 20px;
+      }
+      .kicker {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .kicker::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--grad);
+      }
+      h1 {
+        font-family: var(--display);
+        font-weight: 800;
+        font-size: clamp(38px, 6.6vw, 68px);
+        line-height: 1.02;
+        letter-spacing: -0.035em;
+        margin: 20px 0 16px;
+        text-wrap: balance;
+      }
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--dim);
+      }
+      .meta-row b {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .live-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--mint);
+      }
+      .live-dot::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 8px var(--mint);
+      }
+
+      /* Article */
+      article {
+        padding-bottom: 100px;
+      }
+      article[hidden] {
+        display: none;
+      }
+      .abstract {
+        margin: 34px 0 10px;
+        padding: 24px 26px;
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--violet);
+        border-radius: 14px;
+        background: var(--bg-2);
+        color: var(--muted);
+        font-size: 16.5px;
+      }
+      .abstract b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      h2 {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: clamp(24px, 3.4vw, 32px);
+        letter-spacing: -0.02em;
+        margin: 52px 0 6px;
+        scroll-margin-top: 90px;
+      }
+      h2 .n {
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--violet);
+        margin-right: 12px;
+        font-weight: 500;
+      }
+      h3 {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 18px;
+        margin: 26px 0 4px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 12px 0;
+        color: #d7d7db;
+      }
+      .lead {
+        color: var(--muted);
+      }
+      ul.plain {
+        margin: 12px 0;
+        padding-left: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+      ul.plain li {
+        position: relative;
+        padding-left: 22px;
+        color: #d7d7db;
+      }
+      ul.plain li::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 10px;
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--grad);
+      }
+      strong {
+        color: var(--fg);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        color: #c9a2ff;
+      }
+
+      .flow {
+        display: grid;
+        gap: 0;
+        margin: 20px 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .flow-step {
+        padding: 16px 20px;
+        background: var(--bg-2);
+        border-top: 1px solid var(--line);
+      }
+      .flow-step:first-child {
+        border-top: 0;
+      }
+      .flow-step b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .flow-step span {
+        color: var(--muted);
+      }
+      .flow-step .mono {
+        color: var(--mint);
+        font-size: 12px;
+      }
+
+      .formula {
+        margin: 20px 0;
+        padding: 22px 24px;
+        border-radius: 16px;
+        background: rgba(153, 69, 255, 0.08);
+        border: 1px solid rgba(153, 69, 255, 0.25);
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: clamp(18px, 2.6vw, 24px);
+        letter-spacing: -0.02em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0;
+        font-size: 14px;
+      }
+      .tscroll {
+        overflow-x: auto;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--dim);
+        font-weight: 400;
+      }
+      td code {
+        color: #f08fa0;
+        white-space: nowrap;
+      }
+      td .d {
+        color: var(--muted);
+      }
+
+      .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin: 18px 0;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        background: var(--bg-2);
+      }
+      .card h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--line-2);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .tag.live {
+        color: var(--mint);
+        border-color: rgba(20, 241, 149, 0.4);
+        background: rgba(20, 241, 149, 0.1);
+      }
+      .card dl {
+        margin: 10px 0 0;
+        display: grid;
+        gap: 8px;
+      }
+      .card dl div {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 12px;
+        font-size: 13.5px;
+      }
+      .card dt {
+        color: var(--dim);
+      }
+      .card dd {
+        margin: 0;
+        color: #d7d7db;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 620px) {
+        .cols {
+          grid-template-columns: 1fr;
+        }
+        .card dl div {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+      }
+
+      .note {
+        margin: 30px 0;
+        padding: 20px 22px;
+        border-radius: 14px;
+        border: 1px solid rgba(232, 180, 90, 0.3);
+        background: rgba(232, 180, 90, 0.06);
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .note b {
+        color: #e8b45a;
+        font-weight: 600;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        padding-block: 40px 56px;
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      footer .wrap {
+        max-width: 1080px;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      footer a {
+        color: var(--muted);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0.25">
+          <stop offset="0" stop-color="#3fd9ff" />
+          <stop offset=".5" stop-color="#5b8cff" />
+          <stop offset="1" stop-color="#9b6bff" />
+        </linearGradient>
+        <filter id="gl" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" />
+        </filter>
+      </defs>
+    </svg>
+
+    <header class="nav">
+      <div class="wrap">
+        <a class="brand" href="index.html">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <g fill="none" stroke="url(#lg)">
+              <g filter="url(#gl)" opacity=".95">
+                <circle cx="50" cy="50" r="40" stroke-width="3.6" />
+                <path
+                  d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                  stroke-width="4"
+                />
+                <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="8" />
+                <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="none" />
+              </g>
+              <circle cx="50" cy="50" r="40" stroke-width="3" />
+              <path
+                d="M50 24 69 31 V48 c0 13-8.2 22-19 26.6 C39.2 70 31 61 31 48 V31 Z"
+                stroke-width="3.4"
+                stroke-linejoin="round"
+              />
+              <path d="M49 47 38.5 72 M51 47 61.5 72" stroke-width="7.5" />
+              <circle cx="50" cy="43" r="6.6" fill="#5fb3ff" stroke="#050505" stroke-width="2.4" />
+            </g>
+          </svg>
+          AgentGuard
+        </a>
+        <div class="nav-right">
+          <a class="back" href="index.html">← Back to site</a>
+          <div class="lang" role="group" aria-label="Language">
+            <button type="button" data-lang="en" aria-pressed="true">EN</button>
+            <button type="button" data-lang="pt" aria-pressed="false">PT</button>
+            <button type="button" data-lang="es" aria-pressed="false">ES</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="head">
+      <div class="wrap">
+        <span class="kicker" data-t="kicker">Whitepaper</span>
+        <h1 data-t="title">The security layer <span class="grad-text">every agent needs.</span></h1>
+        <div class="meta-row">
+          <span><b>AgentGuard</b></span>
+          <span data-t="version">Version 0.5</span>
+          <span data-t="date">November 2026</span>
+          <span class="live-dot" data-t="status">Live on mainnet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ ENGLISH ============================ -->
+    <article lang="en" data-article="en">
+      <div class="wrap">
+        <p class="abstract">
+          <b
+            >AgentGuard is a security layer between an AI agent and its wallet, a firewall for
+            autonomous payments.</b
+          >
+          An agent can only pay through AgentGuard. Every payment is checked against a policy the
+          owner sets, test-run before it is signed, and then auto-approved, sent to the owner on
+          Telegram for approval, or rejected. The agent never holds a key. Funds stay in the owner's
+          own multisig vault; the agent spends only from a small hot wallet that is refilled under a
+          daily limit enforced by the blockchain itself, so the maximum that can be lost in a day is
+          bounded even if our software fails.
+        </p>
+
+        <h2><span class="n">01</span>The problem</h2>
+        <p>
+          Autonomous agents are starting to move money: paying per-request APIs, settling invoices,
+          buying compute. The moment an agent can spend, a single bad instruction, a prompt
+          injection, a bug or a compromised key can drain a wallet in seconds. Handing an agent a
+          private key trades all of your funds for a little convenience.
+        </p>
+        <p class="lead">
+          AgentGuard removes that trade-off. The agent gets spending power; you keep the keys and a
+          hard ceiling on what can go wrong.
+        </p>
+
+        <h2><span class="n">02</span>Architecture</h2>
+        <p>Money flows through four layers. Each one narrows what the one above it can do.</p>
+        <div class="flow">
+          <div class="flow-step">
+            <b>Owner multisig vault</b> — holds the funds.
+            <span>Squads v4 on Solana, Safe on EVM chains. Only the owner controls it.</span>
+          </div>
+          <div class="flow-step">
+            <b>Onchain spend limit</b> —
+            <span>refills the hot wallet, never above the daily cap.</span>
+            <span class="mono">enforced by the chain, not by us</span>
+          </div>
+          <div class="flow-step">
+            <b>Guard hot wallet</b> —
+            <span
+              >a small balance the agent spends from. Its key lives only inside the guard service,
+              never logged, never returned.</span
+            >
+          </div>
+          <div class="flow-step">
+            <b>Payments</b> —
+            <span
+              >x402 pay-per-use APIs and transfers, only to recipients and domains the owner
+              allowed.</span
+            >
+          </div>
+        </div>
+        <p>
+          The agent talks to AgentGuard over the Model Context Protocol (MCP), so one connection
+          works with any agent on any platform. Four tools are exposed: <code>paid_fetch</code>,
+          <code>transfer</code>, <code>get_budget</code> and <code>check_intent</code>. The guard
+          never imports a chain SDK directly; each chain sits behind a single adapter interface, so
+          every chain gets the same policy, the same test run and the same kill switch.
+        </p>
+
+        <h2><span class="n">03</span>Onchain guarantees</h2>
+        <p>
+          The spend limit is a primitive that is already audited and deployed: the Squads Spending
+          Limit on Solana, and the Safe Allowance Module (reset every 24 hours) on EVM chains.
+          AgentGuard deploys no smart contract of its own. The vault refills the hot wallet up to a
+          daily cap and no more, and the chain enforces that regardless of what our software does.
+        </p>
+        <div class="formula">Maximum loss per day = daily cap + hot wallet balance.</div>
+        <p>
+          This holds even if the offchain guard has a bug or is fully compromised. At launch the cap
+          is deliberately low and raised only after weeks without incident. A kill removes the limit
+          entirely and is signed by the owner.
+        </p>
+
+        <h2><span class="n">04</span>The policy engine</h2>
+        <p>
+          Before anything is signed, every payment is checked against the agent's policy. A new
+          agent starts at deny-all and can spend nothing until the owner allows it.
+        </p>
+        <ul class="plain">
+          <li>
+            <strong>Per-payment and daily limits</strong> — a hard ceiling on each payment and on
+            the day's total, beneath the onchain cap.
+          </li>
+          <li>
+            <strong>Allowlists</strong> — which chains, tokens, recipients and API domains are
+            permitted. Empty means deny.
+          </li>
+          <li>
+            <strong>Approval threshold</strong> — any payment at or above it waits for the owner on
+            Telegram.
+          </li>
+          <li><strong>Pause</strong> — one switch stops an agent, or every agent at once.</li>
+        </ul>
+        <p>
+          Agent-provided text, the reason it gives, the URL, an API response, is shown to the owner
+          but never used to make a decision. Amounts are integers in the token's smallest unit end
+          to end; a value that would need rounding is refused, never rounded.
+        </p>
+
+        <h2><span class="n">05</span>Simulation and threat detection</h2>
+        <p>
+          A payment that passes policy is test-run against the real chain before signing. The guard
+          inspects the exact transaction, sees what it would actually do, and refuses anything that
+          differs from the approved intent, with a named reject code written to the audit log.
+        </p>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Reject code</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>PER_TX_EXCEEDED</code> · <code>DAILY_EXCEEDED</code></td>
+                <td class="d">Over a limit you set.</td>
+              </tr>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>RECIPIENT_NOT_ALLOWED</code> · <code>DOMAIN_NOT_ALLOWED</code></td>
+                <td class="d">A destination you did not approve.</td>
+              </tr>
+              <tr>
+                <td class="d">All chains</td>
+                <td><code>SIM_UNEXPECTED_EFFECT</code></td>
+                <td class="d">The test run shows an effect the intent never described.</td>
+              </tr>
+              <tr>
+                <td class="d">Solana</td>
+                <td><code>DELEGATE_DETECTED</code> · <code>AUTHORITY_CHANGE_DETECTED</code></td>
+                <td class="d">A hidden permission grab or an account takeover.</td>
+              </tr>
+              <tr>
+                <td class="d">EVM</td>
+                <td><code>APPROVAL_DETECTED</code> · <code>PERMIT_DETECTED</code></td>
+                <td class="d">
+                  A hidden token approval or a signature that would allow later withdrawals.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead">
+          Twenty reject codes in all, split into a shared core and per-chain sets. Default deny: any
+          parsing doubt is a rejection.
+        </p>
+
+        <h2><span class="n">06</span>Human approval and the kill switch</h2>
+        <p>
+          Payments at or above your threshold are sent to Telegram with a plain summary of what the
+          transaction will do. You approve or reject. An approval is redeemed once, for exactly the
+          approved chain, token, amount, recipient and domain, and expires after ten minutes if you
+          do not answer, so nothing is paid by default. Every message to the bot is
+          cryptographically signed; stale or replayed events are refused.
+        </p>
+        <p>
+          One command, <code>/kill</code>, pauses every agent at once and prepares, for each chain,
+          the transaction that sets the spending limit to zero and removes the delegate. You sign it
+          and the vault is sealed. The kill has been rehearsed on mainnet.
+        </p>
+
+        <h2><span class="n">07</span>Chains and assets</h2>
+        <div class="cols">
+          <div class="card">
+            <h3>Solana <span class="tag live">Live</span></h3>
+            <dl>
+              <div>
+                <dt>Vault</dt>
+                <dd>Squads v4</dd>
+              </div>
+              <div>
+                <dt>Spend limit</dt>
+                <dd>Squads Spending Limit</dd>
+              </div>
+              <div>
+                <dt>Asset</dt>
+                <dd>USDC</dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>mainnet-beta</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="card">
+            <h3>Robinhood Chain <span class="tag live">Live</span></h3>
+            <dl>
+              <div>
+                <dt>Vault</dt>
+                <dd>Safe</dd>
+              </div>
+              <div>
+                <dt>Spend limit</dt>
+                <dd>Safe Allowance Module</dd>
+              </div>
+              <div>
+                <dt>Asset</dt>
+                <dd>USDG (Paxos)</dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>mainnet · eip155:4663</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <p>
+          Base is next. Every chain uses that chain's dollar, one audited vault and the same policy,
+          simulation and kill switch. No asset other than the chain's dollar is spendable in this
+          version.
+        </p>
+
+        <h2><span class="n">08</span>Status and roadmap</h2>
+        <p>
+          AgentGuard is <strong>live on Solana and Robinhood Chain mainnet</strong> with a
+          deliberately low daily cap per chain, raised only after clean weeks of operation. Base
+          mainnet, higher caps and a public bug bounty come next. Mainnet runs on keys generated for
+          mainnet alone.
+        </p>
+        <div class="note">
+          <b>Security posture.</b> AgentGuard writes no smart contract of its own; the onchain limit
+          is enforced by independently audited primitives already deployed on each chain. The
+          offchain guard is open to inspection, defaults to deny, and bounds the worst case onchain.
+          Use a cap you are comfortable losing.
+        </div>
+      </div>
+    </article>
+
+    <!-- ============================ PORTUGUÊS ============================ -->
+    <article lang="pt" data-article="pt" hidden>
+      <div class="wrap">
+        <p class="abstract">
+          <b
+            >O AgentGuard é uma camada de segurança entre um agente de IA e a carteira dele, um
+            firewall para pagamentos autônomos.</b
+          >
+          O agente só consegue pagar através do AgentGuard. Cada pagamento é verificado contra uma
+          política definida pelo dono, testado antes de ser assinado e então aprovado
+          automaticamente, enviado ao dono no Telegram para aprovação, ou recusado. O agente nunca
+          guarda uma chave. Os fundos ficam no cofre multisig do próprio dono; o agente gasta apenas
+          de uma pequena carteira de uso, reabastecida sob um limite diário imposto pela própria
+          blockchain, de modo que a perda máxima em um dia é limitada mesmo que o nosso software
+          falhe.
+        </p>
+
+        <h2><span class="n">01</span>O problema</h2>
+        <p>
+          Agentes autônomos estão começando a movimentar dinheiro: pagar APIs por requisição, quitar
+          faturas, comprar poder computacional. No momento em que um agente pode gastar, uma única
+          instrução ruim, uma injeção de prompt, um bug ou uma chave comprometida pode drenar a
+          carteira em segundos. Entregar uma chave privada a um agente troca todos os seus fundos
+          por um pouco de conveniência.
+        </p>
+        <p class="lead">
+          O AgentGuard elimina essa troca. O agente ganha poder de gasto; você mantém as chaves e um
+          teto rígido para o que pode dar errado.
+        </p>
+
+        <h2><span class="n">02</span>Arquitetura</h2>
+        <p>
+          O dinheiro passa por quatro camadas. Cada uma restringe o que a camada acima pode fazer.
+        </p>
+        <div class="flow">
+          <div class="flow-step">
+            <b>Cofre multisig do dono</b> — guarda os fundos.
+            <span>Squads v4 na Solana, Safe nas redes EVM. Só o dono o controla.</span>
+          </div>
+          <div class="flow-step">
+            <b>Limite de gasto onchain</b> —
+            <span>reabastece a carteira de uso, nunca acima do teto diário.</span>
+            <span class="mono">imposto pela blockchain, não por nós</span>
+          </div>
+          <div class="flow-step">
+            <b>Carteira de uso do guard</b> —
+            <span
+              >um saldo pequeno de onde o agente gasta. A chave dela vive apenas dentro do serviço,
+              nunca é registrada nem devolvida.</span
+            >
+          </div>
+          <div class="flow-step">
+            <b>Pagamentos</b> —
+            <span
+              >APIs x402 por uso e transferências, apenas para destinatários e domínios que o dono
+              permitiu.</span
+            >
+          </div>
+        </div>
+        <p>
+          O agente conversa com o AgentGuard pelo Model Context Protocol (MCP), então uma única
+          conexão funciona com qualquer agente em qualquer plataforma. Quatro ferramentas são
+          expostas: <code>paid_fetch</code>, <code>transfer</code>, <code>get_budget</code> e
+          <code>check_intent</code>. O guard nunca importa um SDK de blockchain diretamente; cada
+          rede fica por trás de uma única interface de adaptador, de modo que toda rede recebe a
+          mesma política, o mesmo teste prévio e o mesmo botão de desligar.
+        </p>
+
+        <h2><span class="n">03</span>Garantias onchain</h2>
+        <p>
+          O limite de gasto é uma primitiva já auditada e implantada: o Squads Spending Limit na
+          Solana e o Safe Allowance Module (reinicia a cada 24 horas) nas redes EVM. O AgentGuard
+          não implanta nenhum contrato próprio. O cofre reabastece a carteira de uso até um teto
+          diário e nada além disso, e a blockchain impõe esse limite independentemente do que o
+          nosso software faça.
+        </p>
+        <div class="formula">Perda máxima por dia = teto diário + saldo da carteira de uso.</div>
+        <p>
+          Isso vale mesmo que o guard offchain tenha um bug ou seja totalmente comprometido. No
+          lançamento o teto é propositalmente baixo e só é elevado após semanas sem incidentes. Um
+          kill remove o limite por completo e é assinado pelo dono.
+        </p>
+
+        <h2><span class="n">04</span>O motor de políticas</h2>
+        <p>
+          Antes de qualquer assinatura, todo pagamento é verificado contra a política do agente. Um
+          agente novo começa em negar-tudo e não pode gastar nada até que o dono permita.
+        </p>
+        <ul class="plain">
+          <li>
+            <strong>Limites por pagamento e por dia</strong> — um teto rígido para cada pagamento e
+            para o total do dia, abaixo do teto onchain.
+          </li>
+          <li>
+            <strong>Listas de permissão</strong> — quais redes, tokens, destinatários e domínios de
+            API são permitidos. Vazio significa negar.
+          </li>
+          <li>
+            <strong>Limiar de aprovação</strong> — qualquer pagamento igual ou acima dele espera
+            pelo dono no Telegram.
+          </li>
+          <li><strong>Pausa</strong> — um botão para um agente, ou para todos de uma vez.</li>
+        </ul>
+        <p>
+          O texto fornecido pelo agente, a razão que ele dá, a URL, a resposta de uma API, é
+          mostrado ao dono mas nunca usado para decidir. Os valores são inteiros na menor unidade do
+          token de ponta a ponta; um valor que exigisse arredondamento é recusado, nunca
+          arredondado.
+        </p>
+
+        <h2><span class="n">05</span>Simulação e detecção de ameaças</h2>
+        <p>
+          Um pagamento que passa pela política é testado contra a rede real antes de ser assinado. O
+          guard inspeciona a transação exata, vê o que ela realmente faria e recusa qualquer coisa
+          que difira da intenção aprovada, com um código de recusa nomeado gravado no log de
+          auditoria.
+        </p>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Escopo</th>
+                <th>Código de recusa</th>
+                <th>Significado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="d">Todas as redes</td>
+                <td><code>PER_TX_EXCEEDED</code> · <code>DAILY_EXCEEDED</code></td>
+                <td class="d">Acima de um limite que você definiu.</td>
+              </tr>
+              <tr>
+                <td class="d">Todas as redes</td>
+                <td><code>RECIPIENT_NOT_ALLOWED</code> · <code>DOMAIN_NOT_ALLOWED</code></td>
+                <td class="d">Um destino que você não aprovou.</td>
+              </tr>
+              <tr>
+                <td class="d">Todas as redes</td>
+                <td><code>SIM_UNEXPECTED_EFFECT</code></td>
+                <td class="d">O teste revela um efeito que a intenção nunca descreveu.</td>
+              </tr>
+              <tr>
+                <td class="d">Solana</td>
+                <td><code>DELEGATE_DETECTED</code> · <code>AUTHORITY_CHANGE_DETECTED</code></td>
+                <td class="d">Uma permissão oculta ou a tomada de uma conta.</td>
+              </tr>
+              <tr>
+                <td class="d">EVM</td>
+                <td><code>APPROVAL_DETECTED</code> · <code>PERMIT_DETECTED</code></td>
+                <td class="d">
+                  Uma aprovação de token oculta ou uma assinatura que permitiria saques depois.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead">
+          Vinte códigos de recusa no total, divididos em um núcleo comum e conjuntos por rede. Negar
+          por padrão: qualquer dúvida na leitura é uma recusa.
+        </p>
+
+        <h2><span class="n">06</span>Aprovação humana e o botão de desligar</h2>
+        <p>
+          Pagamentos iguais ou acima do seu limiar são enviados ao Telegram com um resumo claro do
+          que a transação fará. Você aprova ou recusa. Uma aprovação é usada uma única vez,
+          exatamente para a rede, o token, o valor, o destinatário e o domínio aprovados, e expira
+          após dez minutos se você não responder, de modo que nada é pago por padrão. Toda mensagem
+          ao bot é assinada criptograficamente; eventos antigos ou repetidos são recusados.
+        </p>
+        <p>
+          Um comando, <code>/kill</code>, pausa todos os agentes de uma vez e prepara, para cada
+          rede, a transação que zera o limite de gasto e remove o delegado. Você assina e o cofre é
+          lacrado. O kill já foi ensaiado em mainnet.
+        </p>
+
+        <h2><span class="n">07</span>Redes e ativos</h2>
+        <div class="cols">
+          <div class="card">
+            <h3>Solana <span class="tag live">Ativa</span></h3>
+            <dl>
+              <div>
+                <dt>Cofre</dt>
+                <dd>Squads v4</dd>
+              </div>
+              <div>
+                <dt>Limite</dt>
+                <dd>Squads Spending Limit</dd>
+              </div>
+              <div>
+                <dt>Ativo</dt>
+                <dd>USDC</dd>
+              </div>
+              <div>
+                <dt>Rede</dt>
+                <dd>mainnet-beta</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="card">
+            <h3>Robinhood Chain <span class="tag live">Ativa</span></h3>
+            <dl>
+              <div>
+                <dt>Cofre</dt>
+                <dd>Safe</dd>
+              </div>
+              <div>
+                <dt>Limite</dt>
+                <dd>Safe Allowance Module</dd>
+              </div>
+              <div>
+                <dt>Ativo</dt>
+                <dd>USDG (Paxos)</dd>
+              </div>
+              <div>
+                <dt>Rede</dt>
+                <dd>mainnet · eip155:4663</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <p>
+          A Base é a próxima. Cada rede usa o dólar daquela rede, um cofre auditado e a mesma
+          política, simulação e botão de desligar. Nenhum ativo além do dólar da rede pode ser gasto
+          nesta versão.
+        </p>
+
+        <h2><span class="n">08</span>Status e roadmap</h2>
+        <p>
+          O AgentGuard está <strong>ativo em mainnet na Solana e na Robinhood Chain</strong>, com um
+          teto diário propositalmente baixo por rede, elevado apenas após semanas de operação sem
+          incidentes. Base em mainnet, tetos maiores e um bug bounty público vêm em seguida. A
+          mainnet roda com chaves geradas exclusivamente para mainnet.
+        </p>
+        <div class="note">
+          <b>Postura de segurança.</b> O AgentGuard não escreve nenhum contrato próprio; o limite
+          onchain é imposto por primitivas auditadas de forma independente e já implantadas em cada
+          rede. O guard offchain é aberto à inspeção, nega por padrão e limita o pior caso na
+          blockchain. Use um teto com o qual você se sinta confortável em perder.
+        </div>
+      </div>
+    </article>
+
+    <!-- ============================ ESPAÑOL ============================ -->
+    <article lang="es" data-article="es" hidden>
+      <div class="wrap">
+        <p class="abstract">
+          <b
+            >AgentGuard es una capa de seguridad entre un agente de IA y su billetera, un firewall
+            para pagos autónomos.</b
+          >
+          Un agente solo puede pagar a través de AgentGuard. Cada pago se verifica contra una
+          política que define el dueño, se prueba antes de firmarse y luego se aprueba
+          automáticamente, se envía al dueño por Telegram para su aprobación, o se rechaza. El
+          agente nunca tiene una clave. Los fondos permanecen en la bóveda multisig del propio
+          dueño; el agente solo gasta de una pequeña billetera de uso, recargada bajo un límite
+          diario que impone la propia blockchain, de modo que la pérdida máxima en un día está
+          acotada aunque nuestro software falle.
+        </p>
+
+        <h2><span class="n">01</span>El problema</h2>
+        <p>
+          Los agentes autónomos empiezan a mover dinero: pagar APIs por solicitud, liquidar
+          facturas, comprar cómputo. En el momento en que un agente puede gastar, una sola
+          instrucción maliciosa, una inyección de prompt, un error o una clave comprometida puede
+          vaciar una billetera en segundos. Entregar una clave privada a un agente cambia todos tus
+          fondos por un poco de comodidad.
+        </p>
+        <p class="lead">
+          AgentGuard elimina ese dilema. El agente obtiene poder de gasto; tú conservas las claves y
+          un techo rígido sobre lo que puede salir mal.
+        </p>
+
+        <h2><span class="n">02</span>Arquitectura</h2>
+        <p>El dinero pasa por cuatro capas. Cada una limita lo que puede hacer la capa superior.</p>
+        <div class="flow">
+          <div class="flow-step">
+            <b>Bóveda multisig del dueño</b> — guarda los fondos.
+            <span>Squads v4 en Solana, Safe en cadenas EVM. Solo el dueño la controla.</span>
+          </div>
+          <div class="flow-step">
+            <b>Límite de gasto onchain</b> —
+            <span>recarga la billetera de uso, nunca por encima del tope diario.</span>
+            <span class="mono">lo impone la cadena, no nosotros</span>
+          </div>
+          <div class="flow-step">
+            <b>Billetera de uso del guard</b> —
+            <span
+              >un saldo pequeño del que gasta el agente. Su clave vive solo dentro del servicio,
+              nunca se registra ni se devuelve.</span
+            >
+          </div>
+          <div class="flow-step">
+            <b>Pagos</b> —
+            <span
+              >APIs x402 de pago por uso y transferencias, solo a destinatarios y dominios que el
+              dueño permitió.</span
+            >
+          </div>
+        </div>
+        <p>
+          El agente se comunica con AgentGuard mediante el Model Context Protocol (MCP), así que una
+          sola conexión funciona con cualquier agente en cualquier plataforma. Se exponen cuatro
+          herramientas: <code>paid_fetch</code>, <code>transfer</code>, <code>get_budget</code> y
+          <code>check_intent</code>. El guard nunca importa un SDK de cadena directamente; cada
+          cadena está detrás de una única interfaz de adaptador, de modo que toda cadena recibe la
+          misma política, la misma prueba previa y el mismo interruptor de apagado.
+        </p>
+
+        <h2><span class="n">03</span>Garantías onchain</h2>
+        <p>
+          El límite de gasto es una primitiva ya auditada y desplegada: el Squads Spending Limit en
+          Solana y el Safe Allowance Module (se reinicia cada 24 horas) en cadenas EVM. AgentGuard
+          no despliega ningún contrato propio. La bóveda recarga la billetera de uso hasta un tope
+          diario y no más, y la cadena impone ese límite sin importar lo que haga nuestro software.
+        </p>
+        <div class="formula">
+          Pérdida máxima por día = tope diario + saldo de la billetera de uso.
+        </div>
+        <p>
+          Esto se cumple aunque el guard offchain tenga un error o esté totalmente comprometido. En
+          el lanzamiento el tope es deliberadamente bajo y solo se eleva tras semanas sin
+          incidentes. Un kill elimina el límite por completo y lo firma el dueño.
+        </p>
+
+        <h2><span class="n">04</span>El motor de políticas</h2>
+        <p>
+          Antes de firmar nada, cada pago se verifica contra la política del agente. Un agente nuevo
+          empieza en negar-todo y no puede gastar nada hasta que el dueño lo permita.
+        </p>
+        <ul class="plain">
+          <li>
+            <strong>Límites por pago y por día</strong> — un techo rígido para cada pago y para el
+            total del día, por debajo del tope onchain.
+          </li>
+          <li>
+            <strong>Listas de permitidos</strong> — qué cadenas, tokens, destinatarios y dominios de
+            API se permiten. Vacío significa negar.
+          </li>
+          <li>
+            <strong>Umbral de aprobación</strong> — cualquier pago igual o superior espera al dueño
+            en Telegram.
+          </li>
+          <li><strong>Pausa</strong> — un interruptor para un agente, o para todos a la vez.</li>
+        </ul>
+        <p>
+          El texto que aporta el agente, el motivo que da, la URL, la respuesta de una API, se
+          muestra al dueño pero nunca se usa para decidir. Los montos son enteros en la unidad más
+          pequeña del token de extremo a extremo; un valor que requiriera redondeo se rechaza, nunca
+          se redondea.
+        </p>
+
+        <h2><span class="n">05</span>Simulación y detección de amenazas</h2>
+        <p>
+          Un pago que pasa la política se prueba contra la cadena real antes de firmarse. El guard
+          inspecciona la transacción exacta, ve lo que realmente haría y rechaza cualquier cosa que
+          difiera de la intención aprobada, con un código de rechazo con nombre registrado en el log
+          de auditoría.
+        </p>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Alcance</th>
+                <th>Código de rechazo</th>
+                <th>Significado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="d">Todas las cadenas</td>
+                <td><code>PER_TX_EXCEEDED</code> · <code>DAILY_EXCEEDED</code></td>
+                <td class="d">Por encima de un límite que fijaste.</td>
+              </tr>
+              <tr>
+                <td class="d">Todas las cadenas</td>
+                <td><code>RECIPIENT_NOT_ALLOWED</code> · <code>DOMAIN_NOT_ALLOWED</code></td>
+                <td class="d">Un destino que no aprobaste.</td>
+              </tr>
+              <tr>
+                <td class="d">Todas las cadenas</td>
+                <td><code>SIM_UNEXPECTED_EFFECT</code></td>
+                <td class="d">La prueba revela un efecto que la intención nunca describió.</td>
+              </tr>
+              <tr>
+                <td class="d">Solana</td>
+                <td><code>DELEGATE_DETECTED</code> · <code>AUTHORITY_CHANGE_DETECTED</code></td>
+                <td class="d">Un permiso oculto o la toma de una cuenta.</td>
+              </tr>
+              <tr>
+                <td class="d">EVM</td>
+                <td><code>APPROVAL_DETECTED</code> · <code>PERMIT_DETECTED</code></td>
+                <td class="d">
+                  Una aprobación de token oculta o una firma que permitiría retiros posteriores.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead">
+          Veinte códigos de rechazo en total, divididos en un núcleo común y conjuntos por cadena.
+          Negar por defecto: cualquier duda al interpretar es un rechazo.
+        </p>
+
+        <h2><span class="n">06</span>Aprobación humana y el interruptor de apagado</h2>
+        <p>
+          Los pagos iguales o superiores a tu umbral se envían a Telegram con un resumen claro de lo
+          que hará la transacción. Apruebas o rechazas. Una aprobación se usa una sola vez,
+          exactamente para la cadena, el token, el monto, el destinatario y el dominio aprobados, y
+          caduca a los diez minutos si no respondes, de modo que nada se paga por defecto. Todo
+          mensaje al bot está firmado criptográficamente; los eventos antiguos o repetidos se
+          rechazan.
+        </p>
+        <p>
+          Un comando, <code>/kill</code>, pausa todos los agentes a la vez y prepara, para cada
+          cadena, la transacción que pone el límite de gasto en cero y elimina al delegado. La
+          firmas y la bóveda queda sellada. El kill ya se ensayó en mainnet.
+        </p>
+
+        <h2><span class="n">07</span>Cadenas y activos</h2>
+        <div class="cols">
+          <div class="card">
+            <h3>Solana <span class="tag live">Activa</span></h3>
+            <dl>
+              <div>
+                <dt>Bóveda</dt>
+                <dd>Squads v4</dd>
+              </div>
+              <div>
+                <dt>Límite</dt>
+                <dd>Squads Spending Limit</dd>
+              </div>
+              <div>
+                <dt>Activo</dt>
+                <dd>USDC</dd>
+              </div>
+              <div>
+                <dt>Red</dt>
+                <dd>mainnet-beta</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="card">
+            <h3>Robinhood Chain <span class="tag live">Activa</span></h3>
+            <dl>
+              <div>
+                <dt>Bóveda</dt>
+                <dd>Safe</dd>
+              </div>
+              <div>
+                <dt>Límite</dt>
+                <dd>Safe Allowance Module</dd>
+              </div>
+              <div>
+                <dt>Activo</dt>
+                <dd>USDG (Paxos)</dd>
+              </div>
+              <div>
+                <dt>Red</dt>
+                <dd>mainnet · eip155:4663</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <p>
+          Base es la siguiente. Cada cadena usa el dólar de esa cadena, una bóveda auditada y la
+          misma política, simulación e interruptor de apagado. Ningún activo que no sea el dólar de
+          la cadena puede gastarse en esta versión.
+        </p>
+
+        <h2><span class="n">08</span>Estado y hoja de ruta</h2>
+        <p>
+          AgentGuard está <strong>activo en mainnet en Solana y Robinhood Chain</strong>, con un
+          tope diario deliberadamente bajo por cadena, elevado solo tras semanas de operación sin
+          incidentes. Base en mainnet, topes mayores y un bug bounty público vienen a continuación.
+          La mainnet funciona con claves generadas exclusivamente para mainnet.
+        </p>
+        <div class="note">
+          <b>Postura de seguridad.</b> AgentGuard no escribe ningún contrato propio; el límite
+          onchain lo imponen primitivas auditadas de forma independiente y ya desplegadas en cada
+          cadena. El guard offchain está abierto a inspección, niega por defecto y acota el peor
+          caso en la cadena. Usa un tope que te sientas cómodo perdiendo.
+        </div>
+      </div>
+    </article>
+
+    <footer>
+      <div class="wrap">
+        <span data-t="foot"
+          >© 2026 AgentGuard · The security layer between AI agents and their wallets.</span
+        >
+        <a href="index.html" data-t="footback">← Back to site</a>
+      </div>
+    </footer>
+
+    <script>
+      ;(() => {
+        const T = {
+          en: {
+            kicker: 'Whitepaper',
+            title: 'The security layer <span class="grad-text">every agent needs.</span>',
+            version: 'Version 0.5',
+            date: 'November 2026',
+            status: 'Live on mainnet',
+            foot: '© 2026 AgentGuard · The security layer between AI agents and their wallets.',
+            footback: '← Back to site',
+            html: 'en',
+          },
+          pt: {
+            kicker: 'Whitepaper',
+            title: 'A camada de segurança <span class="grad-text">que todo agente precisa.</span>',
+            version: 'Versão 0.5',
+            date: 'Novembro de 2026',
+            status: 'Ativo em mainnet',
+            foot: '© 2026 AgentGuard · A camada de segurança entre agentes de IA e suas carteiras.',
+            footback: '← Voltar ao site',
+            html: 'pt',
+          },
+          es: {
+            kicker: 'Whitepaper',
+            title: 'La capa de seguridad <span class="grad-text">que todo agente necesita.</span>',
+            version: 'Versión 0.5',
+            date: 'Noviembre de 2026',
+            status: 'Activo en mainnet',
+            foot: '© 2026 AgentGuard · La capa de seguridad entre agentes de IA y sus billeteras.',
+            footback: '← Volver al sitio',
+            html: 'es',
+          },
+        }
+        const articles = document.querySelectorAll('[data-article]')
+        const buttons = document.querySelectorAll('.lang button')
+        const shared = document.querySelectorAll('[data-t]')
+
+        function apply(lang) {
+          if (!T[lang]) lang = 'en'
+          articles.forEach((a) => {
+            a.hidden = a.dataset.article !== lang
+          })
+          buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)))
+          const t = T[lang]
+          shared.forEach((el) => {
+            const key = el.dataset.t
+            if (key === 'title') el.innerHTML = t.title
+            else if (t[key] != null) el.textContent = t[key]
+          })
+          document.documentElement.lang = t.html
+          try {
+            localStorage.setItem('ag_wp_lang', lang)
+          } catch (e) {}
+        }
+
+        buttons.forEach((b) =>
+          b.addEventListener('click', () => {
+            apply(b.dataset.lang)
+            window.scrollTo({ top: 0 })
+          }),
+        )
+
+        let start = 'en'
+        try {
+          const s = localStorage.getItem('ag_wp_lang')
+          if (s && T[s]) start = s
+        } catch (e) {}
+        if (start === 'en') {
+          const nav = (navigator.language || '').slice(0, 2).toLowerCase()
+          if (T[nav]) start = nav
+        }
+        apply(start)
+      })()
+    </script>
+  </body>
+</html>

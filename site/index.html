@@ -228,6 +228,31 @@
         border-radius: 5px;
         padding: 2px 6px;
       }
+      a.soon-chip {
+        color: var(--fg);
+        border-style: solid;
+        transition:
+          border-color 0.2s ease,
+          transform 0.2s ease;
+      }
+      a.soon-chip:hover {
+        border-color: var(--muted);
+        transform: translateY(-1px);
+      }
+      a.soon-chip small {
+        color: var(--mint);
+        border-color: rgba(20, 241, 149, 0.4);
+      }
+      a.soon-item {
+        color: var(--muted);
+      }
+      a.soon-item:hover {
+        color: var(--fg);
+      }
+      a.soon-item small {
+        color: var(--mint);
+        border-color: rgba(20, 241, 149, 0.4);
+      }
       .btn svg {
         width: 16px;
         height: 16px;
@@ -2667,7 +2692,7 @@
             </div>
             <div class="soon-row">
               <span class="soon-chip">GitHub<small>soon</small></span>
-              <span class="soon-chip">Whitepaper<small>soon</small></span>
+              <a class="soon-chip" href="whitepaper.html">Whitepaper<small>read</small></a>
               <span class="soon-chip">Live demo<small>soon</small></span>
             </div>
           </div>
@@ -2741,7 +2766,7 @@
                 <span class="soon-item">GitHub<small>soon</small></span>
               </li>
               <li>
-                <span class="soon-item">Whitepaper<small>soon</small></span>
+                <a class="soon-item" href="whitepaper.html">Whitepaper<small>read</small></a>
               </li>
               <li>
                 <span class="soon-item">Live demo<small>soon</small></span>
