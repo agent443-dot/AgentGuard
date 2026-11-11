@@ -326,6 +326,26 @@
         padding: 0 20px;
         font-size: 14px;
       }
+      .nav-top-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .nav-top-link:hover {
+        color: var(--fg);
+      }
+      .nav-top-link svg {
+        width: 13px;
+        height: 13px;
+      }
+      @media (max-width: 1080px) {
+        .nav-top-link {
+          display: none;
+        }
+      }
       .status-pill {
         display: inline-flex;
         align-items: center;
@@ -1861,6 +1881,23 @@
             ></span
             >Live on mainnet</span
           >
+          <a class="nav-top-link" href="whitepaper.html">Whitepaper</a>
+          <a
+            class="nav-top-link"
+            href="https://github.com/agent443-dot/AgentGuard"
+            target="_blank"
+            rel="noopener"
+            >GitHub
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M5 11 11 5M6 5h5v5"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
           <a class="btn btn-primary" href="#how">See it in action</a>
         </div>
       </div>
